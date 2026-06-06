@@ -4,6 +4,15 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.2.2] — 2026-06-06 — Publish-pipeline fixes (CI only)
+
+Release-infrastructure only — the published tarball (`dist/`, `install.sh`,
+`README.md`) is byte-identical to `0.2.1`. No runtime/behavior changes.
+
+- **Fixed OIDC trusted publishing.** `actions/setup-node`'s `registry-url` writes an `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` line into `.npmrc` and injects a placeholder `NODE_AUTH_TOKEN`; npm used that invalid token instead of the OIDC token exchange (publish `PUT` 404'd). `publish.yml` now strips that line before `npm publish` so npm ≥ 11.5.1 performs the trusted-publisher exchange. (This is what unblocked the `0.2.1` publish.)
+- **Hardened the npmrc rewrite.** Guard `NPM_CONFIG_USERCONFIG` before overwriting it, so a future `setup-node` change fails loudly instead of with a cryptic `> ""` ambiguous-redirect mid-release.
+- **Doc fix.** Dropped a stale `openwop:check` step-10 reference in `ci.yml` (that gate step was removed when the CLI was extracted).
+
 ## [0.2.1] — 2026-06-06 — Repository extracted to `openwop/openwop-cli`
 
 The CLI moved out of the [`openwop/openwop`](https://github.com/openwop/openwop)
