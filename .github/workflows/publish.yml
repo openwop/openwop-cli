@@ -69,6 +69,5 @@ jobs:
           if npm view "$PKG@$VER" version >/dev/null 2>&1; then
             echo "✓ $PKG@$VER is already on npm — skipping publish (idempotent)."
           else
-            npm publish --access public --provenance --loglevel verbose 2>&1 | grep -iE 'oidc|id-?token|trusted|exchange|audience|registry|auth|provenance|http' || true
             npm publish --access public --provenance
           fi
