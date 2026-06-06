@@ -42,10 +42,15 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+      # NOTE: deliberately NO `registry-url:` here. setup-node's registry-url
+      # writes an `_authToken=${NODE_AUTH_TOKEN}` line into a temp .npmrc and
+      # injects a placeholder NODE_AUTH_TOKEN — that token-based auth path
+      # short-circuits npm's OIDC trusted-publisher exchange, so the publish
+      # PUT 404s. Leaving it off lets npm >= 11.5.1 mint a registry token via
+      # OIDC against the default registry (registry.npmjs.org).
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
       # OIDC trusted publishers require npm >= 11.5.1.
       - run: npm install -g npm@latest
       - run: npm ci
