@@ -42,19 +42,24 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      # NOTE: deliberately NO `registry-url:` here. setup-node's registry-url
-      # writes an `_authToken=${NODE_AUTH_TOKEN}` line into a temp .npmrc and
-      # injects a placeholder NODE_AUTH_TOKEN — that token-based auth path
-      # short-circuits npm's OIDC trusted-publisher exchange, so the publish
-      # PUT 404s. Leaving it off lets npm >= 11.5.1 mint a registry token via
-      # OIDC against the default registry (registry.npmjs.org).
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
       # OIDC trusted publishers require npm >= 11.5.1.
       - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run build
+      # TEMP DIAGNOSTIC — confirm npm version + OIDC request env presence.
+      - name: Diagnose OIDC environment
+        run: |
+          echo "node: $(node -v)"
+          echo "npm:  $(npm -v)"
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}${ACTIONS_ID_TOKEN_REQUEST_URL:-NO}"
+          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN set: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+yes}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-NO}"
+          echo "NODE_AUTH_TOKEN literal: [${NODE_AUTH_TOKEN:-<unset>}]"
+          echo "--- effective .npmrc (userconfig) ---"
+          cat "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}" 2>/dev/null || echo "(no userconfig)"
       # OIDC-authenticated publish — npm accepts the OIDC token from
       # `permissions: id-token: write` automatically; no token needed.
       - name: Publish to npm (skip if already published)
