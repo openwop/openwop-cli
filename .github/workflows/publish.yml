@@ -63,6 +63,10 @@ jobs:
       # through to the OIDC trusted-publisher token exchange.
       - name: Publish to npm (skip if already published)
         run: |
+          # Guard the npmrc path: if a future setup-node ever stops exporting
+          # NPM_CONFIG_USERCONFIG, fail loudly here rather than with a cryptic
+          # `> ""` ambiguous-redirect error mid-release.
+          : "${NPM_CONFIG_USERCONFIG:?expected setup-node to set NPM_CONFIG_USERCONFIG}"
           printf 'registry=https://registry.npmjs.org/\n' > "$NPM_CONFIG_USERCONFIG"
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")

@@ -1,7 +1,8 @@
 name: CI
 
 # Typecheck + build + tests for @openwop/cli on every push and PR.
-# Mirrors the gate the CLI carried inside openwop/openwop (openwop:check step 10).
+# This is the build+test the CLI package carried while it lived inside
+# openwop/openwop, now that it ships from its own repo.
 
 on:
   push:
