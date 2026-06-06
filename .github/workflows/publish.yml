@@ -1,0 +1,63 @@
+name: Publish
+
+# Publishes @openwop/cli to npm on a vX.Y.Z tag push.
+#
+# Auth is via npm OIDC TRUSTED PUBLISHER (no NODE_AUTH_TOKEN). The publish is
+# idempotent: a re-pushed tag whose version is already on npm is skipped rather
+# than failing.
+#
+# ── ONE-TIME OPERATOR SETUP (required before the first release) ─────────────
+# Register this repo + this workflow as the trusted publisher for @openwop/cli:
+#   npmjs.com → package @openwop/cli → Settings → Trusted Publishers →
+#     Repository: openwop/openwop-cli   Workflow: publish.yml
+# The package was previously published from openwop/openwop; the binding must be
+# repointed here, otherwise the publish step below fails to authenticate.
+# ────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate tag format
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          case "$tag" in
+            v[0-9]*.[0-9]*.[0-9]*|v[0-9]*.[0-9]*.[0-9]*-*)
+              echo "tag '$tag' matches expected SemVer pattern" ;;
+            *)
+              echo "::error::tag '$tag' is not vX.Y.Z[-prerelease]"
+              exit 1 ;;
+          esac
+
+  publish:
+    needs: validate-tag
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      # OIDC trusted publishers require npm >= 11.5.1.
+      - run: npm install -g npm@latest
+      - run: npm ci
+      - run: npm run build
+      # OIDC-authenticated publish — npm accepts the OIDC token from
+      # `permissions: id-token: write` automatically; no token needed.
+      - name: Publish to npm (skip if already published)
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "✓ $PKG@$VER is already on npm — skipping publish (idempotent)."
+          else
+            npm publish --access public --provenance
+          fi

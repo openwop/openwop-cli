@@ -1,0 +1,25 @@
+name: CI
+
+# Typecheck + build + tests for @openwop/cli on every push and PR.
+# Mirrors the gate the CLI carried inside openwop/openwop (openwop:check step 10).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    name: typecheck + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+      # `npm test` runs the esbuild build first, then the node:test suite.
+      - run: npm test
