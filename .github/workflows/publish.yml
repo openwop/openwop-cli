@@ -50,20 +50,20 @@ jobs:
       - run: npm install -g npm@latest
       - run: npm ci
       - run: npm run build
-      # TEMP DIAGNOSTIC — confirm npm version + OIDC request env presence.
-      - name: Diagnose OIDC environment
-        run: |
-          echo "node: $(node -v)"
-          echo "npm:  $(npm -v)"
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}${ACTIONS_ID_TOKEN_REQUEST_URL:-NO}"
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN set: ${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+yes}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-NO}"
-          echo "NODE_AUTH_TOKEN literal: [${NODE_AUTH_TOKEN:-<unset>}]"
-          echo "--- effective .npmrc (userconfig) ---"
-          cat "${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}" 2>/dev/null || echo "(no userconfig)"
-      # OIDC-authenticated publish — npm accepts the OIDC token from
-      # `permissions: id-token: write` automatically; no token needed.
+      # OIDC-authenticated publish (trusted publisher; no NODE_AUTH_TOKEN).
+      #
+      # setup-node's `registry-url` writes an .npmrc with both a `registry=`
+      # line (which npm NEEDS to engage the registry — without it npm errors
+      # ENEEDAUTH and never tries OIDC) AND a
+      # `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` line. setup-node
+      # injects NODE_AUTH_TOKEN as the literal placeholder XXXXX-XXXXX-...,
+      # so that token line resolves to an invalid token; npm prefers it over
+      # the OIDC exchange and the publish PUT is rejected (404). We keep the
+      # registry line but strip the _authToken line so npm 11.5.1+ falls
+      # through to the OIDC trusted-publisher token exchange.
       - name: Publish to npm (skip if already published)
         run: |
+          printf 'registry=https://registry.npmjs.org/\n' > "$NPM_CONFIG_USERCONFIG"
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
           if npm view "$PKG@$VER" version >/dev/null 2>&1; then
