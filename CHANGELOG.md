@@ -4,6 +4,11 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [Unreleased]
+
+### Security
+- **Bumped `esbuild` `^0.24` → `^0.25`** (GHSA-67mh-4wv8-2f99 — esbuild dev-server request advisory). Build/dev dependency only; the published CLI tarball (`dist/` + `install.sh` + `README.md`) behavior is unchanged.
+
 ## [0.2.2] — 2026-06-06 — Publish-pipeline fixes (CI only)
 
 Release-infrastructure only — the published tarball (`dist/`, `install.sh`,
