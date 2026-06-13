@@ -199,6 +199,16 @@ openwop governance audit --prefix governance. --limit 20   # tenant-scoped audit
 ```
 
 Action kinds are `email.send`, `calendar.invite`, `calendar.reschedule`, `nudge`; policies are `disabled | draft-only | approval-required` (unset kinds fall back to the host's declared default). Aliased as `openwop policy`.
+The `approvals` group drives the host's approval inbox — the human side of "agents propose, humans dispose". A review-mode roster member's heartbeat queues a proposal instead of starting the run; you resolve it here:
+
+```bash
+openwop approvals list --status pending        # the queue (also: approved | rejected)
+openwop approvals get appr_123 --json          # inspect one proposal
+openwop approvals claim appr_123 --note "LGTM" # affirmative sign-off → starts the run
+openwop approvals reject appr_123              # dismiss the proposal (alias: deny)
+```
+
+The host is the authority for every decision: the CLI renders the host's resolved queue and relays your claim/reject — it never decides locally, and fails closed if the host doesn't advertise the surface. Exit codes reflect the verdict so scripts can gate on it: `0` approved · `3` pending · `1` rejected/error. (Distinct from `interrupts`, which are run-level HITL tokens.)
 
 ## Config
 

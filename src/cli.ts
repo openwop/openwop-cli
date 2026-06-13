@@ -84,6 +84,7 @@ import {
   runDemo, runDemoStatus, DEMO_HELP, DEMO_STATUS_HELP, DEMO_START_HELP, DEMO_STOP_HELP,
   DEMO_RESTART_HELP, DEMO_LOGS_HELP, DEMO_INSTALL_HELP, DEMO_URLS_HELP,
 } from './cli/demo.js';
+import { runApprovals, APPROVALS_HELP } from './cli/approvals.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -223,6 +224,9 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
       case 'governance':
       case 'policy':
         return await runGovernance(ctx, commandArgs);
+      case 'approvals':
+      case 'approval':
+        return await runApprovals(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -294,6 +298,8 @@ function showHelp(io: any, command: any) {
     admin: ADMIN_HELP,
     governance: GOVERNANCE_HELP,
     policy: GOVERNANCE_HELP,
+    approvals: APPROVALS_HELP,
+    approval: APPROVALS_HELP,
   };
   write(io.stdout, map[command] ?? ROOT_HELP);
   return 0;
@@ -634,6 +640,8 @@ Commands:
   governance policy   Get/set tenant governance policy (alias: policy)
   governance audit    Read the host audit log (tenant-scoped)
   conformance         Run the OpenWOP conformance CLI from this repo
+  approvals list      List the approval inbox (agents propose, humans dispose)
+  approvals claim     Approve a proposal (starts the run); reject to dismiss
 
 Examples:
   openwop onboard
