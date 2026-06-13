@@ -250,6 +250,23 @@ openwop connections oauth-clients list          # host-configured OAuth apps (su
 ```
 
 `authorize` mints a consent URL and **prints it only** — the CLI never completes the OAuth round-trip (the browser + host callback do). **Secrets stay host-side:** client secrets and tokens are never returned, printed, or logged — the CLI runs every response through a recursive redactor before output, surfacing refs and status only.
+## Profiles (self-service persona)
+
+`profiles` drives the host's user-profile surface (ADR 0005): your job title, bio, contact, skills, availability, portfolio, and pinned agents. The host is the authority and the CLI renders its resolved view — reads are visible to any signed-in tenant member, **writes only ever touch your own profile**. Requires a durable signed-in account (bearer via `--api-key`).
+
+```bash
+openwop profiles me                                              # your own profile
+openwop profiles get <userId>                                    # a tenant member's profile (team-visible)
+openwop profiles list                                            # the tenant persona directory
+openwop profiles edit --job-title "Staff Engineer" --availability-status busy --timezone Europe/London
+openwop profiles skills set --skill TypeScript=5 --skill Rust=3  # replace your skill list (proficiency 1..5)
+openwop profiles endorse <userId> <skill>                        # endorse a peer's skill (unendorse to remove)
+openwop profiles pin <rosterId>                                  # pin/unpin an agent to your sidebar
+openwop profiles portfolio add --token <mediaToken>              # attach an image asset (remove <token> to drop)
+openwop profiles activity --limit 10 --status failed             # your run-activity feed
+```
+
+**Boundary:** `profiles` is the persona/skills surface — **not** the user directory (account lifecycle) and **not** RBAC (that's `orgs`). Exit codes: `0` success · `1` host/HTTP error (incl. not found / not signed in) · `2` usage error.
 
 ## Config
 
