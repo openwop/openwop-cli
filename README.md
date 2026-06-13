@@ -225,6 +225,21 @@ openwop consent public record <orgId> <subjectKey> --category analytics=true --c
 
 Exit codes: `0` success · `1` host/HTTP error (including consent not enabled) · `2` usage error.
 
+## MCP server mount
+
+An MCP client for the host's JSON-RPC server mount (RFC 0020) — a single JSON-RPC 2.0 endpoint at `POST /v1/host/sample/mcp` speaking modelcontextprotocol.io 2025-06-18. The mount is **host-controlled**: it's env-gated (`OPENWOP_MCP_SERVER_ENABLED`, **OFF by default**) and the CLI cannot toggle it. When the mount isn't exposed the endpoint 404s and these commands **fail closed legibly** (exit 2).
+
+```bash
+openwop mcp ping                                  # liveness probe of the mount
+openwop mcp info --json                           # initialize: server/protocol/capabilities
+openwop mcp tools list                            # workflows exposed as MCP tools
+openwop mcp tools call sample.demo.uppercase --args-json '{"text":"hi"}'
+openwop mcp resources list                        # + `templates` / `read <uri>`
+openwop mcp prompts get greet --args-json '{"name":"Ada"}'
+```
+
+`--json` emits the raw JSON-RPC result on any read. JSON-RPC errors surface the host's own message (contract errors → exit 2, host errors → exit 1); a tool whose result is `isError` exits 1.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
