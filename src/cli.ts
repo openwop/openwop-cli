@@ -95,6 +95,7 @@ import { runWorkforces, WORKFORCES_HELP } from './cli/workforces.js';
 import { runAuth, AUTH_HELP } from './cli/auth.js';
 import { runAnalytics, ANALYTICS_HELP } from './cli/analytics.js';
 import { runProposals, PROPOSALS_HELP } from './cli/proposals.js';
+import { runGoals, GOALS_HELP } from './cli/goals.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -261,6 +262,8 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runAnalytics(ctx, commandArgs);
       case 'proposals':
         return await runProposals(ctx, commandArgs);
+      case 'goals':
+        return await runGoals(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -348,6 +351,7 @@ function showHelp(io: any, command: any) {
     analytics: ANALYTICS_HELP,
     usage: ANALYTICS_HELP,
     proposals: PROPOSALS_HELP,
+    goals: GOALS_HELP,
   };
   write(io.stdout, map[command] ?? ROOT_HELP);
   return 0;
@@ -707,6 +711,7 @@ Commands:
   auth saml|scim      SAML SSO metadata/login/validate; SCIM provisioning seam
   analytics summary   Org-scoped usage analytics: summary/events + public collect (alias: usage)
   proposals list      Reviewable-learning proposals (RFC 0096): list/get/revise/apply/reject/archive
+  goals list          Standing goals (RFC 0097): list/get/create/pause/resume/abandon — judge-based completion
 
 Examples:
   openwop onboard

@@ -351,6 +351,21 @@ openwop proposals archive prop_123 --yes               # soft-delete
 
 Capability-gated on `agents.proposals` (advertised in `/.well-known/openwop`); fails closed (exit 1) when the host doesn't serve the surface. Boundary: distinct from `approvals` (the human run-action queue) — proposals are the artifact *drafts* reviewed before they become live behavior. Exit codes (get/apply/reject reflect the verdict): `0` applied · `3` pending (in review) · `1` rejected/archived or error.
 
+### Standing goals (`goals`, RFC 0097)
+
+The `goals` group drives the host's standing goals — an objective the host pursues across runs until a **judge** (RFC 0090) verdicts it satisfied or a **bound** (RFC 0058) stops it. **Completion is the judge's verdict**: there is no `complete`/`satisfy` verb and the CLI never sets `satisfied` — you cannot declare victory from the client.
+
+```bash
+openwop goals list --state active                      # the goal list (also satisfied | escalated | bound-exceeded | paused)
+openwop goals get goal_123 --json                      # inspect (objective, judge, continuation, bounds, iterations)
+openwop goals create --objective "Keep the triage backlog under 20" \
+  --judge verifier --continuation schedule --max-iterations 50 --max-cost 5.00
+openwop goals pause goal_123                            # suspend continuation (resume to restart)
+openwop goals abandon goal_123 --yes                   # close the goal
+```
+
+A bounds-less goal is rejected `422` when the host advertises `requiresBounds` — pass `--max-iterations`/`--max-cost`/`--deadline`. Capability-gated on `agents.goals`; fails closed (exit 1) when the surface isn't served. Boundary: a goal is **not** an RFC 0068 commitment — it *uses* a commitment/schedule/heartbeat as a continuation arm and adds a judge loop + termination guarantee. Exit codes: `0` satisfied · `3` escalated or still open (active/paused) · `1` bound-exceeded/abandoned or error.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
