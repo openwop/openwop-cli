@@ -87,6 +87,7 @@ import {
 import { runApprovals, APPROVALS_HELP } from './cli/approvals.js';
 import { runConsent, CONSENT_HELP } from './cli/consent.js';
 import { runMcp, MCP_HELP } from './cli/mcp.js';
+import { runConnections, CONNECTIONS_HELP } from './cli/connections.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -233,6 +234,9 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runConsent(ctx, commandArgs);
       case 'mcp':
         return await runMcp(ctx, commandArgs);
+      case 'connections':
+      case 'conn':
+        return await runConnections(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -308,6 +312,8 @@ function showHelp(io: any, command: any) {
     approval: APPROVALS_HELP,
     consent: CONSENT_HELP,
     mcp: MCP_HELP,
+    connections: CONNECTIONS_HELP,
+    conn: CONNECTIONS_HELP,
   };
   write(io.stdout, map[command] ?? ROOT_HELP);
   return 0;
@@ -654,6 +660,8 @@ Commands:
   consent records     List or read tenant consent records (+ GDPR erase)
   consent public      Read/record a visitor's consent (public, unauthed)
   mcp tools|resources|prompts  MCP client for the host JSON-RPC server mount (RFC 0020)
+  connections list    List host connections + status (test/authorize; alias: conn)
+  connections authorize  Mint an OAuth consent URL for a provider (URL only)
 
 Examples:
   openwop onboard

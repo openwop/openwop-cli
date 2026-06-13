@@ -240,6 +240,17 @@ openwop mcp prompts get greet --args '{"name":"Ada"}'
 
 `--json` emits the raw JSON-RPC result on any read. JSON-RPC errors surface the host's own message (contract errors → exit 2, host errors → exit 1); a tool whose result is `isError` exits 1.
 
+The `connections` group (alias `conn`) inspects the host's third-party connections and their OAuth client configuration (ADR 0024):
+
+```bash
+openwop connections list                       # connections + status
+openwop connections test conn:abc              # health-probe (exit 0 healthy / 1 not)
+openwop connections authorize google --scope https://www.googleapis.com/auth/calendar --write
+openwop connections oauth-clients list          # host-configured OAuth apps (superadmin)
+```
+
+`authorize` mints a consent URL and **prints it only** — the CLI never completes the OAuth round-trip (the browser + host callback do). **Secrets stay host-side:** client secrets and tokens are never returned, printed, or logged — the CLI runs every response through a recursive redactor before output, surfacing refs and status only.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
