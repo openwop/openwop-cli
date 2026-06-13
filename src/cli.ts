@@ -91,6 +91,7 @@ import { runConnections, CONNECTIONS_HELP } from './cli/connections.js';
 import { runProfiles, PROFILES_HELP } from './cli/profiles.js';
 import { runToggles, TOGGLES_HELP } from './cli/toggles.js';
 import { runUsers, USERS_HELP } from './cli/users.js';
+import { runWorkforces, WORKFORCES_HELP } from './cli/workforces.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -246,6 +247,9 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runToggles(ctx, commandArgs);
       case 'users':
         return await runUsers(ctx, commandArgs);
+      case 'workforces':
+      case 'fleet':
+        return await runWorkforces(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -326,6 +330,8 @@ function showHelp(io: any, command: any) {
     profiles: PROFILES_HELP,
     toggles: TOGGLES_HELP,
     users: USERS_HELP,
+    workforces: WORKFORCES_HELP,
+    fleet: WORKFORCES_HELP,
   };
   write(io.stdout, map[command] ?? ROOT_HELP);
   return 0;
@@ -678,6 +684,8 @@ Commands:
   profiles get        View a tenant member's profile; endorse/pin via subcommands
   toggles list|get    Render the host's resolved feature-toggle assignments (read-only)
   users list|me       Tenant identity directory + account lifecycle (not RBAC; see orgs)
+  workforces list     List governed workforces (durable orchestration; alias: fleet)
+  workforces metrics  Aggregate telemetry + governance/autonomy for a workforce
 
 Examples:
   openwop onboard
