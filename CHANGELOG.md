@@ -9,6 +9,8 @@ versioned on its own SemVer line (currently `0.x`).
 ### Added
 - **`governance` command group (alias `policy`).** Drives the tenant governance surface (ADR 0028, superadmin-gated host extension): `governance policy [get]` renders the host's stored policy plus its declared defaults, `governance policy set` upserts the provider allowlist / per-action policy (`email.send`, `calendar.invite`, `calendar.reschedule`, `nudge` → `disabled | draft-only | approval-required`) / retention windows, and `governance audit` reads the tenant-scoped host audit log. The host stays the policy authority — the CLI only renders its resolved view and never evaluates a policy outcome locally; since the surface is non-normative (not in `/.well-known/openwop`) the command fails closed legibly (exit 2) when a host does not expose it. `--json` on every read.
 
+- **`approvals` command group** (alias `approval`) — drives the host approval inbox ("agents propose, humans dispose"). `approvals list [--status]`, `get <id>`, `claim <id>` (alias `approve`), `reject <id>` (alias `deny`), all with `--json`. Mirrors `GET/POST /v1/host/sample/approvals[/{id}/claim|reject]`. Capability-honest: renders the host's resolved queue and relays the human's claim/reject — never decides locally — and fails closed when the host doesn't advertise the surface. Exit codes reflect the verdict: `0` approved · `3` pending · `1` rejected/error.
+
 ### Security
 - **Bumped `esbuild` `^0.24` → `^0.25`** (GHSA-67mh-4wv8-2f99 — esbuild dev-server request advisory). Build/dev dependency only; the published CLI tarball (`dist/` + `install.sh` + `README.md`) behavior is unchanged.
 
