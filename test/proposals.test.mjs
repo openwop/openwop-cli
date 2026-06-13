@@ -22,9 +22,11 @@ function opts(fetchImpl, cap) {
 }
 
 function wellKnown(withProposals = true) {
-  const paths = { '/v1/runs': { get: {} } };
-  if (withProposals) paths['/v1/host/sample/proposals'] = { get: {} };
-  return { protocolVersion: '1.0', paths };
+  // §11: the surface is advertised via capabilities.agents.proposals, not a paths map.
+  const capabilities = withProposals
+    ? { agents: { proposals: { artifactKinds: ['agent-pack'], activation: 'direct-rbac' } } }
+    : {};
+  return { protocolVersion: '1.0', capabilities };
 }
 
 function host(handler, { advertised = true } = {}) {

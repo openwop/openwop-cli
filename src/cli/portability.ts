@@ -99,13 +99,11 @@ function redact(value: unknown): unknown {
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return; // can't prove absence — let the real request decide
-  const paths = wk.body && typeof wk.body === 'object' ? (wk.body as { paths?: unknown }).paths : undefined;
-  const advertised =
-    paths !== null && typeof paths === 'object' &&
-    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/sample/export') || p.startsWith('/v1/host/sample/import'));
+  const body = wk.body && typeof wk.body === 'object' ? (wk.body as any) : {};
+  const advertised = !!(body.capabilities?.portability ?? body.portability);
   if (!advertised) {
     throw new CliError(
-      'portability: this host does not advertise the export/import surface (/v1/host/sample/{export,import} is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
+      'portability: this host does not advertise the export/import capability (capabilities.portability is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
       1,
     );
   }

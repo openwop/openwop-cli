@@ -25,9 +25,9 @@ function opts(fetchImpl, cap, cwd = process.cwd()) {
 }
 
 function wellKnown(advertised = true) {
-  const paths = { '/v1/runs': { get: {} } };
-  if (advertised) { paths['/v1/host/sample/export'] = { get: {} }; paths['/v1/host/sample/import'] = { post: {} }; }
-  return { protocolVersion: '1.0', paths };
+  // §11: advertised via top-level capabilities.portability, not a paths map.
+  const capabilities = advertised ? { portability: { dryRun: true, import: true } } : {};
+  return { protocolVersion: '1.0', capabilities };
 }
 
 function host(handler, { advertised = true } = {}) {

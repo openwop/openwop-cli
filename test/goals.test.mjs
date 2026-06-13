@@ -22,9 +22,11 @@ function opts(fetchImpl, cap) {
 }
 
 function wellKnown(withGoals = true) {
-  const paths = { '/v1/runs': { get: {} } };
-  if (withGoals) paths['/v1/host/sample/goals'] = { get: {} };
-  return { protocolVersion: '1.0', paths };
+  // §11: advertised via capabilities.agents.goals, not a paths map.
+  const capabilities = withGoals
+    ? { agents: { goals: { judge: 'verifier', requiresBounds: true } } }
+    : {};
+  return { protocolVersion: '1.0', capabilities };
 }
 
 function host(handler, { advertised = true } = {}) {
