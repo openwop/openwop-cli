@@ -366,6 +366,19 @@ openwop goals abandon goal_123 --yes                   # close the goal
 
 A bounds-less goal is rejected `422` when the host advertises `requiresBounds` — pass `--max-iterations`/`--max-cost`/`--deadline`. Capability-gated on `agents.goals`; fails closed (exit 1) when the surface isn't served. Boundary: a goal is **not** an RFC 0068 commitment — it *uses* a commitment/schedule/heartbeat as a continuation arm and adds a judge loop + termination guarantee. Exit codes: `0` satisfied · `3` escalated or still open (active/paused) · `1` bound-exceeded/abandoned or error.
 
+### Agent-platform portability — `export` / `import` (RFC 0098)
+
+Move reusable estate (agents, packs, schedules, rosters, templates) between hosts as a portable bundle. **Secrets are refs, never values:** the bundle carries only `secretsToRebind` references — never credential material — and the host rejects a bundle that smuggles a literal credential before it applies anything. Always **dry-run first**.
+
+```bash
+openwop export --json                                  # the full refs-only bundle
+openwop export --kinds agent --kinds schedule --out estate.json   # filtered, to a file
+openwop import estate.json --dry-run                   # preview: creates/updates/skips/conflicts (no writes)
+openwop import estate.json                             # apply (idempotent; entities re-owned to you)
+```
+
+The CLI runs every response through a secret redactor before printing or writing to disk (defense-in-depth on top of the host's refs-only guarantee). Capability-gated on top-level `portability`; fails closed when the host doesn't serve the surface. This subsumes the old SPA-only `migrate-tenant` bootstrap. Import exit codes: `0` applied (or a clean dry-run plan) · `2` the plan has conflicts (nothing overwritten) · `1` error — a literal credential or `dependsOn` cycle (422), or no import scope (403).
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
