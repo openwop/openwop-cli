@@ -336,6 +336,49 @@ openwop analytics collect <orgId> --session s_abc --type pageview --path /pricin
 
 The `collect` beacon is **public** (sent without auth) and consent-gated host-side: a `201` records the event; a `202` honestly reports that analytics consent wasn't granted (nothing recorded). Event type is one of `pageview | event | conversion`. Exit codes: `0` ok · `1` host error · `2` usage / analytics not served / not authorized.
 
+### Reviewable-learning proposals (`proposals`, RFC 0096)
+
+The `proposals` group drives the host's reviewable-learning proposal lifecycle. An agent's learned change lands as an **inert** proposal — a stored artifact draft that does nothing until a human reviews and applies it. The **host** is the authority: `apply` asks it to materialize the byte image last persisted on the proposal (no re-synthesis) and route activation through its advertised mode (e.g. an RFC 0051 approval-gate); the CLI never activates locally.
+
+```bash
+openwop proposals list --state pending                 # the review queue (also --kind <artifactKind>)
+openwop proposals get prop_123 --json                  # inspect one proposal
+openwop proposals revise prop_123 --artifact-json '{"systemPrompt":"…"}'  # edit the draft (never activates)
+openwop proposals apply prop_123                       # host materializes + routes through its activation gate
+openwop proposals reject prop_123 --note "out of scope"
+openwop proposals archive prop_123 --yes               # soft-delete
+```
+
+Capability-gated on `agents.proposals` (advertised in `/.well-known/openwop`); fails closed (exit 1) when the host doesn't serve the surface. Boundary: distinct from `approvals` (the human run-action queue) — proposals are the artifact *drafts* reviewed before they become live behavior. Exit codes (get/apply/reject reflect the verdict): `0` applied · `3` pending (in review) · `1` rejected/archived or error.
+
+### Standing goals (`goals`, RFC 0097)
+
+The `goals` group drives the host's standing goals — an objective the host pursues across runs until a **judge** (RFC 0090) verdicts it satisfied or a **bound** (RFC 0058) stops it. **Completion is the judge's verdict**: there is no `complete`/`satisfy` verb and the CLI never sets `satisfied` — you cannot declare victory from the client.
+
+```bash
+openwop goals list --state active                      # the goal list (also satisfied | escalated | bound-exceeded | paused)
+openwop goals get goal_123 --json                      # inspect (objective, judge, continuation, bounds, iterations)
+openwop goals create --objective "Keep the triage backlog under 20" \
+  --judge verifier --continuation schedule --max-iterations 50 --max-cost 5.00
+openwop goals pause goal_123                            # suspend continuation (resume to restart)
+openwop goals abandon goal_123 --yes                   # close the goal
+```
+
+A bounds-less goal is rejected `422` when the host advertises `requiresBounds` — pass `--max-iterations`/`--max-cost`/`--deadline`. Capability-gated on `agents.goals`; fails closed (exit 1) when the surface isn't served. Boundary: a goal is **not** an RFC 0068 commitment — it *uses* a commitment/schedule/heartbeat as a continuation arm and adds a judge loop + termination guarantee. Exit codes: `0` satisfied · `3` escalated or still open (active/paused) · `1` bound-exceeded/abandoned or error.
+
+### Agent-platform portability — `export` / `import` (RFC 0098)
+
+Move reusable estate (agents, packs, schedules, rosters, templates) between hosts as a portable bundle. **Secrets are refs, never values:** the bundle carries only `secretsToRebind` references — never credential material — and the host rejects a bundle that smuggles a literal credential before it applies anything. Always **dry-run first**.
+
+```bash
+openwop export --json                                  # the full refs-only bundle
+openwop export --kinds agent --kinds schedule --out estate.json   # filtered, to a file
+openwop import estate.json --dry-run                   # preview: creates/updates/skips/conflicts (no writes)
+openwop import estate.json                             # apply (idempotent; entities re-owned to you)
+```
+
+The CLI runs every response through a secret redactor before printing or writing to disk (defense-in-depth on top of the host's refs-only guarantee). Capability-gated on top-level `portability`; fails closed when the host doesn't serve the surface. This subsumes the old SPA-only `migrate-tenant` bootstrap. Import exit codes: `0` applied (or a clean dry-run plan) · `2` the plan has conflicts (nothing overwritten) · `1` error — a literal credential or `dependsOn` cycle (422), or no import scope (403).
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
