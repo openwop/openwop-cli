@@ -268,6 +268,18 @@ openwop profiles activity --limit 10 --status failed             # your run-acti
 
 **Boundary:** `profiles` is the persona/skills surface — **not** the user directory (account lifecycle) and **not** RBAC (that's `orgs`). Exit codes: `0` success · `1` host/HTTP error (incl. not found / not signed in) · `2` usage error.
 
+## Feature toggles
+
+`toggles` renders the caller's **resolved** feature-toggle assignments (a non-normative host extension under `/v1/host/sample/feature-toggles/assignments`). The **host** is the sole authority — it resolves every toggle server-side from the authenticated principal — and the CLI only *displays* what the host returns. It **never** computes, asserts, or overrides a toggle decision locally, and it does not author config (the superadmin config surface is intentionally not exposed). When the host doesn't serve the surface the command fails closed (exit 2).
+
+```bash
+openwop toggles list                                             # every toggle's resolved state for you (incl. off)
+openwop toggles list --json                                      # raw host view
+openwop toggles get crm.triageAgent                             # one toggle: status / enabled / variant / bindings
+```
+
+Resolved fields are host-authored: `status` (`on | off | beta`), `enabled` (bool), assigned `variant`, and the variant's `bindings` (slot → ref@version). Exit codes: `0` ok · `1` host error · `2` usage / surface not served / unknown toggle.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
