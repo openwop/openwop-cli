@@ -336,6 +336,21 @@ openwop analytics collect <orgId> --session s_abc --type pageview --path /pricin
 
 The `collect` beacon is **public** (sent without auth) and consent-gated host-side: a `201` records the event; a `202` honestly reports that analytics consent wasn't granted (nothing recorded). Event type is one of `pageview | event | conversion`. Exit codes: `0` ok · `1` host error · `2` usage / analytics not served / not authorized.
 
+### Reviewable-learning proposals (`proposals`, RFC 0096)
+
+The `proposals` group drives the host's reviewable-learning proposal lifecycle. An agent's learned change lands as an **inert** proposal — a stored artifact draft that does nothing until a human reviews and applies it. The **host** is the authority: `apply` asks it to materialize the byte image last persisted on the proposal (no re-synthesis) and route activation through its advertised mode (e.g. an RFC 0051 approval-gate); the CLI never activates locally.
+
+```bash
+openwop proposals list --state pending                 # the review queue (also --kind <artifactKind>)
+openwop proposals get prop_123 --json                  # inspect one proposal
+openwop proposals revise prop_123 --artifact-json '{"systemPrompt":"…"}'  # edit the draft (never activates)
+openwop proposals apply prop_123                       # host materializes + routes through its activation gate
+openwop proposals reject prop_123 --note "out of scope"
+openwop proposals archive prop_123 --yes               # soft-delete
+```
+
+Capability-gated on `agents.proposals` (advertised in `/.well-known/openwop`); fails closed (exit 1) when the host doesn't serve the surface. Boundary: distinct from `approvals` (the human run-action queue) — proposals are the artifact *drafts* reviewed before they become live behavior. Exit codes (get/apply/reject reflect the verdict): `0` applied · `3` pending (in review) · `1` rejected/archived or error.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
