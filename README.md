@@ -4,6 +4,24 @@ The OpenWOP CLI is the local control plane for the [OpenWOP](https://github.com/
 
 This is the standalone home of the `@openwop/cli` package; it ships independently of the [`openwop/openwop`](https://github.com/openwop/openwop) spec corpus.
 
+## Command groups
+
+The CLI is a host-agnostic **control plane**: every group drives one protocol surface a host advertises, and degrades gracefully when the host doesn't serve it. Full catalog in [`FEATURES.md`](./FEATURES.md); shape + boundaries in [`ARCHITECTURE.md`](./ARCHITECTURE.md); what's planned next in [`ROADMAP.md`](./ROADMAP.md).
+
+| Area | Groups |
+|---|---|
+| **Setup & health** | `onboard` · `doctor` · `demo` · `health` · `capabilities` · `config` |
+| **Run lifecycle** | `runs` · `chat` · `interrupts` · `workflows` · `catalog` · `media` |
+| **Agents & orchestration** | `agents` · `roster` · `org-chart` · `kanban` · `workforces` (`fleet`) |
+| **Governance & safety** | `approvals` · `governance` (`policy`) · `consent` · `toggles` |
+| **Identity & access** | `orgs` · `users` · `profiles` · `auth` (`sso`) |
+| **Extensibility & connections** | `packs` · `mcp` · `connections` (`conn`) · `providers` · `byok` |
+| **Memory & workspace** | `memory` · `workspace` · `prompts` |
+| **Automation & messaging** | `cron` · `webhooks` · `messaging` · `relay` · `notifications` · `notify` |
+| **Observability & admin** | `analytics` (`usage`) · `account` · `admin` · `conformance` |
+
+> **Recent sprint (`[Unreleased]`, slated for `0.3.0`):** 11 new groups + a `cron enable/disable` extension surfaced the host's governance/safety, identity, extensibility, orchestration, and observability surfaces — `approvals`, `governance`, `consent`, `toggles`, `users`, `profiles`, `auth`, `mcp`, `connections`, `workforces`, `analytics`. See [`CHANGELOG.md`](./CHANGELOG.md) for the per-group detail.
+
 ## Install
 
 One-line install (detects the OS, ensures Node 22+, installs the package, then onboards):

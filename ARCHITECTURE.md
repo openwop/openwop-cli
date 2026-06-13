@@ -261,6 +261,13 @@ Documentation files are union-merged via `.gitattributes` (`CHANGELOG.md`, `FEAT
 FEATURES row, and README block — Git unions the additions instead of conflicting. Ordering
 can be tidied in a follow-up once all groups have landed.
 
+This convention was proven in practice: the agent-platform sprint delivered **11 new
+command groups + a `cron` extension** concurrently across separate worker branches,
+merged serially with a single rebase-onto-HEAD per branch, **green at every merge**.
+The additive seam (module + one append-at-end `case`) held with zero structural
+churn — strong evidence the boundary discipline scales. See [`ROADMAP.md`](./ROADMAP.md)
+for the groups still planned (some gated on upstream RFCs).
+
 ---
 
 ## Why this shape (history)
