@@ -233,9 +233,9 @@ An MCP client for the host's JSON-RPC server mount (RFC 0020) — a single JSON-
 openwop mcp ping                                  # liveness probe of the mount
 openwop mcp info --json                           # initialize: server/protocol/capabilities
 openwop mcp tools list                            # workflows exposed as MCP tools
-openwop mcp tools call sample.demo.uppercase --args-json '{"text":"hi"}'
+openwop mcp tools call sample.demo.uppercase --args '{"text":"hi"}'
 openwop mcp resources list                        # + `templates` / `read <uri>`
-openwop mcp prompts get greet --args-json '{"name":"Ada"}'
+openwop mcp prompts get greet --args '{"name":"Ada"}'
 ```
 
 `--json` emits the raw JSON-RPC result on any read. JSON-RPC errors surface the host's own message (contract errors → exit 2, host errors → exit 1); a tool whose result is `isError` exits 1.

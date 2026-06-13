@@ -4,25 +4,31 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { VERSION } from '../constants.js';
 
 const MCP_ENDPOINT = '/v1/host/sample/mcp';
+
+// Per-request JSON-RPC id (a monotonic counter; the host echoes it back).
+let rpcId = 0;
 
 export const MCP_HELP = `Usage:
   openwop mcp ping
   openwop mcp info [--json]
   openwop mcp tools [list] [--json]
-  openwop mcp tools call <name> [--args-json '{...}'] [--json]
+  openwop mcp tools call <name> [--args '{...}'] [--json]
   openwop mcp resources [list] [--json]
   openwop mcp resources templates [--json]
   openwop mcp resources read <uri> [--json]
   openwop mcp prompts [list] [--json]
-  openwop mcp prompts get <name> [--args-json '{...}'] [--json]
+  openwop mcp prompts get <name> [--args '{...}'] [--json]
 
 MCP client for the host's JSON-RPC server mount (RFC 0020): a single JSON-RPC 2.0
 endpoint at POST ${MCP_ENDPOINT} speaking modelcontextprotocol.io 2025-06-18.
-The mount is HOST-CONTROLLED — it is env-gated (OPENWOP_MCP_SERVER_ENABLED) and OFF by
-default; the CLI cannot toggle it. When the mount is not exposed the endpoint 404s and
-these commands FAIL CLOSED legibly (exit 2) rather than guessing a surface.
+This is a SAMPLE host extension (the /v1/host/sample/* prefix) — NOT part of the openwop
+wire contract and NOT advertised in /.well-known/openwop. The mount is HOST-CONTROLLED:
+env-gated (OPENWOP_MCP_SERVER_ENABLED) and OFF by default; the CLI cannot toggle it. When
+the mount is not exposed the endpoint 404s and these commands FAIL CLOSED legibly (exit 2)
+rather than guessing a surface.
 
   info            'initialize' — server name/version, protocol version, advertised capabilities.
   ping            'ping' — liveness probe of the mount (exit 0 if reachable).
@@ -34,7 +40,7 @@ these commands FAIL CLOSED legibly (exit 2) rather than guessing a surface.
   prompts list    'prompts/list' — exposed prompt templates.
   prompts get     'prompts/get' — fetch one prompt's rendered messages.
 
-  --args-json J   (tools call / prompts get) JSON object passed as the call arguments.
+  --args J        (tools call / prompts get) JSON object passed as the call arguments.
   --json          Emit the raw JSON-RPC result for any read.
 
 Exit codes: 0 ok · 1 host/tool error · 2 usage error / mount not available / invalid params.
@@ -43,9 +49,9 @@ Examples:
   openwop mcp ping
   openwop mcp info --json
   openwop mcp tools list
-  openwop mcp tools call sample.demo.uppercase --args-json '{"text":"hi"}'
+  openwop mcp tools call sample.demo.uppercase --args '{"text":"hi"}'
   openwop mcp resources read mcp://sample/readme
-  openwop mcp prompts get greet --args-json '{"name":"Ada"}' --json
+  openwop mcp prompts get greet --args '{"name":"Ada"}' --json
 `;
 
 // Map JSON-RPC error codes to CLI exit codes: contract/usage errors → 2, else host → 1.
@@ -60,7 +66,7 @@ function rpcExit(code: number): number {
  * JSON-RPC error (HTTP 200 + {error}) is surfaced as a CliError with the host's own message.
  */
 async function mcpRpc(ctx: Ctx, method: string, params?: Record<string, unknown>): Promise<any> {
-  const body: Record<string, unknown> = { jsonrpc: '2.0', id: 1, method };
+  const body: Record<string, unknown> = { jsonrpc: '2.0', id: ++rpcId, method };
   if (params !== undefined) body.params = params;
   let res;
   try {
@@ -68,7 +74,7 @@ async function mcpRpc(ctx: Ctx, method: string, params?: Record<string, unknown>
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) {
       throw new CliError(
-        'MCP server mount not available at this host (OPENWOP_MCP_SERVER_ENABLED off / not advertised). Failing closed.',
+        `Host doesn't serve the MCP endpoint at ${MCP_ENDPOINT} (RFC 0020 sample mount, env-gated OPENWOP_MCP_SERVER_ENABLED — OFF by default). Failing closed.`,
         2,
       );
     }
@@ -126,7 +132,12 @@ async function runInfo(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, MCP_HELP);
     return 0;
   }
-  const result = await mcpRpc(ctx, 'initialize');
+  // Send a real MCP initialize per 2025-06-18; render only what the host returns.
+  const result = await mcpRpc(ctx, 'initialize', {
+    protocolVersion: '2025-06-18',
+    clientInfo: { name: 'openwop-cli', version: VERSION },
+    capabilities: {},
+  });
   if (ctx.json) {
     writeJson(ctx.io.stdout, result);
     return 0;
@@ -164,17 +175,17 @@ async function runTools(ctx: Ctx, argv: string[]) {
 }
 
 async function runToolsCall(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--args-json'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--args'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, "Usage: openwop mcp tools call <name> [--args-json '{...}'] [--json]\n");
+    write(ctx.io.stdout, "Usage: openwop mcp tools call <name> [--args '{...}'] [--json]\n");
     return options.help ? 0 : 2;
   }
   const params: Record<string, unknown> = { name: positionals[0] };
-  if (options.argsJson !== undefined) {
+  if (options.args !== undefined) {
     try {
-      params.arguments = JSON.parse(options.argsJson);
+      params.arguments = JSON.parse(options.args);
     } catch {
-      throw new CliError('--args-json must be valid JSON', 2);
+      throw new CliError('--args must be valid JSON', 2);
     }
   }
   const result = await mcpRpc(ctx, 'tools/call', params);
@@ -274,17 +285,17 @@ async function runPrompts(ctx: Ctx, argv: string[]) {
 }
 
 async function runPromptsGet(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--args-json'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--args'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, "Usage: openwop mcp prompts get <name> [--args-json '{...}'] [--json]\n");
+    write(ctx.io.stdout, "Usage: openwop mcp prompts get <name> [--args '{...}'] [--json]\n");
     return options.help ? 0 : 2;
   }
   const params: Record<string, unknown> = { name: positionals[0] };
-  if (options.argsJson !== undefined) {
+  if (options.args !== undefined) {
     try {
-      params.arguments = JSON.parse(options.argsJson);
+      params.arguments = JSON.parse(options.args);
     } catch {
-      throw new CliError('--args-json must be valid JSON', 2);
+      throw new CliError('--args must be valid JSON', 2);
     }
   }
   const result = await mcpRpc(ctx, 'prompts/get', params);

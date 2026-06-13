@@ -38,6 +38,11 @@ describe('mcp info', () => {
     const cap = capture();
     const fetchImpl = rpcMock((req) => {
       assert.equal(req.method, 'initialize');
+      // Client sends a real MCP initialize per 2025-06-18.
+      assert.equal(req.params.protocolVersion, '2025-06-18');
+      assert.equal(req.params.clientInfo.name, 'openwop-cli');
+      assert.ok(req.params.clientInfo.version, 'clientInfo.version present');
+      assert.ok(req.params.capabilities, 'capabilities present');
       return {
         protocolVersion: '2025-06-18',
         serverInfo: { name: 'openwop-workflow-engine-sample', version: '0.1.0' },
@@ -82,14 +87,14 @@ describe('mcp tools', () => {
     assert.match(cap.stdout, /sample\.demo\.uppercase\s+Uppercase text/);
   });
 
-  it('calls a tool with parsed --args-json and prints the text content', async () => {
+  it('calls a tool with parsed --args and prints the text content', async () => {
     const cap = capture();
     const fetchImpl = rpcMock((req) => {
       assert.equal(req.method, 'tools/call');
       assert.deepEqual(req.params, { name: 'sample.demo.uppercase', arguments: { text: 'hi' } });
       return { content: [{ type: 'text', text: 'HI' }], isError: false };
     });
-    const code = await runCli(['mcp', 'tools', 'call', 'sample.demo.uppercase', '--args-json', '{"text":"hi"}'], opts(fetchImpl, cap));
+    const code = await runCli(['mcp', 'tools', 'call', 'sample.demo.uppercase', '--args', '{"text":"hi"}'], opts(fetchImpl, cap));
     assert.equal(code, 0, cap.stderr);
     assert.match(cap.stdout, /^HI$/m);
   });
@@ -102,14 +107,14 @@ describe('mcp tools', () => {
     assert.match(cap.stdout, /run failed: x/);
   });
 
-  it('rejects malformed --args-json locally (exit 2, no request)', async () => {
+  it('rejects malformed --args locally (exit 2, no request)', async () => {
     const cap = capture();
     let called = false;
     const fetchImpl = async () => { called = true; return jsonResponse({}); };
-    const code = await runCli(['mcp', 'tools', 'call', 't', '--args-json', '{bad'], opts(fetchImpl, cap));
+    const code = await runCli(['mcp', 'tools', 'call', 't', '--args', '{bad'], opts(fetchImpl, cap));
     assert.equal(code, 2);
     assert.equal(called, false);
-    assert.match(cap.stderr, /--args-json must be valid JSON/);
+    assert.match(cap.stderr, /--args must be valid JSON/);
   });
 });
 
@@ -153,7 +158,7 @@ describe('mcp prompts', () => {
       assert.deepEqual(req.params, { name: 'greet', arguments: { name: 'Ada' } });
       return { description: 'Greeting', messages: [{ role: 'user', content: { type: 'text', text: 'Hello Ada' } }] };
     });
-    code = await runCli(['mcp', 'prompts', 'get', 'greet', '--args-json', '{"name":"Ada"}'], opts(getFetch, getCap));
+    code = await runCli(['mcp', 'prompts', 'get', 'greet', '--args', '{"name":"Ada"}'], opts(getFetch, getCap));
     assert.equal(code, 0, getCap.stderr);
     assert.match(getCap.stdout, /\[user\] Hello Ada/);
   });
@@ -165,7 +170,7 @@ describe('mcp capability honesty', () => {
     const fetchImpl = async () => jsonResponse({ message: 'not found' }, 404);
     const code = await runCli(['mcp', 'info'], opts(fetchImpl, cap));
     assert.equal(code, 2);
-    assert.match(cap.stderr, /MCP server mount not available/);
+    assert.match(cap.stderr, /Host doesn't serve the MCP endpoint/);
   });
 
   it('surfaces a JSON-RPC error with the host message and a contract exit code', async () => {
