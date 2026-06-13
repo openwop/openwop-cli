@@ -6,6 +6,9 @@ versioned on its own SemVer line (currently `0.x`).
 
 ## [Unreleased]
 
+### Added
+- **`governance` command group (alias `policy`).** Drives the tenant governance surface (ADR 0028, superadmin-gated host extension): `governance policy [get]` renders the host's stored policy plus its declared defaults, `governance policy set` upserts the provider allowlist / per-action policy (`email.send`, `calendar.invite`, `calendar.reschedule`, `nudge` → `disabled | draft-only | approval-required`) / retention windows, and `governance audit` reads the tenant-scoped host audit log. The host stays the policy authority — the CLI only renders its resolved view and never evaluates a policy outcome locally; since the surface is non-normative (not in `/.well-known/openwop`) the command fails closed legibly (exit 2) when a host does not expose it. `--json` on every read.
+
 ### Security
 - **Bumped `esbuild` `^0.24` → `^0.25`** (GHSA-67mh-4wv8-2f99 — esbuild dev-server request advisory). Build/dev dependency only; the published CLI tarball (`dist/` + `install.sh` + `README.md`) behavior is unchanged.
 

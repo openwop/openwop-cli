@@ -186,6 +186,20 @@ openwop admin cleanup --status          # read-only liveness probe
 
 `account delete` requires a signed-in user (OIDC bearer). `admin` routes are gated by the host's `OPENWOP_ADMIN_TOKEN` — pass it via `--api-key`.
 
+## Governance
+
+Tenant governance administration (ADR 0028 — a superadmin-gated host extension). The host is the policy authority; the CLI only **renders** its resolved view and never evaluates a policy outcome locally. Because the surface is non-normative (not advertised in `/.well-known/openwop`), the command **fails closed legibly** (exit 2) when a host doesn't expose it.
+
+```bash
+openwop governance policy                        # render stored policy + the host's declared defaults
+openwop governance policy get --json             # raw host view
+openwop governance policy set --action email.send=approval-required --action nudge=disabled
+openwop governance policy set --provider-allowlist anthropic,openai --retention-graph-days 90
+openwop governance audit --prefix governance. --limit 20   # tenant-scoped audit read view
+```
+
+Action kinds are `email.send`, `calendar.invite`, `calendar.reschedule`, `nudge`; policies are `disabled | draft-only | approval-required` (unset kinds fall back to the host's declared default). Aliased as `openwop policy`.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**

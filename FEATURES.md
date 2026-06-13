@@ -129,6 +129,7 @@ host route is what the subcommands hit.
 | **notify** | — | `/v1/host/sample/notify` | One-off email/SMS dispatch via the demo host. |
 | **account** | — | `/v1/host/sample/account` | Tenant self-service hard-delete. |
 | **admin** | — | `/v1/host/sample/admin` | Operator maintenance (ephemeral-secret cleanup). |
+| **governance** (`policy`) | ADR 0028 | `/v1/host/sample/governance` | Tenant policy (provider allowlist / per-action policy / retention) + audit read view. Renders the host's resolved view only — never evaluates policy locally; fails closed if the surface isn't advertised. |
 
 > **Channel plugins** (used by `relay` + `messaging`): the inbound/outbound
 > normalizers for **Signal, iMessage, WhatsApp, and Discord** live in
