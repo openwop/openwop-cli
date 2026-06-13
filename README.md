@@ -209,6 +209,21 @@ openwop approvals reject appr_123              # dismiss the proposal (alias: de
 ```
 
 The host is the authority for every decision: the CLI renders the host's resolved queue and relays your claim/reject — it never decides locally, and fails closed if the host doesn't advertise the surface. Exit codes reflect the verdict so scripts can gate on it: `0` approved · `3` pending · `1` rejected/error. (Distinct from `interrupts`, which are run-level HITL tokens.)
+## Consent (privacy / GDPR)
+
+`consent` drives the host's tenant-scoped, region-aware consent surface (ADR 0020). The host is the authority — the CLI **renders** its resolved view and never computes a consent decision itself; when the org-tenant's `consent` toggle is off the host returns a uniform 404 and the command fails closed with a legible message.
+
+```bash
+openwop consent policy <orgId>                                   # show the tenant policy (defaultMode + regulated regions)
+openwop consent set-policy <orgId> --default-mode opt-out --regulated-region EU --regulated-region UK
+openwop consent records <orgId> --json                           # list all consent records for the tenant
+openwop consent get <orgId> <subjectKey>                         # one subject's record (or none)
+openwop consent erase <orgId> <subjectKey> --yes                 # GDPR erasure (irreversible; --yes required)
+openwop consent public get <orgId> <subjectKey>                  # public, unauthed: a visitor's recorded categories (or the policy default)
+openwop consent public record <orgId> <subjectKey> --category analytics=true --category marketing=false
+```
+
+Exit codes: `0` success · `1` host/HTTP error (including consent not enabled) · `2` usage error.
 
 ## Config
 

@@ -131,6 +131,7 @@ host route is what the subcommands hit.
 | **admin** | — | `/v1/host/sample/admin` | Operator maintenance (ephemeral-secret cleanup). |
 | **governance** (`policy`) | ADR 0028 | `/v1/host/sample/governance` | Tenant policy (provider allowlist / per-action policy / retention) + audit read view. Renders the host's resolved view only — never evaluates policy locally; fails closed if the surface isn't advertised. |
 | **approvals** (`approval`) | — | `/v1/host/sample/approvals` | Approval inbox (agents propose, humans dispose): list/get + claim/reject. Renders the host's verdict; never decides locally. |
+| **consent** | ADR 0020 | `/v1/host/sample/consent/orgs/:orgId/*`, `/v1/host/sample/public-consent/:orgId` | Tenant-scoped consent: policy get/set, records list/get, GDPR erase + public (unauthed) read/record. Renders the host's resolved view; fails closed on the uniform 404 when the `consent` toggle is off. |
 
 > **Channel plugins** (used by `relay` + `messaging`): the inbound/outbound
 > normalizers for **Signal, iMessage, WhatsApp, and Discord** live in
