@@ -92,6 +92,7 @@ import { runProfiles, PROFILES_HELP } from './cli/profiles.js';
 import { runToggles, TOGGLES_HELP } from './cli/toggles.js';
 import { runUsers, USERS_HELP } from './cli/users.js';
 import { runWorkforces, WORKFORCES_HELP } from './cli/workforces.js';
+import { runAuth, AUTH_HELP } from './cli/auth.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -250,6 +251,9 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
       case 'workforces':
       case 'fleet':
         return await runWorkforces(ctx, commandArgs);
+      case 'auth':
+      case 'sso':
+        return await runAuth(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -332,6 +336,8 @@ function showHelp(io: any, command: any) {
     users: USERS_HELP,
     workforces: WORKFORCES_HELP,
     fleet: WORKFORCES_HELP,
+    auth: AUTH_HELP,
+    sso: AUTH_HELP,
   };
   write(io.stdout, map[command] ?? ROOT_HELP);
   return 0;
@@ -686,6 +692,8 @@ Commands:
   users list|me       Tenant identity directory + account lifecycle (not RBAC; see orgs)
   workforces list     List governed workforces (durable orchestration; alias: fleet)
   workforces metrics  Aggregate telemetry + governance/autonomy for a workforce
+  auth status         Enterprise SSO/SAML/SCIM status + SP metadata (alias: sso)
+  auth saml|scim      SAML SSO metadata/login/validate; SCIM provisioning seam
 
 Examples:
   openwop onboard

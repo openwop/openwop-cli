@@ -309,6 +309,22 @@ openwop workforces status wf_support production  # request a cutover (host gates
 
 This group **composes with** `kanban` (task boards) and `roster` (standing agents) but does not duplicate them — it renders the workforce's governance/metrics view, never re-modelling boards or roster entries. The host is the authority; the CLI renders its resolved view and fails closed if the surface isn't advertised. `status production` is gated host-side on the workforce having graduated to bounded-autonomous (a 409 surfaces legibly); `eval` needs the host's eval suite enabled.
 
+## Enterprise SSO (SAML / SCIM)
+
+`auth` (alias `sso`) drives the host's enterprise identity surface (RFC 0050). The host is the authority; the CLI surfaces **status, public SP metadata, and provisioning results only**. SAML signing certs, SCIM bearer tokens, and client secrets are host-side and are never printed — every response is run through a recursive redactor before output (the public SP metadata XML, meant to be uploaded to your IdP, is the deliberate exception).
+
+```bash
+openwop auth status                                              # which SSO/SCIM profiles this host advertises + whether SAML SSO is live
+openwop auth saml metadata                                       # SP metadata XML to upload to your IdP
+openwop auth saml login-url --return-to /dashboard               # the SP-initiated IdP redirect URL (not followed)
+openwop auth saml validate --idp-url http://localhost:9100/idp --variant valid   # conformance: validate a synthetic-IdP assertion
+openwop auth scim provision --op create-user --user-name jo@acme.com --email jo@acme.com
+```
+
+`auth status` trusts discovery (`/.well-known/openwop`) as authoritative — an unadvertised profile is never probed, so a host's SPA catch-all can't false-report a surface as live. Each surface fails closed with a legible message when the host hasn't configured it.
+
+**Boundary:** `auth` is SSO/SAML/SCIM identity-provider config — **not** the user directory (`users`), RBAC (`orgs`), or BYOK provider credentials (`byok`/`providers`). Exit codes: `0` success (`saml validate`: `0` = authenticated) · `1` host error / not configured (`saml validate`: `1` = rejected) · `2` usage error.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
