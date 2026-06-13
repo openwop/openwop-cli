@@ -297,6 +297,18 @@ openwop toggles get crm.triageAgent                             # one toggle: st
 
 Resolved fields are host-authored: `status` (`on | off | beta`), `enabled` (bool), assigned `variant`, and the variant's `bindings` (slot → ref@version). Exit codes: `0` ok · `1` host error · `2` usage / surface not served / unknown toggle.
 
+The `workforces` group (alias `fleet`) drives the host's durable multi-agent orchestration — a *Governed Workforce* is a bundle of agent specs with graduated-autonomy posture and aggregate telemetry:
+
+```bash
+openwop workforces list                         # governed workforces + status
+openwop fleet metrics wf_support                # aggregate telemetry (runs, rates, cost)
+openwop workforces governance wf_support        # autonomy graduation + governance posture
+openwop workforces trace wf_support --q batch_42 # cross-run trace/audit search
+openwop workforces status wf_support production  # request a cutover (host gates on graduation)
+```
+
+This group **composes with** `kanban` (task boards) and `roster` (standing agents) but does not duplicate them — it renders the workforce's governance/metrics view, never re-modelling boards or roster entries. The host is the authority; the CLI renders its resolved view and fails closed if the surface isn't advertised. `status production` is gated host-side on the workforce having graduated to bounded-autonomous (a 409 surfaces legibly); `eval` needs the host's eval suite enabled.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
