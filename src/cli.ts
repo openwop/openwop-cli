@@ -79,6 +79,7 @@ import { runOnboard, ONBOARD_HELP } from './cli/onboard.js';
 import { runProviders, PROVIDERS_HELP } from './cli/providers.js';
 import { runPacks, PACKS_HELP } from './cli/packs.js';
 import { runDoctor, DOCTOR_HELP } from './cli/doctor.js';
+import { runGovernance, GOVERNANCE_HELP } from './cli/governance.js';
 import {
   runDemo, runDemoStatus, DEMO_HELP, DEMO_STATUS_HELP, DEMO_START_HELP, DEMO_STOP_HELP,
   DEMO_RESTART_HELP, DEMO_LOGS_HELP, DEMO_INSTALL_HELP, DEMO_URLS_HELP,
@@ -219,6 +220,9 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runAccount(ctx, commandArgs);
       case 'admin':
         return await runAdmin(ctx, commandArgs);
+      case 'governance':
+      case 'policy':
+        return await runGovernance(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -288,6 +292,8 @@ function showHelp(io: any, command: any) {
     notify: NOTIFY_HELP,
     account: ACCOUNT_HELP,
     admin: ADMIN_HELP,
+    governance: GOVERNANCE_HELP,
+    policy: GOVERNANCE_HELP,
   };
   write(io.stdout, map[command] ?? ROOT_HELP);
   return 0;
@@ -625,6 +631,8 @@ Commands:
   media generate-image  Generate an image via the demo media route (stubbed)
   media transcribe    Transcribe an audio file (stubbed)
   media synthesize    Synthesize speech from text (stubbed)
+  governance policy   Get/set tenant governance policy (alias: policy)
+  governance audit    Read the host audit log (tenant-scoped)
   conformance         Run the OpenWOP conformance CLI from this repo
 
 Examples:
