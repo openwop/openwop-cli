@@ -243,6 +243,24 @@ flat, additive registry — a new feature is one module + one `case`.
 - The dev shell is **zsh**, which does not word-split unquoted `$var` — use `${=c}`
   in smoke loops or call each command explicitly.
 
+### 4. Parallel build convention (append-at-end)
+
+When several groups are built concurrently on separate branches, the only file they
+all touch is the dispatcher (`src/cli.ts`). To keep those branches conflict-free, every
+new group **appends** — it never edits another group's lines:
+
+- **Import:** add the new `from './cli/<group>.js'` line **after the last `./cli/*.js`
+  import** (~line 81), not interleaved alphabetically.
+- **`case`:** add the new `case '<group>':` (and any alias `case`) **immediately before
+  `default:`** (~line 222), not grouped with related commands.
+- **ROOT_HELP:** add the new command's line at the **end of the `Commands:` list**
+  (just before `Examples:`), not in topical order.
+
+Documentation files are union-merged via `.gitattributes` (`CHANGELOG.md`, `FEATURES.md`,
+`README.md` → `merge=union`), so each branch just **appends** its CHANGELOG entry,
+FEATURES row, and README block — Git unions the additions instead of conflicting. Ordering
+can be tidied in a follow-up once all groups have landed.
+
 ---
 
 ## Why this shape (history)
