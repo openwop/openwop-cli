@@ -138,6 +138,7 @@ host route is what the subcommands hit.
 | **toggles** | host-extension (ADR 0001 §3) | `/v1/host/sample/feature-toggles/assignments` | Render the caller's host-resolved feature-toggle assignments (`list`/`get`): status (on/off/beta), enabled, variant + bindings. Read-only — the host resolves; the CLI never computes/overrides a toggle decision, and doesn't author config. Fails closed if not served. |
 | **users** | ADR 0002 | `/v1/host/sample/users` | Tenant identity directory + account lifecycle: list/get/create/update, disable/enable, delete, and `me`. Mirrors the `source` enum + raw IdP `groups[]`. Directory + lifecycle only — not RBAC (`orgs`) or persona (`profiles`); fails closed (404 not served, 403 disabled). |
 | **workforces** (`fleet`) | — | `/v1/host/sample/workforces` | Governed Workforce: list/get + metrics/governance/migration/trace/shadow reads + status cutover + eval. Durable multi-agent orchestration; composes with kanban/roster, never re-models them. |
+| **auth** (`sso`) | RFC 0050 | `/v1/host/sample/auth/saml/{sso/metadata,sso/login,validate}`, `/auth/scim/provision` | Enterprise SSO/SAML/SCIM identity config: status (advertised profiles), SP metadata, IdP login URL, SAML-assertion validate seam, SCIM provisioning seam. Surfaces status/metadata only — certs/bearers/secrets stay host-side (recursive redactor); fails closed when a surface isn't configured. NOT users/orgs/byok. |
 
 > **Channel plugins** (used by `relay` + `messaging`): the inbound/outbound
 > normalizers for **Signal, iMessage, WhatsApp, and Discord** live in
