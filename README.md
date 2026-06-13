@@ -267,6 +267,23 @@ openwop profiles activity --limit 10 --status failed             # your run-acti
 ```
 
 **Boundary:** `profiles` is the persona/skills surface — **not** the user directory (account lifecycle) and **not** RBAC (that's `orgs`). Exit codes: `0` success · `1` host/HTTP error (incl. not found / not signed in) · `2` usage error.
+## Users (identity directory + lifecycle)
+
+`users` drives the host's tenant identity directory and account lifecycle (ADR 0002). It is the durable record of **who** exists in a tenant and whether their account is active — **not** authorization (role/permission membership lives in `orgs`) and **not** editable persona (that's `profiles` / `users me`). The `groups` field is the raw IdP `groups[]` captured at sign-in for the RBAC handoff; it grants nothing by itself. The host is the authority: the surface 404s when not served (fail closed, exit 2), and a disabled account is denied 403.
+
+```bash
+openwop users list                                              # the tenant's users
+openwop users me                                                # your own durable record
+openwop users me --display-name "Ada L."                        # self-serve rename (PATCH /me)
+openwop users create --principal oidc:abc123 --email a@b.dev --group eng --source oidc
+openwop users get <userId> --json
+openwop users update <userId> --display-name "Ada" --group eng --group oncall   # groups replace; --email '' clears
+openwop users disable <userId>                                  # lifecycle (fail-closed control)
+openwop users enable <userId>
+openwop users delete <userId> --yes                             # irreversible; --yes required
+```
+
+Identity `source` is one of `oidc | password | saml | scim | manual`. Exit codes: `0` ok · `1` host error · `2` usage / surface not served / account disabled.
 
 ## Feature toggles
 

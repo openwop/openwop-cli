@@ -136,6 +136,7 @@ host route is what the subcommands hit.
 | **connections** (`conn`) | ADR 0024 | `/v1/host/sample/connections` | Third-party connections: list/get/test + authorize-URL + oauth-clients list/get. Surfaces refs/status only — secrets stay host-side (recursive redactor); never completes OAuth. |
 | **profiles** | ADR 0005 | `/v1/host/sample/profiles`, `/profiles/{me,:userId}`, `/me/{skills,portfolio,pinned-agents,activity}`, `/:userId/skills/:skill/endorse` | Self-service persona: list/get, self-edit, skills, portfolio, pin/unpin agents, peer endorsements, activity feed. Reads visible to tenant members; writes self-only. Persona surface — NOT the user directory or RBAC. |
 | **toggles** | host-extension (ADR 0001 §3) | `/v1/host/sample/feature-toggles/assignments` | Render the caller's host-resolved feature-toggle assignments (`list`/`get`): status (on/off/beta), enabled, variant + bindings. Read-only — the host resolves; the CLI never computes/overrides a toggle decision, and doesn't author config. Fails closed if not served. |
+| **users** | ADR 0002 | `/v1/host/sample/users` | Tenant identity directory + account lifecycle: list/get/create/update, disable/enable, delete, and `me`. Mirrors the `source` enum + raw IdP `groups[]`. Directory + lifecycle only — not RBAC (`orgs`) or persona (`profiles`); fails closed (404 not served, 403 disabled). |
 
 > **Channel plugins** (used by `relay` + `messaging`): the inbound/outbound
 > normalizers for **Signal, iMessage, WhatsApp, and Discord** live in
