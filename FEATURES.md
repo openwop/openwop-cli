@@ -135,6 +135,7 @@ host route is what the subcommands hit.
 | **mcp** | RFC 0020 | `/v1/host/sample/mcp` (JSON-RPC) | MCP client for the host's JSON-RPC server mount: `info`/`ping` + `tools`/`resources`/`prompts` list/call/read/get. Mount is host-env-gated (OFF by default) — commands fail closed legibly when it's not exposed. |
 | **connections** (`conn`) | ADR 0024 | `/v1/host/sample/connections` | Third-party connections: list/get/test + authorize-URL + oauth-clients list/get. Surfaces refs/status only — secrets stay host-side (recursive redactor); never completes OAuth. |
 | **profiles** | ADR 0005 | `/v1/host/sample/profiles`, `/profiles/{me,:userId}`, `/me/{skills,portfolio,pinned-agents,activity}`, `/:userId/skills/:skill/endorse` | Self-service persona: list/get, self-edit, skills, portfolio, pin/unpin agents, peer endorsements, activity feed. Reads visible to tenant members; writes self-only. Persona surface — NOT the user directory or RBAC. |
+| **toggles** | host-extension (ADR 0001 §3) | `/v1/host/sample/feature-toggles/assignments` | Render the caller's host-resolved feature-toggle assignments (`list`/`get`): status (on/off/beta), enabled, variant + bindings. Read-only — the host resolves; the CLI never computes/overrides a toggle decision, and doesn't author config. Fails closed if not served. |
 
 > **Channel plugins** (used by `relay` + `messaging`): the inbound/outbound
 > normalizers for **Signal, iMessage, WhatsApp, and Discord** live in
