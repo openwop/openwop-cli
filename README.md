@@ -324,6 +324,17 @@ openwop auth scim provision --op create-user --user-name jo@acme.com --email jo@
 `auth status` trusts discovery (`/.well-known/openwop`) as authoritative — an unadvertised profile is never probed, so a host's SPA catch-all can't false-report a surface as live. Each surface fails closed with a legible message when the host hasn't configured it.
 
 **Boundary:** `auth` is SSO/SAML/SCIM identity-provider config — **not** the user directory (`users`), RBAC (`orgs`), or BYOK provider credentials (`byok`/`providers`). Exit codes: `0` success (`saml validate`: `0` = authenticated) · `1` host error / not configured (`saml validate`: `1` = rejected) · `2` usage error.
+## Analytics (usage)
+
+`analytics` (alias `usage`) reads a host's org-scoped usage analytics (ADR 0018). The **host** aggregates server-side and gates each org read by RBAC (`workspace:read`) plus the org-tenant's `analytics` toggle; the CLI only **renders** the rollup it returns — it never computes usage locally — and fails closed (exit 2) when analytics isn't served. This is **usage / cost / observability**, deliberately distinct from `governance audit` (the policy-decision log) — hence the alias is `usage`, not `audit`.
+
+```bash
+openwop analytics summary <orgId>                               # aggregate rollup (total, sessions, by-type, top paths, utm)
+openwop usage events <orgId> --json                             # recent raw events (max 100)
+openwop analytics collect <orgId> --session s_abc --type pageview --path /pricing   # public consent-gated beacon
+```
+
+The `collect` beacon is **public** (sent without auth) and consent-gated host-side: a `201` records the event; a `202` honestly reports that analytics consent wasn't granted (nothing recorded). Event type is one of `pageview | event | conversion`. Exit codes: `0` ok · `1` host error · `2` usage / analytics not served / not authorized.
 
 ## Config
 

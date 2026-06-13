@@ -93,6 +93,7 @@ import { runToggles, TOGGLES_HELP } from './cli/toggles.js';
 import { runUsers, USERS_HELP } from './cli/users.js';
 import { runWorkforces, WORKFORCES_HELP } from './cli/workforces.js';
 import { runAuth, AUTH_HELP } from './cli/auth.js';
+import { runAnalytics, ANALYTICS_HELP } from './cli/analytics.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -254,6 +255,9 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
       case 'auth':
       case 'sso':
         return await runAuth(ctx, commandArgs);
+      case 'analytics':
+      case 'usage':
+        return await runAnalytics(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -338,6 +342,8 @@ function showHelp(io: any, command: any) {
     fleet: WORKFORCES_HELP,
     auth: AUTH_HELP,
     sso: AUTH_HELP,
+    analytics: ANALYTICS_HELP,
+    usage: ANALYTICS_HELP,
   };
   write(io.stdout, map[command] ?? ROOT_HELP);
   return 0;
@@ -695,6 +701,7 @@ Commands:
   workforces metrics  Aggregate telemetry + governance/autonomy for a workforce
   auth status         Enterprise SSO/SAML/SCIM status + SP metadata (alias: sso)
   auth saml|scim      SAML SSO metadata/login/validate; SCIM provisioning seam
+  analytics summary   Org-scoped usage analytics: summary/events + public collect (alias: usage)
 
 Examples:
   openwop onboard
