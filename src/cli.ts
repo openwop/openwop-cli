@@ -635,8 +635,9 @@ Commands:
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription
   webhooks test       Fire a signed test delivery
-  cron list           List scheduled (cron) jobs
+  cron list           List scheduled (cron) jobs (--roster <id> to filter)
   cron add            Schedule a cron job
+  cron enable|disable Toggle a scheduled job active/inert
   cron remove         Delete a scheduled job
   cron trigger        Fire a scheduled job once now
   messaging connectors  Manage messaging relay connectors

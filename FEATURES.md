@@ -120,7 +120,7 @@ host route is what the subcommands hit.
 | **byok** | — | `/v1/host/sample/byok/secrets` | Host-side BYOK secret store; the wire **never returns values**. |
 | **config** | — | (local file) | Read/write `~/.openwop/config.json`. |
 | **webhooks** (`webhook`) | — | `/v1/host/sample/webhooks` | Manage HMAC-signed webhook subscriptions; `test` fires a signed delivery. |
-| **cron** | RFC 0052 | `/v1/host/sample/cron` | Scheduled jobs: list/add/remove/trigger. |
+| **cron** | RFC 0052 | `/v1/host/sample/scheduler/jobs` | Scheduled jobs: list (--roster filter) / add / enable / disable / remove / trigger. |
 | **messaging** | host-extension | `/v1/host/sample/messaging` | Operate the demo relay-gateway: connectors, sessions, policy, routing, identity, logs. |
 | **relay** | host-extension | (local bridge loop) | Local channel relay: register/activate + the inbound→workflow bridge across channel plugins. |
 | **notifications** (`notification`) | host-extension | `/v1/host/sample/notifications` | Notification inbox. |

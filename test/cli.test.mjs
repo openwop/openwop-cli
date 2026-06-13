@@ -2011,4 +2011,75 @@ describe('cron subcommand', () => {
     assert.equal(hit.method, 'POST');
     assert.match(cap.stdout, /Fired job-1 — 1 run/);
   });
+
+  it('enable PATCHes {enabled:true} and confirms', async () => {
+    const cap = capture();
+    let hit = null;
+    const fetchImpl = async (url, init) => {
+      hit = { path: new URL(url).pathname, method: init?.method, body: init?.body ? JSON.parse(init.body) : null };
+      return new Response(JSON.stringify({ jobId: 'job-1', enabled: true, cronExpr: '*/5 * * * *' }), { status: 200 });
+    };
+    const code = await runCli(['cron', 'enable', 'job-1', '--base-url', 'http://mock.local'], {
+      io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
+    });
+    assert.equal(code, 0);
+    assert.equal(hit.path, '/v1/host/sample/scheduler/jobs/job-1');
+    assert.equal(hit.method, 'PATCH');
+    assert.deepEqual(hit.body, { enabled: true });
+    assert.match(cap.stdout, /Enabled job job-1/);
+  });
+
+  it('disable PATCHes {enabled:false} and confirms', async () => {
+    const cap = capture();
+    let hit = null;
+    const fetchImpl = async (url, init) => {
+      hit = { path: new URL(url).pathname, method: init?.method, body: init?.body ? JSON.parse(init.body) : null };
+      return new Response(JSON.stringify({ jobId: 'job-1', enabled: false, cronExpr: '*/5 * * * *' }), { status: 200 });
+    };
+    const code = await runCli(['cron', 'disable', 'job-1', '--base-url', 'http://mock.local'], {
+      io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
+    });
+    assert.equal(code, 0);
+    assert.equal(hit.method, 'PATCH');
+    assert.deepEqual(hit.body, { enabled: false });
+    assert.match(cap.stdout, /Disabled job job-1/);
+  });
+
+  it('list --roster filters via ?rosterId= and shows enabled/rosterId columns', async () => {
+    const cap = capture();
+    let seenUrl = null;
+    const fetchImpl = async (url) => {
+      seenUrl = new URL(url);
+      return new Response(JSON.stringify({
+        jobs: [{ jobId: 'job-9', cronExpr: '0 * * * *', workflowId: 'wf-b', enabled: false, rosterId: 'ros-1', lastFiredTick: null }],
+      }), { status: 200 });
+    };
+    const code = await runCli(['cron', 'list', '--roster', 'ros-1', '--base-url', 'http://mock.local'], {
+      io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
+    });
+    assert.equal(code, 0);
+    assert.equal(seenUrl.pathname, '/v1/host/sample/scheduler/jobs');
+    assert.equal(seenUrl.search, '?rosterId=ros-1');
+    assert.match(cap.stdout, /job-9\s+0 \* \* \* \*\s+wf-b\s+no\s+ros-1/);
+  });
+
+  it('list --roster prints a roster-scoped empty message', async () => {
+    const cap = capture();
+    const fetchImpl = async () => new Response(JSON.stringify({ jobs: [] }), { status: 200 });
+    const code = await runCli(['cron', 'list', '--roster', 'ros-x', '--base-url', 'http://mock.local'], {
+      io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
+    });
+    assert.equal(code, 0);
+    assert.match(cap.stdout, /No scheduled jobs for roster ros-x/);
+  });
+
+  it('enable without a jobId is a usage error (exit 2)', async () => {
+    const cap = capture();
+    const fetchImpl = async () => { throw new Error('should not fetch'); };
+    const code = await runCli(['cron', 'enable'], {
+      io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
+    });
+    assert.equal(code, 2);
+    assert.match(cap.stdout, /Usage: openwop cron enable/);
+  });
 });
