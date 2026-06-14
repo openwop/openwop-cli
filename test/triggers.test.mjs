@@ -22,11 +22,11 @@ function opts(fetchImpl, cap) {
 }
 
 // triggerBridge advertised via capabilities.triggerBridge (with optional ingestion).
-function wellKnown({ bridge = true, ingestion = ['webhook', 'email', 'form'] } = {}) {
+function wellKnown({ bridge = true, ingestion = ['webhook', 'email', 'form'], registrationEndpoint = true } = {}) {
   const capabilities = {};
   if (bridge) {
     capabilities.triggerBridge = { supported: true, sources: ['webhook', 'email', 'form'] };
-    if (ingestion) capabilities.triggerBridge.ingestion = { externalSources: ingestion };
+    if (ingestion) capabilities.triggerBridge.ingestion = { externalSources: ingestion, registrationEndpoint };
   }
   return { protocolVersion: '1.0', capabilities };
 }
@@ -83,6 +83,14 @@ describe('triggers register', () => {
     cap = capture();
     code = await runCli(['triggers', 'register', '--source', 'webhook'], opts(host(async () => jsonResponse({})), cap));
     assert.equal(code, 2);
+  });
+
+  it('refuses register when registrationEndpoint is not advertised (exit 1)', async () => {
+    const cap = capture();
+    const fetchImpl = host(async () => jsonResponse({}), { registrationEndpoint: false });
+    const code = await runCli(['triggers', 'register', '--source', 'webhook', '--workflow', 'wf'], opts(fetchImpl, cap));
+    assert.equal(code, 1);
+    assert.match(cap.stderr, /registrationEndpoint is false/);
   });
 
   it('surfaces a host 403 (cannot bind workflow) as fail-closed exit 1', async () => {

@@ -157,6 +157,12 @@ async function runRegister(ctx: Ctx, argv: string[]): Promise<number> {
         1,
       );
     }
+    if (tb.ingestion && tb.ingestion.registrationEndpoint === false) {
+      throw new CliError(
+        'triggers: this host does not serve the registration endpoint (capabilities.triggerBridge.ingestion.registrationEndpoint is false) — POST /v1/trigger-subscriptions is unavailable here.',
+        1,
+      );
+    }
   } else if (tb === null) {
     throw new CliError('triggers: this host does not advertise the trigger bridge. The host is the authority — refusing to guess.', 1);
   }
@@ -173,6 +179,9 @@ async function runRegister(ctx: Ctx, argv: string[]): Promise<number> {
     if (err instanceof HttpError && err.status === 422) {
       const detail = (err.body as { message?: string } | undefined)?.message ?? 'registration rejected';
       throw new CliError(`triggers: ${detail}`, 1);
+    }
+    if (err instanceof HttpError && err.status === 501) {
+      throw new CliError('triggers: the host does not implement the registration endpoint (501) — it does not advertise triggerBridge.ingestion.registrationEndpoint.', 1);
     }
     gate404(err);
   }
