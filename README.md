@@ -397,6 +397,29 @@ openwop import estate.json                             # apply (idempotent; enti
 
 The CLI runs every response through a secret redactor before printing or writing to disk (defense-in-depth on top of the host's refs-only guarantee). Capability-gated on top-level `portability`; fails closed when the host doesn't serve the surface. This subsumes the old SPA-only `migrate-tenant` bootstrap. Import exit codes: `0` applied (or a clean dry-run plan) · `2` the plan has conflicts (nothing overwritten) · `1` error — a literal credential or `dependsOn` cycle (422), or no import scope (403).
 
+### External-event trigger subscriptions (`triggers`, RFC 0099)
+
+The `triggers` group drives the host's **normative** trigger bridge: a subscription binds an external source (`webhook` / `email` / `form`) to a workflow the caller can start, and a verified inbound event then starts a run with the event as `ctx.triggerData`.
+
+```bash
+openwop triggers register --source webhook --workflow wf_intake --dedup --verification required
+openwop triggers list --state active
+openwop triggers get sub_123 --json
+```
+
+`register` returns the created subscription plus its source `binding` (the ingest URL/address). A webhook **binding secret is shown once** — store it then; the CLI never persists it and re-reads return only the `secretFingerprint`. Capability-gated on `capabilities.triggerBridge` (register also honesty-gates on `triggerBridge.ingestion.externalSources`); fails closed when absent. Exit codes: `0` active · `3` paused · `1` failed/dead-lettered or error.
+
+### Async / durable A2A tasks (`a2a`, RFC 0100)
+
+When a host advertises `capabilities.a2a.durableTasks`, every backing run has a durable `A2ATaskState` (taskId === runId) readable after the caller disconnects.
+
+```bash
+openwop a2a status                    # what the host advertises (supported/streaming/push/durableTasks)
+openwop a2a task run_abc123 --json    # the durable task's live state
+```
+
+The record is content-free by design (state, `interruptKind`, push config — never run inputs/outputs/credentials); the CLI renders the host's resolved state and never derives one locally. Gated on `capabilities.a2a` (the durable read needs `durableTasks: true`). `task` exit codes: `0` completed · `3` submitted/working/input-required/auth-required · `1` failed/canceled/rejected or error.
+
 ## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
