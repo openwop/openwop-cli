@@ -29,8 +29,8 @@ import { requestJson, safeRequest } from '../api.js';
 export const GOALS_HELP = `Usage:
   openwop goals list [--state <s>] [--json]
   openwop goals get <goalId> [--json]
-  openwop goals create --objective <text> [--judge host|verifier] [--continuation <arm>]...
-                       [--max-iterations <n>] [--max-cost <n>] [--deadline <iso>] [--json]
+  openwop goals create --objective <text> [--judge host|verifier] [--continuation <mode>]
+                       [--max-iterations <n>] [--max-cost <usd>] [--timeout-ms <ms>] [--json]
   openwop goals pause <goalId> [--json]
   openwop goals resume <goalId> [--json]
   openwop goals abandon <goalId> [--yes]
@@ -57,11 +57,11 @@ Endpoints:
 
   --state <s>            (list) Filter by state (e.g. active, satisfied, escalated, bound-exceeded, paused).
   --objective <text>     (create) The goal objective (required).
-  --judge host|verifier  (create) Who decides completion (default: host).
-  --continuation <arm>   (create) A continuation arm: schedule | heartbeat | commitment (repeatable).
-  --max-iterations <n>   (create) Bound: max continuation iterations.
-  --max-cost <n>         (create) Bound: max accumulated cost.
-  --deadline <iso>       (create) Bound: wall-clock deadline (ISO 8601).
+  --judge host|verifier  (create) completion.check — who decides completion (default: host).
+  --continuation <mode>  (create) continuation.mode — the arm that re-engages work (e.g. schedule | commitment | manual).
+  --max-iterations <n>   (create) Bound: bounds.maxLoopIterations.
+  --max-cost <usd>       (create) Bound: bounds.maxCostUsd (accumulated USD).
+  --timeout-ms <ms>      (create) Bound: bounds.runTimeoutMs (wall-clock, milliseconds).
   --yes                  (abandon) Required to confirm.
   --json                 Print the raw host response instead of the rendered view.
 
@@ -77,7 +77,7 @@ on the verdict):
 Examples:
   openwop goals list --state active
   openwop goals get goal_123 --json
-  openwop goals create --objective "Keep the triage backlog under 20" --judge verifier --continuation schedule --max-iterations 50 --max-cost 5.00
+  openwop goals create --objective "Keep the triage backlog under 20" --judge verifier --continuation schedule --max-iterations 50 --max-cost 5.00 --timeout-ms 600000
   openwop goals pause goal_123
   openwop goals abandon goal_123 --yes
 `;
@@ -172,18 +172,18 @@ async function runGoalsList(ctx: Ctx, argv: string[]): Promise<number> {
   const rows = goals.map((g: any) => ({
     goalId: g.goalId ?? g.id,
     state: g.state ?? '',
-    judge: g.judge ?? '',
+    check: g.completion?.check ?? '',
     objective: truncate(g.objective ?? '', 40),
     iterations: progressIterations(g),
     createdAt: g.createdAt ?? '',
   }));
-  writeLine(ctx.io.stdout, formatTable(rows, ['goalId', 'state', 'judge', 'objective', 'iterations', 'createdAt']));
+  writeLine(ctx.io.stdout, formatTable(rows, ['goalId', 'state', 'check', 'objective', 'iterations', 'createdAt']));
   return 0;
 }
 
 function progressIterations(g: any): string {
   const it = g.progress?.iterations ?? g.iterations;
-  const max = g.bounds?.maxIterations;
+  const max = g.bounds?.maxLoopIterations;
   if (it === undefined) return '';
   return max !== undefined ? `${it}/${max}` : String(it);
 }
@@ -214,17 +214,18 @@ function renderGoal(ctx: Ctx, g: any, fallbackId: string): void {
   writeLine(ctx.io.stdout, `goalId: ${g.goalId ?? g.id ?? fallbackId}`);
   writeLine(ctx.io.stdout, `state: ${g.state ?? ''}`);
   if (g.objective) writeLine(ctx.io.stdout, `objective: ${g.objective}`);
-  writeLine(ctx.io.stdout, `judge: ${g.judge ?? ''}`);
-  if (Array.isArray(g.continuation)) writeLine(ctx.io.stdout, `continuation: ${g.continuation.length ? g.continuation.join(', ') : '(none)'}`);
+  writeLine(ctx.io.stdout, `completion.check: ${g.completion?.check ?? ''}`);
+  if (g.continuation?.mode) writeLine(ctx.io.stdout, `continuation: ${g.continuation.mode}`);
   if (g.bounds) {
     const b = g.bounds;
     const parts = [
-      b.maxIterations !== undefined ? `maxIterations=${b.maxIterations}` : null,
-      b.maxCost !== undefined ? `maxCost=${b.maxCost}` : null,
-      b.deadline !== undefined ? `deadline=${b.deadline}` : null,
+      b.maxLoopIterations !== undefined ? `maxLoopIterations=${b.maxLoopIterations}` : null,
+      b.runTimeoutMs !== undefined ? `runTimeoutMs=${b.runTimeoutMs}` : null,
+      b.maxCostUsd !== undefined ? `maxCostUsd=${b.maxCostUsd}` : null,
     ].filter(Boolean);
     writeLine(ctx.io.stdout, `bounds: ${parts.length ? parts.join(', ') : '(none)'}`);
   }
+  if (g.completion?.lastVerdict) writeLine(ctx.io.stdout, `lastVerdict: ${JSON.stringify(g.completion.lastVerdict)}`);
   const it = progressIterations(g);
   if (it) writeLine(ctx.io.stdout, `iterations: ${it}`);
   if (typeof g.confidence === 'number') writeLine(ctx.io.stdout, `confidence: ${g.confidence}`);
@@ -239,31 +240,39 @@ function renderGoal(ctx: Ctx, g: any, fallbackId: string): void {
 async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
   const { options } = parseOptions(argv, {
     bool: ['--help'],
-    value: ['--objective', '--judge', '--max-iterations', '--max-cost', '--deadline'],
-    multi: ['--continuation'],
+    value: ['--objective', '--judge', '--continuation', '--max-iterations', '--max-cost', '--timeout-ms'],
   });
   if (options.help || !options.objective) {
-    write(ctx.io.stdout, 'Usage: openwop goals create --objective <text> [--judge host|verifier] [--continuation <arm>]... [--max-iterations <n>] [--max-cost <n>] [--deadline <iso>] [--json]\n');
+    write(ctx.io.stdout, 'Usage: openwop goals create --objective <text> [--judge host|verifier] [--continuation <mode>] [--max-iterations <n>] [--max-cost <usd>] [--timeout-ms <ms>] [--json]\n');
     return options.help ? 0 : 2;
   }
   if (options.judge !== undefined && !['host', 'verifier'].includes(options.judge)) {
     throw new CliError('--judge must be one of: host, verifier', 2);
   }
-  const body: Record<string, any> = { objective: options.objective };
-  if (options.judge !== undefined) body.judge = options.judge;
-  if (Array.isArray(options.continuation) && options.continuation.length) body.continuation = options.continuation;
+  // The Goal ENTITY shape (RFC 0097 goal.schema.json): completion.check /
+  // continuation.mode / bounds.{maxLoopIterations,runTimeoutMs,maxCostUsd} — note
+  // these differ from the capability-descriptor field names (judge/continuation[]).
+  const body: Record<string, any> = {
+    objective: options.objective,
+    completion: { check: options.judge ?? 'host' },
+    continuation: { mode: options.continuation ?? 'manual' },
+  };
   const bounds: Record<string, any> = {};
   if (options.maxIterations !== undefined) {
     const n = Number(options.maxIterations);
     if (!Number.isInteger(n) || n <= 0) throw new CliError('--max-iterations must be a positive integer', 2);
-    bounds.maxIterations = n;
+    bounds.maxLoopIterations = n;
   }
   if (options.maxCost !== undefined) {
     const c = Number(options.maxCost);
-    if (!Number.isFinite(c) || c < 0) throw new CliError('--max-cost must be a non-negative number', 2);
-    bounds.maxCost = c;
+    if (!Number.isFinite(c) || c < 0) throw new CliError('--max-cost must be a non-negative number (USD)', 2);
+    bounds.maxCostUsd = c;
   }
-  if (options.deadline !== undefined) bounds.deadline = options.deadline;
+  if (options.timeoutMs !== undefined) {
+    const t = Number(options.timeoutMs);
+    if (!Number.isInteger(t) || t < 0) throw new CliError('--timeout-ms must be a non-negative integer (milliseconds)', 2);
+    bounds.runTimeoutMs = t;
+  }
   if (Object.keys(bounds).length) body.bounds = bounds;
   await ensureAdvertised(ctx);
   let res;
@@ -272,7 +281,7 @@ async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
   } catch (err) {
     if (err instanceof HttpError && err.status === 422) {
       const detail = (err.body as { message?: string } | undefined)?.message
-        ?? 'this host requires bounds on an active goal — pass --max-iterations, --max-cost, and/or --deadline';
+        ?? 'this host requires bounds on an active goal — pass --max-iterations, --max-cost, and/or --timeout-ms';
       throw new CliError(`goals: ${detail}`, 1);
     }
     gate404(err);
@@ -282,7 +291,7 @@ async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
     writeJson(ctx.io.stdout, g);
     return exitForState(g.state);
   }
-  writeLine(ctx.io.stdout, `✓ Created goal ${g.goalId ?? g.id ?? ''} (state ${g.state ?? 'active'}, judge ${g.judge ?? options.judge ?? 'host'}).`);
+  writeLine(ctx.io.stdout, `✓ Created goal ${g.goalId ?? g.id ?? ''} (state ${g.state ?? 'active'}, check ${g.completion?.check ?? options.judge ?? 'host'}).`);
   return exitForState(g.state);
 }
 

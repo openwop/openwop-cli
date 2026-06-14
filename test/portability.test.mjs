@@ -104,6 +104,9 @@ describe('import', () => {
     const fetchImpl = host(async (url, init) => {
       assert.equal(init.method, 'POST');
       assert.equal(new URL(url).search, '?dryRun=true');
+      // The host reads the bundle under a top-level `bundle` key — assert the wrapper.
+      const body = JSON.parse(init.body);
+      assert.ok(body.bundle && Array.isArray(body.bundle.items), 'import body must wrap the bundle as {bundle}');
       return jsonResponse({ creates: [{ kind: 'agent', id: 'a1' }], updates: [], skips: [], conflicts: [] });
     });
     const code = await runCli(['import', file, '--dry-run'], opts(fetchImpl, cap, tmp));

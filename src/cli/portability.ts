@@ -186,7 +186,8 @@ export async function runImport(ctx: Ctx, argv: string[]): Promise<number> {
   const path = options.dryRun ? '/v1/host/sample/import?dryRun=true' : '/v1/host/sample/import';
   let res;
   try {
-    res = await requestJson(ctx, path, { method: 'POST', body: bundle });
+    // The import route reads the bundle under a top-level `bundle` key.
+    res = await requestJson(ctx, path, { method: 'POST', body: { bundle } });
   } catch (err) {
     if (err instanceof HttpError && err.status === 422) {
       const detail = (err.body as { message?: string } | undefined)?.message
