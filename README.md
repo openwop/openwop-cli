@@ -377,12 +377,12 @@ The `goals` group drives the host's standing goals — an objective the host pur
 openwop goals list --state active                      # the goal list (also satisfied | escalated | bound-exceeded | paused)
 openwop goals get goal_123 --json                      # inspect (objective, judge, continuation, bounds, iterations)
 openwop goals create --objective "Keep the triage backlog under 20" \
-  --judge verifier --continuation schedule --max-iterations 50 --max-cost 5.00
+  --judge verifier --continuation schedule --max-iterations 50 --max-cost 5.00 --timeout-ms 600000
 openwop goals pause goal_123                            # suspend continuation (resume to restart)
 openwop goals abandon goal_123 --yes                   # close the goal
 ```
 
-A bounds-less goal is rejected `422` when the host advertises `requiresBounds` — pass `--max-iterations`/`--max-cost`/`--deadline`. Capability-gated on `agents.goals`; fails closed (exit 1) when the surface isn't served. Boundary: a goal is **not** an RFC 0068 commitment — it *uses* a commitment/schedule/heartbeat as a continuation arm and adds a judge loop + termination guarantee. Exit codes: `0` satisfied · `3` escalated or still open (active/paused) · `1` bound-exceeded/abandoned or error.
+A bounds-less goal is rejected `422` when the host advertises `requiresBounds` — pass `--max-iterations`/`--max-cost`/`--timeout-ms`. The create body maps to the Goal entity shape (`completion.check` / `continuation.mode` / `bounds.{maxLoopIterations,runTimeoutMs,maxCostUsd}`). Capability-gated on `agents.goals`; fails closed (exit 1) when the surface isn't served. Boundary: a goal is **not** an RFC 0068 commitment — it *uses* a commitment/schedule/heartbeat as a continuation arm and adds a judge loop + termination guarantee. Exit codes: `0` satisfied · `3` escalated or still open (active/paused) · `1` bound-exceeded/abandoned or error.
 
 ### Agent-platform portability — `export` / `import` (RFC 0098)
 

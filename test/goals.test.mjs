@@ -43,7 +43,7 @@ describe('goals list', () => {
     const fetchImpl = host(async (url) => {
       assert.match(new URL(url).pathname, /\/v1\/host\/sample\/goals$/);
       return jsonResponse({ goals: [
-        { goalId: 'goal_1', state: 'active', judge: 'verifier', objective: 'Keep backlog under 20', progress: { iterations: 3 }, bounds: { maxIterations: 50 }, createdAt: '2026-06-13' },
+        { goalId: 'goal_1', state: 'active', completion: { check: 'verifier' }, objective: 'Keep backlog under 20', progress: { iterations: 3 }, bounds: { maxLoopIterations: 50 }, createdAt: '2026-06-13' },
       ] });
     });
     const code = await runCli(['goals', 'list'], opts(fetchImpl, cap));
@@ -90,19 +90,19 @@ describe('goals get exit codes mirror the judge verdict', () => {
 });
 
 describe('goals create', () => {
-  it('builds the body (objective/judge/continuation/bounds) and returns the created goal', async () => {
+  it('builds the entity body (completion.check / continuation.mode / bounds.*) and returns the created goal', async () => {
     const cap = capture();
     const fetchImpl = host(async (url, init) => {
       assert.equal(init.method, 'POST');
       const body = JSON.parse(init.body);
       assert.equal(body.objective, 'Keep backlog under 20');
-      assert.equal(body.judge, 'verifier');
-      assert.deepEqual(body.continuation, ['schedule']);
-      assert.deepEqual(body.bounds, { maxIterations: 50, maxCost: 5 });
-      return jsonResponse({ goalId: 'goal_9', state: 'active', judge: 'verifier' });
+      assert.deepEqual(body.completion, { check: 'verifier' });
+      assert.deepEqual(body.continuation, { mode: 'schedule' });
+      assert.deepEqual(body.bounds, { maxLoopIterations: 50, maxCostUsd: 5, runTimeoutMs: 600000 });
+      return jsonResponse({ goalId: 'goal_9', state: 'active', completion: { check: 'verifier' } });
     });
     const code = await runCli(
-      ['goals', 'create', '--objective', 'Keep backlog under 20', '--judge', 'verifier', '--continuation', 'schedule', '--max-iterations', '50', '--max-cost', '5'],
+      ['goals', 'create', '--objective', 'Keep backlog under 20', '--judge', 'verifier', '--continuation', 'schedule', '--max-iterations', '50', '--max-cost', '5', '--timeout-ms', '600000'],
       opts(fetchImpl, cap),
     );
     assert.equal(code, 3, cap.stderr); // freshly active → still-open bucket
