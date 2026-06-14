@@ -97,6 +97,8 @@ import { runAnalytics, ANALYTICS_HELP } from './cli/analytics.js';
 import { runProposals, PROPOSALS_HELP } from './cli/proposals.js';
 import { runGoals, GOALS_HELP } from './cli/goals.js';
 import { runExport, runImport, EXPORT_HELP, IMPORT_HELP } from './cli/portability.js';
+import { runTriggers, TRIGGERS_HELP } from './cli/triggers.js';
+import { runA2a, A2A_HELP } from './cli/a2a.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -269,6 +271,10 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runExport(ctx, commandArgs);
       case 'import':
         return await runImport(ctx, commandArgs);
+      case 'triggers':
+        return await runTriggers(ctx, commandArgs);
+      case 'a2a':
+        return await runA2a(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -359,6 +365,8 @@ function showHelp(io: any, command: any) {
     goals: GOALS_HELP,
     export: EXPORT_HELP,
     import: IMPORT_HELP,
+    triggers: TRIGGERS_HELP,
+    a2a: A2A_HELP,
   };
   write(io.stdout, map[command] ?? ROOT_HELP);
   return 0;
@@ -720,6 +728,8 @@ Commands:
   proposals list      Reviewable-learning proposals (RFC 0096): list/get/revise/apply/reject/archive
   goals list          Standing goals (RFC 0097): list/get/create/pause/resume/abandon — judge-based completion
   export / import     Agent-platform portability (RFC 0098): export a refs-only bundle; import --dry-run then apply
+  triggers register   External-event trigger subscriptions (RFC 0099): register/list/get a source→workflow binding
+  a2a task            Async/durable A2A tasks (RFC 0100): read a durable task's live state (+ a2a status)
 
 Examples:
   openwop onboard
