@@ -122,13 +122,11 @@ function exitForState(state: unknown): number {
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return; // can't prove absence — let the real request decide
-  const paths = wk.body && typeof wk.body === 'object' ? (wk.body as { paths?: unknown }).paths : undefined;
-  const advertised =
-    paths !== null && typeof paths === 'object' &&
-    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/sample/goals'));
+  const body = wk.body && typeof wk.body === 'object' ? (wk.body as any) : {};
+  const advertised = !!(body.capabilities?.agents?.goals ?? body.agents?.goals);
   if (!advertised) {
     throw new CliError(
-      'goals: this host does not advertise the standing-goals surface (/v1/host/sample/goals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
+      'goals: this host does not advertise the standing-goals capability (capabilities.agents.goals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
       1,
     );
   }

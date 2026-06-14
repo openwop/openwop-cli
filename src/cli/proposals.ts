@@ -120,21 +120,19 @@ function exitForState(state: unknown): number {
   return 1; // rejected / archived / anything unexpected
 }
 
-/** Capability honesty: confirm the host advertises the proposal surface before we
- *  drive it. A reachable discovery doc that omits it ⇒ fail closed. An
- *  unreachable/absent discovery doc is inconclusive (not a denial) — defer to the
- *  live call's 404 translation rather than blocking a host that simply doesn't
- *  serve /.well-known/openwop. */
+/** Capability honesty: confirm the host advertises `agents.proposals` (RFC 0096 /
+ *  host-sample-test-seams.md §11) before we drive it. A reachable discovery doc
+ *  that omits the flag ⇒ fail closed. An unreachable/absent discovery doc is
+ *  inconclusive (not a denial) — defer to the live call's 404 translation rather
+ *  than blocking a host that simply doesn't serve /.well-known/openwop. */
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return; // can't prove absence — let the real request decide
-  const paths = wk.body && typeof wk.body === 'object' ? (wk.body as { paths?: unknown }).paths : undefined;
-  const advertised =
-    paths !== null && typeof paths === 'object' &&
-    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/sample/proposals'));
+  const body = wk.body && typeof wk.body === 'object' ? (wk.body as any) : {};
+  const advertised = !!(body.capabilities?.agents?.proposals ?? body.agents?.proposals);
   if (!advertised) {
     throw new CliError(
-      'proposals: this host does not advertise the reviewable-learning proposal surface (/v1/host/sample/proposals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
+      'proposals: this host does not advertise the reviewable-learning proposal capability (capabilities.agents.proposals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
       1,
     );
   }
