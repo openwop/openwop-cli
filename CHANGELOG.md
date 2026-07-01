@@ -4,6 +4,13 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.15.0] — 2026-06-30 — Core groups (round 2): agent-allowlists, agent-packs, agent-ops
+
+### Added
+- **`agent-allowlists`** — super-admin per-agent tool-allowlist overrides (ADR 0104): `list`, `get`, `set --allowlist-json`, `clear` (--yes). Fails closed with exit 4 without super-admin.
+- **`agent-packs`** — the agent (persona) pack registry: `list`, `install --name core.openwop.agents.* [--version]`. Distinct from the node-pack `packs` registry.
+- **`agent-ops`** — demo/operations helpers: example-data `seed [--heal]`/`status`/`run [--step --dry-run]`/`clear` (--yes) + `roster-check`/`roster-activity`/`fleet-activity`.
+
 ## [0.14.0] — 2026-06-30 — Core groups (round 1): reviews, workspaces (tenancy), agent-profile
 
 ### Added
