@@ -12,16 +12,23 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 |---|---|
 | **Setup & health** | `onboard` · `doctor` · `demo` · `health` · `capabilities` · `config` · `completion` · `upgrade` |
 | **Run lifecycle** | `runs` · `chat` · `interrupts` · `workflows` · `catalog` · `media` |
-| **Agents & orchestration** | `agents` · `roster` · `org-chart` · `kanban` · `workforces` (`fleet`) |
+| **Agents & orchestration** | `agents` · `roster` · `org-chart` · `kanban` (`boards`) · `workforces` (`fleet`) · `agent-profile` · `agent-packs` · `agent-allowlists` · `agent-ops` · `evals` · `twin` · `reviews` |
 | **Governance & safety** | `approvals` · `governance` (`policy`) · `consent` · `toggles` |
-| **Identity & access** | `orgs` · `users` · `profiles` · `auth` (`sso`) |
+| **Identity & access** | `orgs` (`org`) · `workspaces` · `users` · `profiles` · `auth` (`sso`) |
 | **Extensibility & connections** | `packs` · `mcp` · `connections` (`conn`) · `providers` · `byok` |
 | **Memory & workspace** | `memory` · `workspace` · `prompts` |
 | **Automation & messaging** | `cron` · `webhooks` · `messaging` · `relay` · `notifications` · `notify` |
 | **Observability & admin** | `analytics` (`usage`) · `account` · `admin` · `brand` · `conformance` |
-| **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` |
+| **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` |
+| **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 
-> **Recent sprint (`[Unreleased]`, slated for `0.3.0`):** 11 new groups + a `cron enable/disable` extension surfaced the host's governance/safety, identity, extensibility, orchestration, and observability surfaces — `approvals`, `governance`, `consent`, `toggles`, `users`, `profiles`, `auth`, `mcp`, `connections`, `workforces`, `analytics`. See [`CHANGELOG.md`](./CHANGELOG.md) for the per-group detail.
+> **`0.18.x`:** the catalog now covers the full app feature surface — the agent
+> platform (`agent-profile`, `agent-packs`, `agent-allowlists`, `agent-ops`,
+> `evals`, `twin`, `reviews`), workspace tenancy (`workspaces`), and the product
+> surfaces (`strategy`, `advisors`, `campaigns-orchestration`, `notebooks`,
+> `podcasts`, `priority-matrix`) — alongside the protocol RFC surfaces (`a2a`,
+> `triggers`, `goals`, `proposals`, `export`/`import`). See [`CHANGELOG.md`](./CHANGELOG.md)
+> for the per-group detail.
 
 ## Install
 
