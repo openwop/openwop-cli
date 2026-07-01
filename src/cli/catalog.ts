@@ -8,11 +8,16 @@ import { requestJson } from '../api.js';
 export const CATALOG_HELP = `Usage:
   openwop catalog nodes [--search text] [--limit n] [--json]
   openwop catalog packs [--json]
+  openwop catalog tools [<toolId>] [--json]
+
+\`tools\` reads the portable tool catalog (RFC 0078 §B) — GET /v1/tools, or
+GET /v1/tools/<toolId> for one descriptor. This is the tools an agent/workflow
+may call, distinct from the node catalog + installed packs.
 `;
 
 export async function runCatalog(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'nodes';
-  const args = argv.slice(sub === 'nodes' || sub === 'packs' ? 1 : 0);
+  const args = argv.slice(sub === 'nodes' || sub === 'packs' || sub === 'tools' ? 1 : 0);
   if (sub === '--help' || sub === '-h') {
     write(ctx.io.stdout, CATALOG_HELP);
     return 0;
@@ -22,9 +27,27 @@ export async function runCatalog(ctx: Ctx, argv: string[]) {
       return runCatalogNodes(ctx, args);
     case 'packs':
       return runCatalogPacks(ctx, args);
+    case 'tools':
+      return runCatalogTools(ctx, args);
     default:
       throw new CliError(`Unknown catalog command: ${sub}`);
   }
+}
+
+/** GET /v1/tools (+ /v1/tools/{toolId}) — the portable tool catalog (RFC 0078 §B). */
+async function runCatalogTools(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help) { write(ctx.io.stdout, CATALOG_HELP); return 0; }
+  const path = positionals.length === 1 ? `/v1/tools/${encodeURIComponent(positionals[0])}` : '/v1/tools';
+  const res = await requestJson(ctx, path);
+  if (ctx.json || positionals.length === 1) { writeJson(ctx.io.stdout, res.body); return 0; }
+  const tools = Array.isArray(res.body?.tools) ? res.body.tools : Array.isArray(res.body) ? res.body : [];
+  if (tools.length === 0) { writeLine(ctx.io.stdout, 'No tools advertised.'); return 0; }
+  writeLine(ctx.io.stdout, formatTable(
+    tools.map((t: any) => ({ toolId: t.toolId ?? t.id ?? '', title: t.title ?? t.name ?? '', effect: t.dataEffect ?? t.effect ?? '' })),
+    ['toolId', 'title', 'effect'],
+  ));
+  return 0;
 }
 
 async function runCatalogNodes(ctx: Ctx, argv: string[]) {

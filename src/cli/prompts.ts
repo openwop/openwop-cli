@@ -10,9 +10,14 @@ export const PROMPTS_HELP = `Usage:
   openwop prompts list [--kind k] [--tag t] [--limit n] [--json]
   openwop prompts get <templateId> [--json]
   openwop prompts render <ref> [--variables-json '{...}'] [--json]
+  openwop prompts create --template-id <id> --version <v> --kind <k> --text <t> [--json]
+  openwop prompts update <templateId> [--version v] [--kind k] [--text t] [--json]
+  openwop prompts delete <templateId> [--yes]
 
-Browse + render the host's prompt library (RFC 0029, /v1/prompts). \`render\`
-resolves a PromptRef (templateId[@version]) against the supplied variables.
+Browse, render, and manage the host's prompt library (RFC 0029, /v1/prompts).
+\`render\` resolves a PromptRef (templateId[@version]) against the supplied
+variables. \`create\` posts a new PromptTemplate; \`update\` PUTs the fields you
+pass to an existing template; \`delete\` removes one.
 `;
 
 export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
@@ -51,6 +56,38 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
       }
       const res = await requestJson(ctx, '/v1/prompts:render', { method: 'POST', body: { ref: positionals[0], variables } });
       writeJson(ctx.io.stdout, res.body);
+      return 0;
+    }
+    case 'create': {
+      const { options } = parseOptions(rest, { value: ['--template-id', '--version', '--kind', '--text'] });
+      if (!options.templateId || !options.version || !options.kind || !options.text) {
+        write(ctx.io.stderr, 'Usage: openwop prompts create --template-id <id> --version <v> --kind <k> --text <t> [--json]\n');
+        return 2;
+      }
+      const body = { templateId: String(options.templateId), version: String(options.version), kind: String(options.kind), text: String(options.text) };
+      const res = await requestJson(ctx, '/v1/prompts', { method: 'POST', body });
+      if (ctx.json) writeJson(ctx.io.stdout, res.body);
+      else writeLine(ctx.io.stdout, `Created prompt ${body.templateId}@${body.version}`);
+      return 0;
+    }
+    case 'update': {
+      const { options, positionals } = parseOptions(rest, { value: ['--version', '--kind', '--text'] });
+      if (positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop prompts update <templateId> [--version v] [--kind k] [--text t] [--json]\n'); return 2; }
+      const body: Record<string, unknown> = {};
+      if (options.version) body.version = String(options.version);
+      if (options.kind) body.kind = String(options.kind);
+      if (options.text) body.text = String(options.text);
+      const res = await requestJson(ctx, `/v1/prompts/${encodeURIComponent(positionals[0])}`, { method: 'PUT', body });
+      if (ctx.json) writeJson(ctx.io.stdout, res.body);
+      else writeLine(ctx.io.stdout, `Updated prompt ${positionals[0]}`);
+      return 0;
+    }
+    case 'delete': {
+      const { options, positionals } = parseOptions(rest, { bool: ['--yes'] });
+      if (positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop prompts delete <templateId> [--yes]\n'); return 2; }
+      if (!options.yes) throw new CliError(`Refusing to delete prompt ${positionals[0]} without --yes.`, 2);
+      await requestJson(ctx, `/v1/prompts/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+      writeLine(ctx.io.stdout, `Deleted prompt ${positionals[0]}`);
       return 0;
     }
     default:

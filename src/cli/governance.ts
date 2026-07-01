@@ -16,6 +16,8 @@ export const GOVERNANCE_HELP = `Usage:
   openwop governance policy [get] [--json]
   openwop governance policy set [--provider-allowlist <a,b,...>] [--action <kind=policy>]... [--retention-graph-days <n>] [--retention-source-days <n>] [--json]
   openwop governance audit [--prefix <p>] [--limit <n>] [--since <iso>] [--json]
+  openwop governance media-budget [get] [--json]
+  openwop governance media-budget set [--tts-chars <n>] [--stt-bytes <n>] [--json]
 
 Tenant governance administration (ADR 0028, host extension — superadmin-gated).
 Endpoints under ${GOV_BASE}:
@@ -79,6 +81,8 @@ export async function runGovernance(ctx: Ctx, argv: string[]) {
       return await runGovernancePolicy(ctx, argv.slice(1));
     case 'audit':
       return await runGovernanceAudit(ctx, argv.slice(1));
+    case 'media-budget':
+      return await runGovernanceMediaBudget(ctx, argv.slice(1));
     // `get`/`set` at the top level are policy ops — lets the `policy` group alias
     // read naturally (`openwop policy set ...`) without a redundant `policy policy`.
     case 'get':
@@ -243,5 +247,30 @@ async function runGovernanceAudit(ctx: Ctx, argv: string[]) {
     outcome: r.outcome ?? '',
   }));
   writeLine(ctx.io.stdout, formatTable(rows, ['timestamp', 'principal', 'action', 'resource', 'outcome']));
+  return 0;
+}
+
+/** GET/PUT ${GOV_BASE}/media-budget (ADR 0106) — the media-generation budget
+ *  (TTS chars / STT bytes). `set` upserts the override; `get` shows the effective
+ *  budgets. The host stays the authority — the CLI only renders + relays. */
+async function runGovernanceMediaBudget(ctx: Ctx, argv: string[]) {
+  const action = argv[0] === 'set' ? 'set' : 'get';
+  const rest = argv[0] === 'get' || argv[0] === 'set' ? argv.slice(1) : argv;
+  const path = `${GOV_BASE}/media-budget`;
+  if (action === 'set') {
+    const { options } = parseOptions(rest, { value: ['--tts-chars', '--stt-bytes'] });
+    const body: Record<string, number> = {};
+    if (options.ttsChars !== undefined) body.ttsChars = Number(options.ttsChars);
+    if (options.sttBytes !== undefined) body.sttBytes = Number(options.sttBytes);
+    const res = await requestJson(ctx, path, { method: 'PUT', body });
+    if (ctx.json) writeJson(ctx.io.stdout, res.body);
+    else writeLine(ctx.io.stdout, 'Media budget updated.');
+    return 0;
+  }
+  const res = await requestJson(ctx, path);
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  const b = res.body ?? {};
+  writeLine(ctx.io.stdout, `override:  ${b.override ? JSON.stringify(b.override) : '(none — using host defaults)'}`);
+  writeLine(ctx.io.stdout, `effective: tts ${b.budgets?.ttsChars ?? '?'} chars/day, stt ${b.budgets?.sttBytes ?? '?'} bytes/day`);
   return 0;
 }
