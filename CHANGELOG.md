@@ -4,6 +4,13 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.17.0] — 2026-06-30 — Second-tier groups (round 2): strategy, advisors, campaigns-orchestration
+
+### Added
+- **`strategy`** — strategy documents: `list/get/create --org --title/update/delete` + `context`/`health`.
+- **`advisors`** — advisory boards: `list/get/by-handle/create --org --name/delete`.
+- **`campaigns-orchestration`** — orchestrated campaigns: `list/get/create/update/delete` + `finalize` (--yes).
+
 ## [0.16.0] — 2026-06-30 — Second-tier groups (round 1): evals, twin
 
 ### Added
