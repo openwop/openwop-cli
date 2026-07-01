@@ -62,6 +62,7 @@ import { runAgents, AGENTS_HELP } from './cli/agents.js';
 import { runRoster, ROSTER_HELP } from './cli/roster.js';
 import { runOrgChart, ORG_CHART_HELP } from './cli/orgChart.js';
 import { runKanban, KANBAN_HELP } from './cli/kanban.js';
+import { runBrand, BRAND_HELP } from './cli/brand.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -207,6 +208,8 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runOrgs(ctx, commandArgs);
       case 'workspace':
         return await runWorkspace(ctx, commandArgs);
+      case 'brand':
+        return await runBrand(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -322,6 +325,7 @@ function showHelp(io: any, command: any) {
     org: ORGS_HELP,
     workspace: WORKSPACE_HELP,
     byok: BYOK_HELP,
+    brand: BRAND_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -672,6 +676,8 @@ Commands:
   byok list           List BYOK credential refs (never values)
   byok set            Store a BYOK secret (prompts if --value omitted)
   byok delete         Remove a BYOK secret ref
+  brand public        Show the applied white-label app identity (ADR 0170/0171)
+  brand get|set       Read / edit the app brand + generative theme (super-admin)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription

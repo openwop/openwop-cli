@@ -4,6 +4,11 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.4.0] — 2026-06-30 — White-label app brand
+
+### Added
+- **`brand` command group (ADR 0170 / 0171 — runtime white-label app brand).** Drives the demo host's app-brand surface: `brand public` renders the applied identity every visitor sees (anonymous `GET /v1/host/openwop-app/public-brand`); `brand get` + `brand set` read/edit the reserved app brand (super-admin `GET/PUT /v1/host/openwop-app/app-brand`). `set` is **read-modify-write** — it fetches the current brand, layers the flags, and PUTs the merged result, so setting `--accent` won't wipe the logo. The `--accent`/`--neutral`/`--contrast`/`--radius`/`--default-mode` flags feed the ADR 0171 theme generator (a full, accessible light+dark theme derived from the seed — the accent kept exact, text shades solved for WCAG-AA); `--identity-json` replaces the whole identity facet (the editor's advanced JSON tier). Enum flags are validated client-side (exit 2, no wasted request); the super-admin gate on `get`/`set` fails closed with an actionable hint (exit 4) rather than a bare `403`. `--json` on every read.
+
 ## [0.3.0] — 2026-06-14 — Agent-platform groups + trigger bridge + A2A tasks
 
 ### Added
