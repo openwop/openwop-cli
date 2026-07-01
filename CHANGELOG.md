@@ -4,6 +4,12 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.11.0] — 2026-06-30 — Flagship product groups (round 4): chat-widget, marketplace
+
+### Added
+- **`chat-widget` command group** — embeddable chat widgets (org-scoped): `list`, `get`, `create`, `update`, `delete` (--yes), `rotate-token`.
+- **`marketplace` command group** — the pack marketplace: `listings`, `install --pack --version`, and org-scoped `reviews`/`review --rating`/`unreview`. Distinct from the signed node-pack `packs` registry.
+
 ## [0.10.0] — 2026-06-30 — Flagship product groups (round 3): forms, email
 
 ### Added

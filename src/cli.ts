@@ -69,6 +69,8 @@ import { runComments, COMMENTS_HELP } from './cli/comments.js';
 import { runSharing, SHARING_HELP } from './cli/sharing.js';
 import { runForms, FORMS_HELP } from './cli/forms.js';
 import { runEmail, EMAIL_HELP } from './cli/email.js';
+import { runChatWidget, CHAT_WIDGET_HELP } from './cli/chatWidget.js';
+import { runMarketplace, MARKETPLACE_HELP } from './cli/marketplace.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -237,6 +239,10 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runForms(ctx, commandArgs);
       case 'email':
         return await runEmail(ctx, commandArgs);
+      case 'chat-widget':
+        return await runChatWidget(ctx, commandArgs);
+      case 'marketplace':
+        return await runMarketplace(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -362,6 +368,8 @@ const HELP_MAP: Record<string, string> = {
     sharing: SHARING_HELP,
     forms: FORMS_HELP,
     email: EMAIL_HELP,
+    'chat-widget': CHAT_WIDGET_HELP,
+    marketplace: MARKETPLACE_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -740,6 +748,8 @@ Commands:
   sharing list        Shareable resource links (--org; +create/revoke/resolve)
   forms list          Form builder + intake (--org; +create/update/status/submissions)
   email templates     Email templates + campaigns (--org; create/send/sends)
+  chat-widget list    Embeddable chat widgets (--org; +create/rotate-token)
+  marketplace listings  Browse/install packs + reviews (install; review --org)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription
