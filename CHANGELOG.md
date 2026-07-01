@@ -4,6 +4,12 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.16.0] — 2026-06-30 — Second-tier groups (round 1): evals, twin
+
+### Added
+- **`evals` command group** — model evals (org-scoped): `leaderboard`, `rating`, `match --model-a --model-b --winner` (records an arena head-to-head).
+- **`twin` command group** — agent digital-twin config + grants: `get`/`set --scopes`/`clear <agentId>` + `grants`/`grant --agent --scopes`/`revoke <agentId>`.
+
 ## [0.15.0] — 2026-06-30 — Core groups (round 2): agent-allowlists, agent-packs, agent-ops
 
 ### Added

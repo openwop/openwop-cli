@@ -81,6 +81,8 @@ import { runAgentProfile, AGENT_PROFILE_HELP } from './cli/agentProfile.js';
 import { runAgentAllowlists, AGENT_ALLOWLISTS_HELP } from './cli/agentAllowlists.js';
 import { runAgentPacks, AGENT_PACKS_HELP } from './cli/agentPacks.js';
 import { runAgentOps, AGENT_OPS_HELP } from './cli/agentOps.js';
+import { runEvals, EVALS_HELP } from './cli/evals.js';
+import { runTwin, TWIN_HELP } from './cli/twin.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -273,6 +275,10 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runAgentPacks(ctx, commandArgs);
       case 'agent-ops':
         return await runAgentOps(ctx, commandArgs);
+      case 'evals':
+        return await runEvals(ctx, commandArgs);
+      case 'twin':
+        return await runTwin(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -410,6 +416,8 @@ const HELP_MAP: Record<string, string> = {
     'agent-allowlists': AGENT_ALLOWLISTS_HELP,
     'agent-packs': AGENT_PACKS_HELP,
     'agent-ops': AGENT_OPS_HELP,
+    evals: EVALS_HELP,
+    twin: TWIN_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -800,6 +808,8 @@ Commands:
   agent-allowlists    Super-admin per-agent tool allowlists (list/get/set/clear)
   agent-packs list    Agent (persona) pack registry (install)
   agent-ops status    Demo example-data + roster/fleet activity (seed/run/clear)
+  evals leaderboard   Model eval leaderboard + arena (--org; match)
+  twin get            Agent digital-twin config + grants (set/grant/revoke)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription
