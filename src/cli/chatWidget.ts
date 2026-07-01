@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 const base = (org: string) => `/v1/host/sample/chat-widget/orgs/${encodeURIComponent(org)}/widgets`;
 
@@ -19,10 +20,6 @@ Embeddable chat widgets (host-extension, org-scoped). Each widget carries an emb
 token; \`rotate-token\` invalidates the old one. Every command needs --org.
 `;
 
-function requireOrg(org: unknown): string {
-  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
-  return String(org);
-}
 
 export async function runChatWidget(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';

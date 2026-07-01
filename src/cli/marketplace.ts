@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 const MP = '/v1/host/sample/marketplace';
 const reviews = (org: string, pack: string) => `${MP}/orgs/${encodeURIComponent(org)}/listings/${encodeURIComponent(pack)}/reviews`;
@@ -20,10 +21,6 @@ packs; \`reviews\`/\`review\`/\`unreview\` are org-scoped (need --org). Distinct
 signed node-pack \`packs\` registry. The host is the authority; the CLI mirrors + relays.
 `;
 
-function requireOrg(org: unknown): string {
-  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
-  return String(org);
-}
 
 export async function runMarketplace(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'listings';

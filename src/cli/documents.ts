@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 const base = (org: string) => `/v1/host/sample/documents/orgs/${encodeURIComponent(org)}`;
 
@@ -25,10 +26,6 @@ title/kind/format and versioned content; \`render\` produces its output; templat
 drive assembly. Every command needs --org. The host is the authority; the CLI relays.
 `;
 
-function requireOrg(org: unknown): string {
-  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
-  return String(org);
-}
 
 export async function runDocuments(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';

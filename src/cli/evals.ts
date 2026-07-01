@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 const base = (org: string) => `/v1/host/sample/evals/orgs/${encodeURIComponent(org)}`;
 
@@ -15,10 +16,6 @@ export const EVALS_HELP = `Usage:
 Model evals (host-extension, org-scoped). \`leaderboard\`/\`rating\` read the standings;
 \`match\` records an arena head-to-head outcome. Every command needs --org.`;
 
-function requireOrg(org: unknown): string {
-  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
-  return String(org);
-}
 
 export async function runEvals(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'leaderboard';

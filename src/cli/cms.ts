@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 const pages = (org: string) => `/v1/host/sample/cms/orgs/${encodeURIComponent(org)}/pages`;
 const LIFECYCLE = ['submit', 'approve', 'reject', 'publish', 'unpublish', 'archive'];
@@ -23,10 +24,6 @@ moves draft → submit → approve → publish; \`versions\` lists its history. 
 needs --org. The host is the authority; the CLI mirrors + relays.
 `;
 
-function requireOrg(org: unknown): string {
-  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
-  return String(org);
-}
 
 export async function runCms(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'pages';

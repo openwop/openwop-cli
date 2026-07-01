@@ -10,7 +10,7 @@ const BASE = '/v1/host/sample/notebooks';
 export const NOTEBOOKS_HELP = `Usage:
   openwop notebooks list [--json]
   openwop notebooks get <notebookId> [--json]
-  openwop notebooks create --org <orgId> --title <t> [--json]
+  openwop notebooks create --org <orgId> --name <n> [--json]
   openwop notebooks delete <notebookId> [--yes]
   openwop notebooks notes <notebookId> [--json]
 
@@ -21,7 +21,7 @@ export async function runNotebooks(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, NOTEBOOKS_HELP); return 0; }
   const args = argv.slice(['list', 'get', 'create', 'delete', 'notes'].includes(sub) ? 1 : 0);
-  const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--org', '--title'] });
+  const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--org', '--name'] });
   if (options.help) { write(ctx.io.stdout, NOTEBOOKS_HELP); return 0; }
   const id = positionals[0];
   switch (sub) {
@@ -35,9 +35,9 @@ export async function runNotebooks(ctx: Ctx, argv: string[]) {
     case 'get': { if (!id) { write(ctx.io.stderr, 'Usage: openwop notebooks get <notebookId>\n'); return 2; } writeJson(ctx.io.stdout, (await requestJson(ctx, `${BASE}/${encodeURIComponent(id)}`)).body); return 0; }
     case 'notes': { if (!id) { write(ctx.io.stderr, 'Usage: openwop notebooks notes <notebookId>\n'); return 2; } writeJson(ctx.io.stdout, (await requestJson(ctx, `${BASE}/${encodeURIComponent(id)}/notes`)).body); return 0; }
     case 'create': {
-      if (!options.org || !options.title) { write(ctx.io.stderr, 'notebooks create needs --org and --title.\n'); return 2; }
-      const res = await requestJson(ctx, BASE, { method: 'POST', body: { orgId: String(options.org), title: String(options.title) } });
-      if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Created notebook ${res.body?.id ?? ''} (${String(options.title)}).`); return 0;
+      if (!options.org || !options.name) { write(ctx.io.stderr, 'notebooks create needs --org and --name.\n'); return 2; }
+      const res = await requestJson(ctx, BASE, { method: 'POST', body: { orgId: String(options.org), name: String(options.name) } });
+      if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Created notebook ${res.body?.id ?? ''} (${String(options.name)}).`); return 0;
     }
     case 'delete': {
       if (!id) { write(ctx.io.stderr, 'Usage: openwop notebooks delete <notebookId> [--yes]\n'); return 2; }

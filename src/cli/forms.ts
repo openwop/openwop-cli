@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 const base = (org: string) => `/v1/host/sample/forms/orgs/${encodeURIComponent(org)}/forms`;
 
@@ -21,10 +22,6 @@ A form has a title + fields[]; \`status\` publishes/closes it; \`submissions\` r
 the collected responses. The host is the authority; the CLI mirrors + relays.
 `;
 
-function requireOrg(org: unknown): string {
-  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
-  return String(org);
-}
 function parseFields(raw: unknown): unknown {
   if (raw === undefined) return undefined;
   try { return JSON.parse(String(raw)); } catch { throw new CliError('--fields-json must be valid JSON.', 2); }
