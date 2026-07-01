@@ -19,7 +19,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Memory & workspace** | `memory` · `workspace` · `prompts` |
 | **Automation & messaging** | `cron` · `webhooks` · `messaging` · `relay` · `notifications` · `notify` |
 | **Observability & admin** | `analytics` (`usage`) · `account` · `admin` · `brand` · `conformance` |
-| **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` |
+| **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` |
 
 > **Recent sprint (`[Unreleased]`, slated for `0.3.0`):** 11 new groups + a `cron enable/disable` extension surfaced the host's governance/safety, identity, extensibility, orchestration, and observability surfaces — `approvals`, `governance`, `consent`, `toggles`, `users`, `profiles`, `auth`, `mcp`, `connections`, `workforces`, `analytics`. See [`CHANGELOG.md`](./CHANGELOG.md) for the per-group detail.
 
