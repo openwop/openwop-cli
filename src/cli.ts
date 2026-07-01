@@ -90,6 +90,8 @@ import { runConsent, CONSENT_HELP } from './cli/consent.js';
 import { runMcp, MCP_HELP } from './cli/mcp.js';
 import { runConnections, CONNECTIONS_HELP } from './cli/connections.js';
 import { runProfiles, PROFILES_HELP } from './cli/profiles.js';
+import { runCompletion, COMPLETION_HELP } from './cli/completion.js';
+import { runUpgrade, UPGRADE_HELP } from './cli/upgrade.js';
 import { runToggles, TOGGLES_HELP } from './cli/toggles.js';
 import { runUsers, USERS_HELP } from './cli/users.js';
 import { runWorkforces, WORKFORCES_HELP } from './cli/workforces.js';
@@ -123,13 +125,20 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
     }
 
     const parsed = extractGlobalOptions(argv, env);
+    // Resolve the active profile + load its saved config so `onboard`'s host/key
+    // become the defaults (precedence: flag > env > saved config > built-in default).
+    const profile = parsed.globals.profile ?? env.OPENWOP_PROFILE;
+    const savedConfig = readConfigSafe(configPathFor(profile, env)) ?? {};
     const ctx = {
       cwd,
       env,
       io,
       fetchImpl,
-      baseUrl: normalizeBaseUrl(parsed.globals.baseUrl ?? env.OPENWOP_BASE_URL ?? DEFAULT_BASE_URL),
-      apiKey: parsed.globals.apiKey ?? env.OPENWOP_API_KEY,
+      profile,
+      baseUrl: normalizeBaseUrl(
+        parsed.globals.baseUrl ?? env.OPENWOP_BASE_URL ?? savedConfig?.host?.baseUrl ?? DEFAULT_BASE_URL,
+      ),
+      apiKey: parsed.globals.apiKey ?? env.OPENWOP_API_KEY ?? savedConfig?.host?.apiKey,
       json: parsed.globals.json,
       quiet: parsed.globals.quiet,
       verbose: parsed.globals.verbose,
@@ -278,6 +287,10 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runTriggers(ctx, commandArgs);
       case 'a2a':
         return await runA2a(ctx, commandArgs);
+      case 'completion':
+        return runCompletion(ctx, commandArgs, COMMAND_NAMES);
+      case 'upgrade':
+        return await runUpgrade(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -300,8 +313,7 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
   }
 }
 
-function showHelp(io: any, command: any) {
-  const map: Record<string, string> = {
+const HELP_MAP: Record<string, string> = {
     demo: DEMO_HELP,
     runs: RUNS_HELP,
     run: RUNS_HELP,
@@ -357,6 +369,8 @@ function showHelp(io: any, command: any) {
     connections: CONNECTIONS_HELP,
     conn: CONNECTIONS_HELP,
     profiles: PROFILES_HELP,
+    completion: COMPLETION_HELP,
+    upgrade: UPGRADE_HELP,
     toggles: TOGGLES_HELP,
     users: USERS_HELP,
     workforces: WORKFORCES_HELP,
@@ -371,8 +385,14 @@ function showHelp(io: any, command: any) {
     import: IMPORT_HELP,
     triggers: TRIGGERS_HELP,
     a2a: A2A_HELP,
-  };
-  write(io.stdout, map[command] ?? ROOT_HELP);
+};
+
+/** All top-level command names + aliases — the single drift-free source for the
+ *  help index and shell completion. */
+export const COMMAND_NAMES: string[] = Object.keys(HELP_MAP);
+
+function showHelp(io: any, command: any) {
+  write(io.stdout, HELP_MAP[command] ?? ROOT_HELP);
   return 0;
 }
 
@@ -604,13 +624,23 @@ Usage:
   openwop [global options] <command> [options]
 
 Global options:
-  --base-url <url>    Host base URL (default: OPENWOP_BASE_URL or http://localhost:8080)
-  --api-key <key>     Bearer API key (default: OPENWOP_API_KEY, or sample-token for localhost)
+  --base-url <url>    Host base URL (default: --base-url > OPENWOP_BASE_URL > saved config > http://localhost:8080)
+  --api-key <key>     Bearer API key (default: OPENWOP_API_KEY > saved config > sample-token for localhost)
+  --profile <name>    Use a named config profile (~/.openwop-<name>); also OPENWOP_PROFILE
   --json              Print machine-readable JSON where supported
   --quiet             Suppress non-essential output
   --verbose           Print extra diagnostics
   --version           Print CLI version
   --help, -h          Show help
+
+Exit codes:
+  0  success (a read succeeded; a run/goal completed; a check passed)
+  1  runtime/host error (HTTP >=500, unreachable host, an operation failed)
+  2  usage error (bad flags/args) or a client/host 4xx (e.g. not found, validation)
+  3  attention needed — a non-failure "open" state: a run escalated/paused, a
+     proposal is pending, a goal is still open (set by run/goal/proposal/approval-style
+     commands so scripts can branch on 0 vs 3 vs 1)
+  4  auth/permission denied (e.g. a super-admin surface without a super-admin principal)
 
 Commands:
   onboard             Guided first-run setup (host + provider + model + BYOK key)
@@ -620,6 +650,8 @@ Commands:
   providers test      Verify the credential ref is reachable
   config file         Print the local config file path
   config get|set|unset  Read or modify ~/.openwop/config.json
+  completion <shell>  Emit a bash/zsh/fish completion script
+  upgrade             Check npm for a newer @openwop/cli
   doctor              Check local prerequisites and demo reachability
   demo status         Inspect the workflow-engine demo app
   demo start          Start the demo backend and frontend (--detach to background)

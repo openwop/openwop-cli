@@ -14,6 +14,8 @@ export interface Ctx {
   fetchImpl: typeof fetch;
   baseUrl: string;
   apiKey?: string | undefined;
+  /** Active config profile (`--profile` / OPENWOP_PROFILE); undefined = the default profile. */
+  profile?: string | undefined;
   json: boolean;
   quiet?: boolean;
   verbose?: boolean;

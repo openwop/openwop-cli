@@ -10,7 +10,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 
 | Area | Groups |
 |---|---|
-| **Setup & health** | `onboard` · `doctor` · `demo` · `health` · `capabilities` · `config` |
+| **Setup & health** | `onboard` · `doctor` · `demo` · `health` · `capabilities` · `config` · `completion` · `upgrade` |
 | **Run lifecycle** | `runs` · `chat` · `interrupts` · `workflows` · `catalog` · `media` |
 | **Agents & orchestration** | `agents` · `roster` · `org-chart` · `kanban` · `workforces` (`fleet`) |
 | **Governance & safety** | `approvals` · `governance` (`policy`) · `consent` · `toggles` |
@@ -436,8 +436,10 @@ openwop config unset credentialRef
 
 ## Defaults
 
-- Host URL: `OPENWOP_BASE_URL` or `http://localhost:8080`. Flag (`--base-url`) wins over env; env wins over default.
-- OpenWOP host bearer (NOT the LLM provider key): `OPENWOP_API_KEY`, or `sample-token` for localhost demo URLs. Pass via global `--api-key` if you need to override.
+- Host URL: `--base-url` > `OPENWOP_BASE_URL` > **saved config** (`onboard`'s `~/.openwop/config.json`) > `http://localhost:8080`. After `onboard`, everyday commands use the saved host with no flag.
+- Profiles: `--profile <name>` (or `OPENWOP_PROFILE`) selects `~/.openwop-<name>/config.json`, so you can keep prod/staging/local hosts side by side.
+- OpenWOP host bearer (NOT the LLM provider key): `--api-key` > `OPENWOP_API_KEY` > saved config > `sample-token` for localhost demo URLs.
+- Shell completion: `openwop completion <bash|zsh|fish>`. Update check: `openwop upgrade`.
 - LLM provider key: `--provider-key <key>` or `--api-key-env <VAR>` on `onboard` / `providers add` (not stored locally).
 - Frontend URL: `http://localhost:5173`.
 

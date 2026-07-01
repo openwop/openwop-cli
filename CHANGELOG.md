@@ -4,6 +4,15 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.5.0] — 2026-06-30 — Craft foundation (config defaults, profiles, completion, upgrade)
+
+### Added
+- **The CLI now reads its saved config for defaults.** After `onboard`, everyday commands use the saved host (and bearer) with no flag — resolution is `--base-url` > `OPENWOP_BASE_URL` > saved `~/.openwop/config.json` > the built-in default (previously the saved config was written but never read).
+- **`--profile <name>` global flag (+ `OPENWOP_PROFILE`).** Selects `~/.openwop-<name>/config.json`, so prod/staging/local hosts live side by side; usable on every command (was previously only honored by `onboard`).
+- **`openwop completion <bash|zsh|fish>`** — emit a shell-completion script for the top-level commands, generated from the dispatcher's command+alias table (never drifts).
+- **`openwop upgrade`** — check npm for a newer `@openwop/cli` and print how to update (`--json` for machine output; report-only, never auto-installs).
+- **A normative Exit-codes table in `openwop --help`** — `0` success · `1` runtime/host error · `2` usage/4xx · `3` attention-needed (escalated/pending/open) · `4` auth/permission denied — so scripts can branch consistently.
+
 ## [0.4.0] — 2026-06-30 — White-label app brand
 
 ### Added
