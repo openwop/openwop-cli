@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 const base = (org: string) => `/v1/host/sample/kb/orgs/${encodeURIComponent(org)}`;
 const cols = (org: string) => `${base(org)}/collections`;
@@ -15,7 +16,7 @@ export const KB_HELP = `Usage:
   openwop kb collections delete <collectionId> --org <orgId> [--yes]
   openwop kb docs list <collectionId> --org <orgId> [--json]
   openwop kb docs get <collectionId> <documentId> --org <orgId> [--json]
-  openwop kb docs add <collectionId> --org <orgId> --title <t> --content <text> [--json]
+  openwop kb docs add <collectionId> --org <orgId> --title <t> --text <text> [--json]
   openwop kb docs delete <collectionId> <documentId> --org <orgId> [--yes]
   openwop kb search <collectionId> --org <orgId> --query <q> [--top-k <n>] [--json]
   openwop kb rag <collectionId> --org <orgId> --query <q> [--top-k <n>] [--json]
@@ -25,10 +26,6 @@ retrieval and \`rag\` a retrieve-then-generate query. Every command needs --org.
 is the authority; the CLI mirrors + relays.
 `;
 
-function requireOrg(org: unknown): string {
-  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
-  return String(org);
-}
 
 export async function runKb(ctx: Ctx, argv: string[]) {
   const group = argv[0] ?? 'collections';
@@ -81,7 +78,7 @@ async function kbCollections(ctx: Ctx, argv: string[]) {
 async function kbDocs(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   const args = argv.slice(['list', 'get', 'add', 'delete'].includes(sub) ? 1 : 0);
-  const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--org', '--title', '--content'] });
+  const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--org', '--title', '--text'] });
   if (options.help) { write(ctx.io.stdout, KB_HELP); return 0; }
   const org = requireOrg(options.org);
   const collectionId = positionals[0];
@@ -101,8 +98,8 @@ async function kbDocs(ctx: Ctx, argv: string[]) {
       const res = await requestJson(ctx, `${docsUrl}/${encodeURIComponent(positionals[1])}`); writeJson(ctx.io.stdout, res.body); return 0;
     }
     case 'add': {
-      if (!options.title || !options.content) { write(ctx.io.stderr, 'kb docs add needs --title and --content.\n'); return 2; }
-      const res = await requestJson(ctx, docsUrl, { method: 'POST', body: { title: String(options.title), content: String(options.content) } });
+      if (!options.title || !options.text) { write(ctx.io.stderr, 'kb docs add needs --title and --text.\n'); return 2; }
+      const res = await requestJson(ctx, docsUrl, { method: 'POST', body: { title: String(options.title), text: String(options.text) } });
       if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Added document ${res.body?.id ?? ''} to ${collectionId}.`);
       return 0;
     }

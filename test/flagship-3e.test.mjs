@@ -11,6 +11,9 @@ describe('kb group',()=>{
   it('search POSTs query+topK to /{id}/search',async()=>{let seen;const cap=capture();
     await runCli(['kb','search','k1','--org','o1','--query','hello','--top-k','3'],base(cap,async(u,i)=>{seen={path:new URL(u).pathname,body:JSON.parse(i.body)};return json({results:[]});}));
     assert.match(seen.path,/\/collections\/k1\/search$/);assert.deepEqual(seen.body,{query:'hello',topK:3});});
+  it('docs add POSTs title+text (wire field is text, not content)',async()=>{let seen;const cap=capture();
+    await runCli(['kb','docs','add','k1','--org','o1','--title','Doc','--text','hello world'],base(cap,async(u,i)=>{seen={path:new URL(u).pathname,body:JSON.parse(i.body)};return json({id:'d1'});}));
+    assert.match(seen.path,/\/collections\/k1\/documents$/);assert.deepEqual(seen.body,{title:'Doc',text:'hello world'});});
 });
 describe('cms group',()=>{
   it('pages create POSTs title+slug',async()=>{let seen;const cap=capture();

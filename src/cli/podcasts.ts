@@ -10,7 +10,7 @@ const EP = '/v1/host/sample/podcasts/episodes';
 export const PODCASTS_HELP = `Usage:
   openwop podcasts list [--json]
   openwop podcasts get <episodeId> [--json]
-  openwop podcasts create --title <t> [--json]
+  openwop podcasts create --org <orgId> --notebook <notebookId> --episode-profile <profileId> [--title <t>] [--json]
   openwop podcasts delete <episodeId> [--yes]
   openwop podcasts retry <episodeId> [--json]
 
@@ -21,7 +21,7 @@ export async function runPodcasts(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, PODCASTS_HELP); return 0; }
   const args = argv.slice(['list', 'get', 'create', 'delete', 'retry'].includes(sub) ? 1 : 0);
-  const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--title'] });
+  const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--title', '--org', '--notebook', '--episode-profile'] });
   if (options.help) { write(ctx.io.stdout, PODCASTS_HELP); return 0; }
   const id = positionals[0];
   switch (sub) {
@@ -34,9 +34,11 @@ export async function runPodcasts(ctx: Ctx, argv: string[]) {
     }
     case 'get': { if (!id) { write(ctx.io.stderr, 'Usage: openwop podcasts get <episodeId>\n'); return 2; } writeJson(ctx.io.stdout, (await requestJson(ctx, `${EP}/${encodeURIComponent(id)}`)).body); return 0; }
     case 'create': {
-      if (!options.title) { write(ctx.io.stderr, 'podcasts create needs --title.\n'); return 2; }
-      const res = await requestJson(ctx, EP, { method: 'POST', body: { title: String(options.title) } });
-      if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Created episode ${res.body?.id ?? ''} (${String(options.title)}).`); return 0;
+      if (!options.org || !options.notebook || !options.episodeProfile) { write(ctx.io.stderr, 'podcasts create needs --org, --notebook, and --episode-profile.\n'); return 2; }
+      const body: Record<string, string> = { orgId: String(options.org), notebookId: String(options.notebook), episodeProfileId: String(options.episodeProfile) };
+      if (options.title) body.title = String(options.title);
+      const res = await requestJson(ctx, EP, { method: 'POST', body });
+      if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Created episode ${res.body?.id ?? ''}.`); return 0;
     }
     case 'delete': {
       if (!id) { write(ctx.io.stderr, 'Usage: openwop podcasts delete <episodeId> [--yes]\n'); return 2; }

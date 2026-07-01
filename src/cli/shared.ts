@@ -8,6 +8,13 @@ import { formatTable } from '../io.js';
 import { DEFAULT_BASE_URL, DEFAULT_API_KEY } from '../constants.js';
 
 /** Build a run `inputs` object from --inputs-json (merged first) + --input k=v pairs. */
+/** Resolve the required org for an org-scoped command; throws a legible usage error
+ *  (exit 2) when --org is absent. Shared so every org-scoped group gates identically. */
+export function requireOrg(org: unknown): string {
+  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
+  return String(org);
+}
+
 export function buildInputs(options: any) {
   const fromJson = options.inputsJson ? JSON.parse(options.inputsJson) : {};
   if (fromJson === null || typeof fromJson !== 'object' || Array.isArray(fromJson)) {

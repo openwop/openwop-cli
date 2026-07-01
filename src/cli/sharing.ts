@@ -4,6 +4,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 const links = (org: string) => `/v1/host/sample/sharing/orgs/${encodeURIComponent(org)}/links`;
 
@@ -18,10 +19,6 @@ are org-scoped (need --org, RBAC-gated). \`resolve\` reads a public /shared/<tok
 link WITHOUT auth — the unguessable token IS the credential.
 `;
 
-function requireOrg(org: unknown): string {
-  if (!org) throw new CliError('This command is org-scoped — pass --org <orgId>.', 2);
-  return String(org);
-}
 
 export async function runSharing(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
