@@ -12,11 +12,18 @@ export const WORKFLOWS_HELP = `Usage:
   openwop workflows get <workflowId> [--json]
   openwop workflows register <workflow.json> [--json]
   openwop workflows delete <workflowId> [--json]
+  openwop workflows chains [--json]
+  openwop workflows from-chain <chainId> [--params-json '{...}'] [--json]
+  openwop workflows chain-pack-install --name <pack> [--version <v>] [--json]
+
+\`chains\` lists the host's workflow-chain templates (ADR 0163 / RFC 0013);
+\`from-chain\` expands one into a registered workflow you can run; \`chain-pack-install\`
+installs a signed workflow-chain pack.
 `;
 
 export async function runWorkflows(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
-  const args = argv.slice(['list', 'get', 'register', 'delete', 'rm'].includes(sub) ? 1 : 0);
+  const args = argv.slice(['list', 'get', 'register', 'delete', 'rm', 'chains', 'from-chain', 'chain-pack-install'].includes(sub) ? 1 : 0);
   if (sub === '--help' || sub === '-h') {
     write(ctx.io.stdout, WORKFLOWS_HELP);
     return 0;
@@ -31,9 +38,57 @@ export async function runWorkflows(ctx: Ctx, argv: string[]) {
     case 'delete':
     case 'rm':
       return runWorkflowsDelete(ctx, args);
+    case 'chains':
+      return runWorkflowsChains(ctx, args);
+    case 'from-chain':
+      return runWorkflowsFromChain(ctx, args);
+    case 'chain-pack-install':
+      return runWorkflowsChainPackInstall(ctx, args);
     default:
       throw new CliError(`Unknown workflows command: ${sub}`);
   }
+}
+
+/** GET /v1/host/sample/workflow-chains — the host's workflow-chain templates. */
+async function runWorkflowsChains(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help) { write(ctx.io.stdout, WORKFLOWS_HELP); return 0; }
+  const res = await requestJson(ctx, '/v1/host/sample/workflow-chains');
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  const chains = Array.isArray(res.body?.chains) ? res.body.chains : [];
+  if (chains.length === 0) { writeLine(ctx.io.stdout, 'No workflow chains.'); return 0; }
+  writeLine(ctx.io.stdout, formatTable(
+    chains.map((c: any) => ({ chainId: c.chainId ?? '', name: c.name ?? '', steps: Array.isArray(c.steps) ? c.steps.length : (c.stepCount ?? '') })),
+    ['chainId', 'name', 'steps'],
+  ));
+  return 0;
+}
+
+/** POST /v1/host/sample/workflows/from-chain — expand a chain into a registered workflow. */
+async function runWorkflowsFromChain(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { value: ['--chain', '--params-json'] });
+  const chainId = options.chain ?? positionals[0];
+  if (!chainId) { write(ctx.io.stderr, "Usage: openwop workflows from-chain <chainId> [--params-json '{...}'] [--json]\n"); return 2; }
+  let params: unknown = {};
+  if (options.paramsJson) {
+    try { params = JSON.parse(String(options.paramsJson)); } catch { throw new CliError('--params-json must be valid JSON.', 2); }
+  }
+  const res = await requestJson(ctx, '/v1/host/sample/workflows/from-chain', { method: 'POST', body: { chainId, params } });
+  if (ctx.json) writeJson(ctx.io.stdout, res.body);
+  else writeLine(ctx.io.stdout, `Registered workflow ${res.body?.workflowId ?? ''} from chain ${chainId}.`);
+  return 0;
+}
+
+/** POST /v1/host/sample/workflow-chain-packs/install — install a signed chain pack. */
+async function runWorkflowsChainPackInstall(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { value: ['--name', '--version'] });
+  if (!options.name) { write(ctx.io.stderr, 'Usage: openwop workflows chain-pack-install --name <pack> [--version <v>] [--json]\n'); return 2; }
+  const body: Record<string, unknown> = { name: String(options.name) };
+  if (options.version) body.version = String(options.version);
+  const res = await requestJson(ctx, '/v1/host/sample/workflow-chain-packs/install', { method: 'POST', body });
+  if (ctx.json) writeJson(ctx.io.stdout, res.body);
+  else writeLine(ctx.io.stdout, `Installed workflow-chain pack ${options.name}.`);
+  return 0;
 }
 
 async function runWorkflowsList(ctx: Ctx, argv: string[]) {
