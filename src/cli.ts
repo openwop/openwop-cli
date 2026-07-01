@@ -83,6 +83,9 @@ import { runAgentPacks, AGENT_PACKS_HELP } from './cli/agentPacks.js';
 import { runAgentOps, AGENT_OPS_HELP } from './cli/agentOps.js';
 import { runEvals, EVALS_HELP } from './cli/evals.js';
 import { runTwin, TWIN_HELP } from './cli/twin.js';
+import { runStrategy, STRATEGY_HELP } from './cli/strategy.js';
+import { runAdvisors, ADVISORS_HELP } from './cli/advisoryBoard.js';
+import { runCampaignsOrch, CAMPAIGNS_ORCH_HELP } from './cli/campaignOrchestration.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -279,6 +282,12 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runEvals(ctx, commandArgs);
       case 'twin':
         return await runTwin(ctx, commandArgs);
+      case 'strategy':
+        return await runStrategy(ctx, commandArgs);
+      case 'advisors':
+        return await runAdvisors(ctx, commandArgs);
+      case 'campaigns-orchestration':
+        return await runCampaignsOrch(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -418,6 +427,9 @@ const HELP_MAP: Record<string, string> = {
     'agent-ops': AGENT_OPS_HELP,
     evals: EVALS_HELP,
     twin: TWIN_HELP,
+    strategy: STRATEGY_HELP,
+    advisors: ADVISORS_HELP,
+    'campaigns-orchestration': CAMPAIGNS_ORCH_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -810,6 +822,9 @@ Commands:
   agent-ops status    Demo example-data + roster/fleet activity (seed/run/clear)
   evals leaderboard   Model eval leaderboard + arena (--org; match)
   twin get            Agent digital-twin config + grants (set/grant/revoke)
+  strategy list       Strategy documents (create --org; context/health)
+  advisors list       Advisory boards (create --org; by-handle)
+  campaigns-orchestration  Orchestrated campaigns (create/finalize)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription
