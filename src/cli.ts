@@ -73,6 +73,8 @@ import { runChatWidget, CHAT_WIDGET_HELP } from './cli/chatWidget.js';
 import { runMarketplace, MARKETPLACE_HELP } from './cli/marketplace.js';
 import { runKb, KB_HELP } from './cli/kb.js';
 import { runCms, CMS_HELP } from './cli/cms.js';
+import { runDocuments, DOCUMENTS_HELP } from './cli/documents.js';
+import { runProjects, PROJECTS_HELP } from './cli/projects.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -249,6 +251,10 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runKb(ctx, commandArgs);
       case 'cms':
         return await runCms(ctx, commandArgs);
+      case 'documents':
+        return await runDocuments(ctx, commandArgs);
+      case 'projects':
+        return await runProjects(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -378,6 +384,8 @@ const HELP_MAP: Record<string, string> = {
     marketplace: MARKETPLACE_HELP,
     kb: KB_HELP,
     cms: CMS_HELP,
+    documents: DOCUMENTS_HELP,
+    projects: PROJECTS_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -760,6 +768,8 @@ Commands:
   marketplace listings  Browse/install packs + reviews (install; review --org)
   kb collections      Knowledge base (--org; collections/docs/search/rag)
   cms pages           CMS pages + authoring lifecycle (--org; submit/approve/publish)
+  documents list      Document generation + templates (--org; versions/render)
+  projects list       Project workspaces (create --org; +members)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription

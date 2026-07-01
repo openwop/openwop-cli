@@ -4,6 +4,14 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.13.0] — 2026-06-30 — Flagship product groups (round 6): documents, projects
+
+### Added
+- **`documents` command group** — document generation + templates (org-scoped): `list/get/create/update/delete`, `versions`, `render`, and `documents templates {list,get,create,delete}`.
+- **`projects` command group** — project workspaces: `list/get/create --org --name/update/delete` + `projects members {list,add --ref,remove}`.
+
+This completes the flagship product groups (crm, csm, comments, sharing, forms, email, chat-widget, marketplace, kb, cms, documents, projects).
+
 ## [0.12.0] — 2026-06-30 — Flagship product groups (round 5): kb, cms
 
 ### Added
