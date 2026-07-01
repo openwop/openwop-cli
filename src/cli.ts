@@ -383,6 +383,11 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         : '';
       writeLine(io.stderr, `openwop: HTTP ${err.status}${bodyMessage}`);
       if (options.debugErrors) writeLine(io.stderr, String(err.stack ?? err));
+      // Exit-code convention: 4 = auth/permission denied. A group that wants a
+      // finer-grained code (fail-closed 1, legible 2, a specific hint) catches the
+      // HttpError itself before it reaches here; this is only the default for an
+      // otherwise-unhandled auth failure.
+      if (err.status === 401 || err.status === 403) return 4;
       return err.status >= 500 ? 1 : 2;
     }
     writeLine(io.stderr, `openwop: ${err instanceof Error ? err.message : String(err)}`);
