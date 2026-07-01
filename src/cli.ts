@@ -78,6 +78,9 @@ import { runProjects, PROJECTS_HELP } from './cli/projects.js';
 import { runReviews, REVIEWS_HELP } from './cli/reviews.js';
 import { runWorkspaces, WORKSPACES_HELP } from './cli/workspacesTenancy.js';
 import { runAgentProfile, AGENT_PROFILE_HELP } from './cli/agentProfile.js';
+import { runAgentAllowlists, AGENT_ALLOWLISTS_HELP } from './cli/agentAllowlists.js';
+import { runAgentPacks, AGENT_PACKS_HELP } from './cli/agentPacks.js';
+import { runAgentOps, AGENT_OPS_HELP } from './cli/agentOps.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -264,6 +267,12 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runWorkspaces(ctx, commandArgs);
       case 'agent-profile':
         return await runAgentProfile(ctx, commandArgs);
+      case 'agent-allowlists':
+        return await runAgentAllowlists(ctx, commandArgs);
+      case 'agent-packs':
+        return await runAgentPacks(ctx, commandArgs);
+      case 'agent-ops':
+        return await runAgentOps(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -398,6 +407,9 @@ const HELP_MAP: Record<string, string> = {
     reviews: REVIEWS_HELP,
     workspaces: WORKSPACES_HELP,
     'agent-profile': AGENT_PROFILE_HELP,
+    'agent-allowlists': AGENT_ALLOWLISTS_HELP,
+    'agent-packs': AGENT_PACKS_HELP,
+    'agent-ops': AGENT_OPS_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -785,6 +797,9 @@ Commands:
   reviews list        The unified review inbox (get; action <id> <action>)
   workspaces list     Your B2B workspaces / tenants (create/switch; vs the file 'workspace')
   agent-profile get   Rich agent profile + connector readiness (set/readiness)
+  agent-allowlists    Super-admin per-agent tool allowlists (list/get/set/clear)
+  agent-packs list    Agent (persona) pack registry (install)
+  agent-ops status    Demo example-data + roster/fleet activity (seed/run/clear)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription
