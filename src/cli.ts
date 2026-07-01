@@ -63,6 +63,8 @@ import { runRoster, ROSTER_HELP } from './cli/roster.js';
 import { runOrgChart, ORG_CHART_HELP } from './cli/orgChart.js';
 import { runKanban, KANBAN_HELP } from './cli/kanban.js';
 import { runBrand, BRAND_HELP } from './cli/brand.js';
+import { runCrm, CRM_HELP } from './cli/crm.js';
+import { runCsm, CSM_HELP } from './cli/csm.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -219,6 +221,10 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runWorkspace(ctx, commandArgs);
       case 'brand':
         return await runBrand(ctx, commandArgs);
+      case 'crm':
+        return await runCrm(ctx, commandArgs);
+      case 'csm':
+        return await runCsm(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -338,6 +344,8 @@ const HELP_MAP: Record<string, string> = {
     workspace: WORKSPACE_HELP,
     byok: BYOK_HELP,
     brand: BRAND_HELP,
+    crm: CRM_HELP,
+    csm: CSM_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -710,6 +718,8 @@ Commands:
   byok delete         Remove a BYOK secret ref
   brand public        Show the applied white-label app identity (ADR 0170/0171)
   brand get|set       Read / edit the app brand + generative theme (super-admin)
+  crm list|create     Manage CRM contacts (+ get/update/delete/triage)
+  csm list|create     Manage Customer-Success accounts (+ get/update/delete)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription

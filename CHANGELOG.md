@@ -4,6 +4,12 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.8.0] — 2026-06-30 — Flagship product groups (round 1): crm, csm
+
+### Added
+- **`crm` command group** — CRM contacts (host-extension /v1/host/sample/crm/contacts): `list [--stage]`, `get`, `create --name [--email --company --stage]`, `update`, `delete` (--yes), `triage` (runs the host triage workflow over a contact). Feature-gated — a tenant without CRM enabled fails closed legibly.
+- **`csm` command group** — Customer-Success accounts (…/csm/accounts): `list`, `get`, `create --name [--health-score]`, `update`, `delete` (--yes).
+
 ## [0.7.0] — 2026-06-30 — Partial-group completions, round 2
 
 ### Added
