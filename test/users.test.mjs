@@ -177,7 +177,7 @@ describe('users me', () => {
     assert.match(cap.stdout, /displayName: Ada L\./);
   });
 
-  it('surfaces a disabled account legibly (403 → exit 2)', async () => {
+  it('surfaces a disabled account legibly (403 → exit 2, group self-handles)', async () => {
     const cap = capture();
     const fetchImpl = async () => jsonResponse({ message: 'This account is disabled.' }, 403);
     const code = await runCli(['users', 'me'], opts(fetchImpl, cap));

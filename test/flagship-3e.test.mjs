@@ -14,6 +14,12 @@ describe('kb group',()=>{
   it('docs add POSTs title+text (wire field is text, not content)',async()=>{let seen;const cap=capture();
     await runCli(['kb','docs','add','k1','--org','o1','--title','Doc','--text','hello world'],base(cap,async(u,i)=>{seen={path:new URL(u).pathname,body:JSON.parse(i.body)};return json({id:'d1'});}));
     assert.match(seen.path,/\/collections\/k1\/documents$/);assert.deepEqual(seen.body,{title:'Doc',text:'hello world'});});
+  it('an unhandled 401 maps to exit 4 (central auth default, not 2)',async()=>{const cap=capture();
+    const code=await runCli(['kb','docs','list','k1','--org','o1'],base(cap,async()=>json({message:'Sign in to access your account.'},401)));
+    assert.equal(code,4);});
+  it('an unhandled 403 maps to exit 4 (central auth default, not 2)',async()=>{const cap=capture();
+    const code=await runCli(['kb','docs','list','k1','--org','o1'],base(cap,async()=>json({message:'forbidden'},403)));
+    assert.equal(code,4);});
 });
 describe('cms group',()=>{
   it('pages create POSTs title+slug',async()=>{let seen;const cap=capture();
