@@ -4,6 +4,12 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.9.0] — 2026-06-30 — Flagship product groups (round 2): comments, sharing
+
+### Added
+- **`comments` command group** — threaded collaboration comments on a `(resourceType, resourceId)` target (org-scoped, ADR 0021): `list --org --resource-type --resource-id`, `create [--parent]`, `update`, `delete` (--yes). Every command needs `--org`.
+- **`sharing` command group** — shareable resource links (ADR 0013): `list`/`create`/`revoke` (org-scoped, --org) + `resolve <token>` (reads a PUBLIC `/shared/<token>` link without auth).
+
 ## [0.8.0] — 2026-06-30 — Flagship product groups (round 1): crm, csm
 
 ### Added
