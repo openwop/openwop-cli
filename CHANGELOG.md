@@ -4,6 +4,12 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.10.0] — 2026-06-30 — Flagship product groups (round 3): forms, email
+
+### Added
+- **`forms` command group** — form builder + intake (org-scoped): `list`, `get`, `create --title [--fields-json]`, `update`, `status --status <draft|published|closed>`, `delete` (--yes), `submissions`.
+- **`email` command group** — outbound email (org-scoped), two sub-resources: `email templates {list,get,create,update,delete}` (name/subject/body) and `email campaigns {list,get,create,delete,send,sends}`. `campaigns send` requires `--yes` (it dispatches real email).
+
 ## [0.9.0] — 2026-06-30 — Flagship product groups (round 2): comments, sharing
 
 ### Added

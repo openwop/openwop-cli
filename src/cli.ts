@@ -67,6 +67,8 @@ import { runCrm, CRM_HELP } from './cli/crm.js';
 import { runCsm, CSM_HELP } from './cli/csm.js';
 import { runComments, COMMENTS_HELP } from './cli/comments.js';
 import { runSharing, SHARING_HELP } from './cli/sharing.js';
+import { runForms, FORMS_HELP } from './cli/forms.js';
+import { runEmail, EMAIL_HELP } from './cli/email.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -231,6 +233,10 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runComments(ctx, commandArgs);
       case 'sharing':
         return await runSharing(ctx, commandArgs);
+      case 'forms':
+        return await runForms(ctx, commandArgs);
+      case 'email':
+        return await runEmail(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -354,6 +360,8 @@ const HELP_MAP: Record<string, string> = {
     csm: CSM_HELP,
     comments: COMMENTS_HELP,
     sharing: SHARING_HELP,
+    forms: FORMS_HELP,
+    email: EMAIL_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -730,6 +738,8 @@ Commands:
   csm list|create     Manage Customer-Success accounts (+ get/update/delete)
   comments list       Threaded comments on a resource (--org; +create/update/delete)
   sharing list        Shareable resource links (--org; +create/revoke/resolve)
+  forms list          Form builder + intake (--org; +create/update/status/submissions)
+  email templates     Email templates + campaigns (--org; create/send/sends)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription
