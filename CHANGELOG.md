@@ -4,6 +4,15 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.18.0] — 2026-06-30 — Second-tier groups (round 3): notebooks, podcasts, priority-matrix
+
+### Added
+- **`notebooks`** — NotebookLM-style notebooks: `list/get/create --org --title/delete` + `notes`.
+- **`podcasts`** — podcast episodes: `list/get/create --title/delete/retry`.
+- **`priority-matrix`** — prioritization boards: `lists/get/create --org --name/delete` + `ideas <listId>`.
+
+This completes the full-featured CLI program (from v0.3.0): the craft foundation, every partial-group completion, all flagship product groups, and the core + second-tier groups.
+
 ## [0.17.0] — 2026-06-30 — Second-tier groups (round 2): strategy, advisors, campaigns-orchestration
 
 ### Added

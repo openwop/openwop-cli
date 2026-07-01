@@ -86,6 +86,9 @@ import { runTwin, TWIN_HELP } from './cli/twin.js';
 import { runStrategy, STRATEGY_HELP } from './cli/strategy.js';
 import { runAdvisors, ADVISORS_HELP } from './cli/advisoryBoard.js';
 import { runCampaignsOrch, CAMPAIGNS_ORCH_HELP } from './cli/campaignOrchestration.js';
+import { runNotebooks, NOTEBOOKS_HELP } from './cli/notebooks.js';
+import { runPodcasts, PODCASTS_HELP } from './cli/podcasts.js';
+import { runPriorityMatrix, PRIORITY_MATRIX_HELP } from './cli/priorityMatrix.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -288,6 +291,12 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runAdvisors(ctx, commandArgs);
       case 'campaigns-orchestration':
         return await runCampaignsOrch(ctx, commandArgs);
+      case 'notebooks':
+        return await runNotebooks(ctx, commandArgs);
+      case 'podcasts':
+        return await runPodcasts(ctx, commandArgs);
+      case 'priority-matrix':
+        return await runPriorityMatrix(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -430,6 +439,9 @@ const HELP_MAP: Record<string, string> = {
     strategy: STRATEGY_HELP,
     advisors: ADVISORS_HELP,
     'campaigns-orchestration': CAMPAIGNS_ORCH_HELP,
+    notebooks: NOTEBOOKS_HELP,
+    podcasts: PODCASTS_HELP,
+    'priority-matrix': PRIORITY_MATRIX_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -825,6 +837,9 @@ Commands:
   strategy list       Strategy documents (create --org; context/health)
   advisors list       Advisory boards (create --org; by-handle)
   campaigns-orchestration  Orchestrated campaigns (create/finalize)
+  notebooks list      NotebookLM-style notebooks (create --org; notes)
+  podcasts list       Podcast episodes (create/retry)
+  priority-matrix lists  Prioritization boards (create --org; ideas)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription
