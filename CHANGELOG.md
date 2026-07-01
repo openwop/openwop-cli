@@ -4,6 +4,12 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.12.0] — 2026-06-30 — Flagship product groups (round 5): kb, cms
+
+### Added
+- **`kb` command group** — knowledge base (org-scoped): `kb collections {list,get,create,delete}`, `kb docs {list,get,add,delete} <collectionId>`, `kb search <collectionId> --query [--top-k]`, `kb rag <collectionId> --query [--top-k]`.
+- **`cms` command group** — CMS pages + authoring lifecycle (org-scoped, ADR 0027): `cms pages {list,get,by-slug,create,update,delete,versions}` + lifecycle verbs `cms {submit,approve,reject,publish,unpublish,archive} <pageId>`.
+
 ## [0.11.0] — 2026-06-30 — Flagship product groups (round 4): chat-widget, marketplace
 
 ### Added
