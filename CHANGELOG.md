@@ -4,6 +4,15 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.6.0] — 2026-06-30 — Partial-group completions (round out existing groups)
+
+### Added
+- **`runs`**: **`fork`** (POST /v1/runs/{id}:fork — replay/branch from a sequence), **`diff`** (GET /v1/runs/{id}:diff?against — structured RFC 0054 diff), **`delete`** (DELETE /v1/runs/{id}, `--yes`-guarded), **`bulk-cancel`** (POST /v1/runs:bulk-cancel over many run ids).
+- **`prompts`**: **`create`** (POST /v1/prompts), **`update`** (PUT /v1/prompts/{id}), **`delete`** (DELETE, `--yes`) — the library was read+render only.
+- **`byok ai-default`** get/set/clear (GET/PUT/DELETE /v1/host/sample/byok/ai-default) — the headless AI-default credential binding (ADR 0110).
+- **`governance media-budget`** get/set (GET/PUT …/governance/media-budget) — the media-generation budget (TTS chars / STT bytes, ADR 0106).
+- **`catalog tools`** (GET /v1/tools [+ /{toolId}]) — the portable tool catalog (RFC 0078 §B), distinct from the node catalog + installed packs.
+
 ## [0.5.0] — 2026-06-30 — Craft foundation (config defaults, profiles, completion, upgrade)
 
 ### Added

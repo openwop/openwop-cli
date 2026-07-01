@@ -19,6 +19,10 @@ export const RUNS_HELP = `Usage:
   openwop runs annotations <runId> [--json]
   openwop runs annotate <runId> (--rating 1-5 | --label t | --correction t | --flag) [--note t] [--event-id id] [--node-id id]
   openwop runs debug-bundle <runId> [--max-events n] [--out file] [--json]
+  openwop runs fork <runId> [--mode replay|branch] [--from-sequence n] [--json]
+  openwop runs diff <runId> --against <otherRunId> [--json]
+  openwop runs delete <runId> [--yes]
+  openwop runs bulk-cancel <runId...> [--reason text] [--json]
 
 \`runs events\` polls GET /v1/runs/{runId}/events/poll (JSON, not SSE); --since N
 returns events with sequence > N. \`runs annotate\` posts a review signal
@@ -44,7 +48,7 @@ Input parsing for \`runs create\`:
 
 export async function runRuns(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
-  const args = argv.slice(['list', 'create', 'get', 'cancel', 'ancestry', 'events', 'annotations', 'annotate', 'debug-bundle'].includes(sub) ? 1 : 0);
+  const args = argv.slice(['list', 'create', 'get', 'cancel', 'ancestry', 'events', 'annotations', 'annotate', 'debug-bundle', 'fork', 'diff', 'delete', 'bulk-cancel'].includes(sub) ? 1 : 0);
   if (sub === '--help' || sub === '-h') {
     write(ctx.io.stdout, RUNS_HELP);
     return 0;
@@ -68,6 +72,14 @@ export async function runRuns(ctx: Ctx, argv: string[]) {
       return runRunsAnnotate(ctx, args);
     case 'debug-bundle':
       return runRunsDebugBundle(ctx, args);
+    case 'fork':
+      return runRunsFork(ctx, args);
+    case 'diff':
+      return runRunsDiff(ctx, args);
+    case 'delete':
+      return runRunsDelete(ctx, args);
+    case 'bulk-cancel':
+      return runRunsBulkCancel(ctx, args);
     default:
       throw new CliError(`Unknown runs command: ${sub}`);
   }
@@ -162,6 +174,65 @@ async function runRunsCancel(ctx: Ctx, argv: string[]) {
   const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/cancel`, { method: 'POST', body });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Cancelled ${positionals[0]}`);
+  return 0;
+}
+
+/** POST /v1/runs/{id}:fork — replay/branch a run from a sequence (RFC 0054). */
+async function runRunsFork(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--mode', '--from-sequence'] });
+  if (options.help || positionals.length !== 1) {
+    write(ctx.io.stdout, 'Usage: openwop runs fork <runId> [--mode replay|branch] [--from-sequence n] [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  const body: Record<string, unknown> = {};
+  if (options.mode) body.mode = String(options.mode);
+  if (options.fromSequence !== undefined) body.fromSeq = Number(options.fromSequence);
+  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}:fork`, { method: 'POST', body });
+  if (ctx.json) writeJson(ctx.io.stdout, res.body);
+  else writeLine(ctx.io.stdout, `Forked ${positionals[0]} → ${res.body?.runId ?? '(see --json)'}`);
+  return 0;
+}
+
+/** GET /v1/runs/{id}:diff?against={other} — a deterministic structured diff (RFC 0054). */
+async function runRunsDiff(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--against'] });
+  if (options.help || positionals.length !== 1 || !options.against) {
+    write(ctx.io.stdout, 'Usage: openwop runs diff <runId> --against <otherRunId> [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  const res = await requestJson(
+    ctx,
+    `/v1/runs/${encodeURIComponent(positionals[0])}:diff?against=${encodeURIComponent(String(options.against))}`,
+  );
+  writeJson(ctx.io.stdout, res.body); // a diff is inherently structured
+  return 0;
+}
+
+/** DELETE /v1/runs/{id} — remove a run + its event log (guarded). */
+async function runRunsDelete(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'] });
+  if (options.help || positionals.length !== 1) {
+    write(ctx.io.stdout, 'Usage: openwop runs delete <runId> [--yes]\n');
+    return options.help ? 0 : 2;
+  }
+  if (!options.yes) throw new CliError(`Refusing to delete run ${positionals[0]} without --yes (this removes the run and its event log).`, 2);
+  await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  writeLine(ctx.io.stdout, `Deleted ${positionals[0]}`);
+  return 0;
+}
+
+/** POST /v1/runs:bulk-cancel — cancel many runs in one call. */
+async function runRunsBulkCancel(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--reason'] });
+  if (options.help || positionals.length === 0) {
+    write(ctx.io.stdout, 'Usage: openwop runs bulk-cancel <runId...> [--reason text] [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  const body: Record<string, unknown> = { runIds: positionals };
+  if (options.reason) body.reason = options.reason;
+  const res = await requestJson(ctx, '/v1/runs:bulk-cancel', { method: 'POST', body });
+  if (ctx.json) writeJson(ctx.io.stdout, res.body);
+  else writeLine(ctx.io.stdout, `Requested cancel of ${positionals.length} run(s)`);
   return 0;
 }
 
