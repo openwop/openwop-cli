@@ -27,6 +27,8 @@ export const TRIGGERS_HELP = `Usage:
   openwop triggers register --source <webhook|email|form> --workflow <id> [--dedup] [--verification <mode>] [--json]
   openwop triggers list [--state <s>] [--source <s>] [--json]
   openwop triggers get <subscriptionId> [--json]
+  openwop triggers update <subscriptionId> --state <active|paused> [--json]
+  openwop triggers ingest <subscriptionId> [--event-json '{...}'] [--json]
 
 External-event trigger subscriptions (RFC 0099). A subscription binds an external
 SOURCE (webhook / email / form) to a WORKFLOW the caller can start; a verified
@@ -66,7 +68,7 @@ Examples:
   openwop triggers get sub_123 --json
 `;
 
-const SUBCOMMANDS = ['register', 'list', 'get'];
+const SUBCOMMANDS = ['register', 'list', 'get', 'update', 'ingest'];
 
 export async function runTriggers(ctx: Ctx, argv: string[]): Promise<number> {
   const sub = argv[0] ?? 'list';
@@ -82,9 +84,43 @@ export async function runTriggers(ctx: Ctx, argv: string[]): Promise<number> {
       return await runList(ctx, args);
     case 'get':
       return await runGet(ctx, args);
+    case 'update':
+      return await runTriggersUpdate(ctx, args);
+    case 'ingest':
+      return await runTriggersIngest(ctx, args);
     default:
       throw new CliError(`Unknown triggers command: ${sub}\nRun \`openwop triggers --help\` for usage.`);
   }
+}
+
+/** PATCH /v1/trigger-subscriptions/{id} — transition a subscription's state (RFC 0099). */
+async function runTriggersUpdate(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { value: ['--state'] });
+  if (positionals.length !== 1 || !options.state) {
+    write(ctx.io.stderr, 'Usage: openwop triggers update <subscriptionId> --state <active|paused> [--json]\n');
+    return 2;
+  }
+  const res = await requestJson(ctx, `/v1/trigger-subscriptions/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body: { state: options.state } });
+  if (ctx.json) writeJson(ctx.io.stdout, res.body);
+  else writeLine(ctx.io.stdout, `Updated ${positionals[0]} → state ${options.state}.`);
+  return 0;
+}
+
+/** POST /v1/trigger-subscriptions/{id}/ingest — simulate an inbound external event (RFC 0099 §F). */
+async function runTriggersIngest(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { value: ['--event-json'] });
+  if (positionals.length !== 1) {
+    write(ctx.io.stderr, "Usage: openwop triggers ingest <subscriptionId> [--event-json '{...}'] [--json]\n");
+    return 2;
+  }
+  let event: unknown = {};
+  if (options.eventJson) {
+    try { event = JSON.parse(String(options.eventJson)); } catch { throw new CliError('--event-json must be valid JSON.', 2); }
+  }
+  const res = await requestJson(ctx, `/v1/trigger-subscriptions/${encodeURIComponent(positionals[0])}/ingest`, { method: 'POST', body: event });
+  if (ctx.json) writeJson(ctx.io.stdout, res.body);
+  else writeLine(ctx.io.stdout, `Ingested event for ${positionals[0]}.`);
+  return 0;
 }
 
 /** 0 active · 3 paused · 1 failed / dead-lettered / unknown — the subscription's

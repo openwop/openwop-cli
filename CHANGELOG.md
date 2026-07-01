@@ -4,6 +4,13 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.7.0] — 2026-06-30 — Partial-group completions, round 2
+
+### Added
+- **`kanban`**: **`card-assign`** (POST …/cards/{id}/assign), **`card-claim`** (POST …/cards/{id}/claim, ADR 0049 D4), **`boards-personal`** (GET …/kanban/boards/personal), **`assigned`** (GET …/kanban/assigned — cards assigned to you).
+- **`workflows`**: **`chains`** (GET …/workflow-chains), **`from-chain`** (POST …/workflows/from-chain — expand a chain into a registered workflow), **`chain-pack-install`** (POST …/workflow-chain-packs/install) — ADR 0163 / RFC 0013.
+- **`triggers`**: **`update`** (PATCH /v1/trigger-subscriptions/{id} — state transition), **`ingest`** (POST …/{id}/ingest — simulate an inbound external event, RFC 0099 §F).
+
 ## [0.6.0] — 2026-06-30 — Partial-group completions (round out existing groups)
 
 ### Added
