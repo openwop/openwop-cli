@@ -5,6 +5,7 @@ import { CliError } from './errors.js';
 export interface GlobalOptions {
   baseUrl: string | undefined;
   apiKey: string | undefined;
+  profile: string | undefined;
   json: boolean;
   quiet: boolean;
   verbose: boolean;
@@ -17,6 +18,7 @@ export function extractGlobalOptions(argv: string[], env = process.env): { globa
   const globals: GlobalOptions = {
     baseUrl: undefined,
     apiKey: undefined,
+    profile: undefined,
     json: false,
     quiet: false,
     verbose: false,
@@ -36,6 +38,10 @@ export function extractGlobalOptions(argv: string[], env = process.env): { globa
     }
     if (flag === '--api-key') {
       globals.apiKey = value ?? takeValue(argv, ++i, '--api-key');
+      continue;
+    }
+    if (flag === '--profile') {
+      globals.profile = value ?? takeValue(argv, ++i, '--profile');
       continue;
     }
     if (arg === '--json') { globals.json = true; continue; }
