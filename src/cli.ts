@@ -75,6 +75,9 @@ import { runKb, KB_HELP } from './cli/kb.js';
 import { runCms, CMS_HELP } from './cli/cms.js';
 import { runDocuments, DOCUMENTS_HELP } from './cli/documents.js';
 import { runProjects, PROJECTS_HELP } from './cli/projects.js';
+import { runReviews, REVIEWS_HELP } from './cli/reviews.js';
+import { runWorkspaces, WORKSPACES_HELP } from './cli/workspacesTenancy.js';
+import { runAgentProfile, AGENT_PROFILE_HELP } from './cli/agentProfile.js';
 import { runOrgs, ORGS_HELP } from './cli/accessControl.js';
 import { runWorkspace, WORKSPACE_HELP } from './cli/workspace.js';
 import { runByok, BYOK_HELP } from './cli/byok.js';
@@ -255,6 +258,12 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runDocuments(ctx, commandArgs);
       case 'projects':
         return await runProjects(ctx, commandArgs);
+      case 'reviews':
+        return await runReviews(ctx, commandArgs);
+      case 'workspaces':
+        return await runWorkspaces(ctx, commandArgs);
+      case 'agent-profile':
+        return await runAgentProfile(ctx, commandArgs);
       case 'byok':
         return await runByok(ctx, commandArgs);
       case 'config':
@@ -386,6 +395,9 @@ const HELP_MAP: Record<string, string> = {
     cms: CMS_HELP,
     documents: DOCUMENTS_HELP,
     projects: PROJECTS_HELP,
+    reviews: REVIEWS_HELP,
+    workspaces: WORKSPACES_HELP,
+    'agent-profile': AGENT_PROFILE_HELP,
     config: CONFIG_HELP,
     doctor: DOCTOR_HELP,
     health: HEALTH_HELP,
@@ -770,6 +782,9 @@ Commands:
   cms pages           CMS pages + authoring lifecycle (--org; submit/approve/publish)
   documents list      Document generation + templates (--org; versions/render)
   projects list       Project workspaces (create --org; +members)
+  reviews list        The unified review inbox (get; action <id> <action>)
+  workspaces list     Your B2B workspaces / tenants (create/switch; vs the file 'workspace')
+  agent-profile get   Rich agent profile + connector readiness (set/readiness)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
   webhooks remove     Delete a webhook subscription

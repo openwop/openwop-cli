@@ -4,6 +4,13 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [0.14.0] — 2026-06-30 — Core groups (round 1): reviews, workspaces (tenancy), agent-profile
+
+### Added
+- **`reviews` command group** — the unified review inbox (ADR 0068 / RFC 0070): `list [--status]`, `get` (exit 0 resolved / 3 pending / 1 rejected), `action <reviewId> <action> [--note]`.
+- **`workspaces` command group** — B2B workspace-as-tenant (ADR 0015): `list`, `create --name`, `switch <id>`. Distinct from the existing `workspace` (singular) file store.
+- **`agent-profile` command group** — rich agent profile + connector readiness (ADR 0031): `get`, `set --profile-json`, `readiness`.
+
 ## [0.13.0] — 2026-06-30 — Flagship product groups (round 6): documents, projects
 
 ### Added
