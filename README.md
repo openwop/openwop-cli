@@ -18,7 +18,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Extensibility & connections** | `packs` · `mcp` · `connections` (`conn`) · `providers` · `byok` |
 | **Memory & workspace** | `memory` · `workspace` · `prompts` |
 | **Automation & messaging** | `cron` · `webhooks` · `messaging` · `relay` · `notifications` · `notify` |
-| **Observability & admin** | `analytics` (`usage`) · `account` · `admin` · `conformance` |
+| **Observability & admin** | `analytics` (`usage`) · `account` · `admin` · `brand` · `conformance` |
 
 > **Recent sprint (`[Unreleased]`, slated for `0.3.0`):** 11 new groups + a `cron enable/disable` extension surfaced the host's governance/safety, identity, extensibility, orchestration, and observability surfaces — `approvals`, `governance`, `consent`, `toggles`, `users`, `profiles`, `auth`, `mcp`, `connections`, `workforces`, `analytics`. See [`CHANGELOG.md`](./CHANGELOG.md) for the per-group detail.
 
@@ -190,6 +190,8 @@ openwop workspace put notes/todo.md --content "- ship it"
 openwop byok list                             # BYOK credential refs (never values)
 openwop byok set --ref anthropic-prod         # prompts for the secret (no shell history)
 openwop agents create --persona "Triage bot" --model-class fast   # user-defined agent CRUD
+openwop brand public                          # the applied white-label identity (anonymous)
+openwop brand set --accent 'oklch(58% 0.13 250)' --product-name 'Acme Ops'   # generative theme (super-admin)
 ```
 
 Destructive commands (`roster delete`, `kanban board-delete`/`card-delete`, `orgs … delete`, `workspace delete`, `byok delete`, `agents delete`) require an explicit `--yes`.
