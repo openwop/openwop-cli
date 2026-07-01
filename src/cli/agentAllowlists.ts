@@ -1,9 +1,9 @@
 import type { Ctx } from '../context.js';
 /** `openwop agent-allowlists ...` — super-admin per-agent tool-allowlist overrides (ADR 0104). */
-import { CliError } from '../errors.js';
+import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
-import { requestJson, safeRequest } from '../api.js';
+import { requestJson } from '../api.js';
 
 const BASE = '/v1/host/sample/agent-allowlists/admin/agents';
 
@@ -17,10 +17,14 @@ Super-admin per-agent tool-allowlist overrides (ADR 0104). \`set\` PUTs the over
 (an array of tool ids); \`clear\` removes it. Requires super-admin (OPENWOP_SUPERADMIN_TENANTS).`;
 
 async function req(ctx: Ctx, path: string, opts: Parameters<typeof requestJson>[2], action: string) {
-  const res = await safeRequest(ctx, path, opts);
-  if (res.status === 401 || res.status === 403) throw new CliError(`${action} requires super-admin on this host (OPENWOP_SUPERADMIN_TENANTS).`, 4);
-  if (res.status < 200 || res.status >= 300) throw new CliError(`${action} failed (HTTP ${res.status}).`, res.status < 500 ? 2 : 1);
-  return res;
+  try {
+    return await requestJson(ctx, path, opts);
+  } catch (err) {
+    if (err instanceof HttpError && (err.status === 401 || err.status === 403)) {
+      throw new CliError(`${action} requires super-admin on this host (OPENWOP_SUPERADMIN_TENANTS).`, 4);
+    }
+    throw err;
+  }
 }
 
 export async function runAgentAllowlists(ctx: Ctx, argv: string[]) {
