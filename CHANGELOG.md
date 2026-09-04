@@ -4,6 +4,14 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line (currently `0.x`).
 
+## [Unreleased]
+
+### Added
+- `openwop doctor` — a `protocol` row: reads `/.well-known/openwop` `protocolVersions` and fails with "host is v2-only — this CLI is v1-only" when no `1.x` entry is advertised (silent when the host does not advertise the list).
+
+### Changed
+- README: recorded the steward's v2-era decision — the CLI is **frozen v1-only** (speaks the v1 wire directly, no SDK coupling), EOL = v1 end-of-support; a v2 CLI is a separate proposal. Demo-app pointer updated to `openwop/openwop-app`.
+
 ## [0.18.0] — 2026-06-30 — Second-tier groups (round 3): notebooks, podcasts, priority-matrix
 
 ### Added

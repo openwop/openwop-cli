@@ -59,6 +59,15 @@ export async function runDoctor(ctx: Ctx, argv: string[]) {
   if (health.ok) checks.push(ok('demo health', `${ctx.baseUrl}/health responded`));
   else checks.push(warn('demo health', `demo is not reachable at ${ctx.baseUrl} (${health.message})`));
 
+  // Protocol-version row — this CLI speaks the v1 wire only (README §"Protocol version support").
+  const discovery = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
+  const versions: unknown = discovery?.ok ? discovery.body?.protocolVersions : undefined;
+  if (Array.isArray(versions) && versions.length > 0) {
+    const speaksV1 = versions.some((v) => typeof v === 'string' && v.startsWith('1.'));
+    if (speaksV1) checks.push(ok('protocol', `host serves v1 (protocolVersions ${versions.join(', ')})`));
+    else checks.push(fail('protocol', `host is v2-only (protocolVersions ${versions.join(', ')}) — this CLI is v1-only; see README §"Protocol version support"`));
+  }
+
   // Daemon-status row — prefer the live D-1 route; fall back to the PID file.
   const daemon = await safeRequest(ctx, '/v1/host/sample/daemon-status');
   if (daemon.ok && daemon.body) {

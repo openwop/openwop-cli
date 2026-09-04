@@ -1,6 +1,6 @@
 # OpenWOP CLI
 
-The OpenWOP CLI is the local control plane for the [OpenWOP](https://github.com/openwop/openwop) demo app (`apps/workflow-engine`, live at [app.openwop.dev](https://app.openwop.dev)) and a lightweight client for any OpenWOP-compatible host.
+The OpenWOP CLI is the local control plane for the [OpenWOP](https://github.com/openwop/openwop) reference app ([`openwop/openwop-app`](https://github.com/openwop/openwop-app), live at [app.openwop.dev](https://app.openwop.dev)) and a lightweight client for any OpenWOP-compatible host.
 
 This is the standalone home of the `@openwop/cli` package; it ships independently of the [`openwop/openwop`](https://github.com/openwop/openwop) spec corpus.
 
@@ -29,6 +29,16 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 > `podcasts`, `priority-matrix`) — alongside the protocol RFC surfaces (`a2a`,
 > `triggers`, `goals`, `proposals`, `export`/`import`). See [`CHANGELOG.md`](./CHANGELOG.md)
 > for the per-group detail.
+
+## Protocol version support (v1 only — frozen)
+
+The CLI speaks the **OpenWOP v1 wire directly** (`/v1/…` paths, `X-openwop-*` headers, the v1 `/.well-known/openwop` shape); it has no SDK dependency to swap. With the OpenWOP v2 line (`spec/v2/`, suite 2.0.0) the steward's recorded decision (v2 charter Phase 3, RFC 0167 §F consumer table) is:
+
+- **Frozen v1-only.** No v2 rewrite lands on this package. It keeps working against any host that serves the v1 overlap (every v2 host advertising `protocolVersions` containing `1.x` — the dual-stack period described in `spec/v2/core/versioning.md`).
+- **End of life = v1 end-of-support.** The package is retired on the date `deprecations.json` in the spec corpus records for `v1-end-of-support`; until then it receives fixes only, no new command groups.
+- **A v2 CLI is a separate proposal.** Anyone wanting a client for the v2-only surface files an RFC against the spec corpus; the SDK 2 packages (`@openwop/openwop@2`, `openwop-client==2`, Go `go/v2`) are the intended base.
+
+Hosts that have dropped v1 (`protocolVersions` without a `1.x` entry) answer this CLI with `406 protocol_version_unsupported`; `openwop doctor` shows a failing `protocol` row ("host is v2-only — this CLI is v1-only").
 
 ## Install
 
