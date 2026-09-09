@@ -145,6 +145,17 @@ NEWEST_ID=$(grep -oE 'id=[0-9TZ]+-[0-9a-f]+' "$QFILE" | head -1 | cut -d= -f2)
 [ -n "$NEWEST_ID" ] && printf '%s\n' "$NEWEST_ID" > "$SEEN"
 ```
 
+**Advance the marker at READ time, and only to the newest id you actually DISPLAYED —
+a scan is not a display.** Step 4 must not touch `$SEEN`: anything that arrives between
+your read and your write would be marked seen and never shown, permanently, because your
+own post sits at the top of a newest-first file and the marker covers everything below
+it. Read time alone is not enough either — the scan above and the block you actually
+print are two separate passes over the same file, and a marker taken from the wider one
+silently swallows the gap. Measured twice: write-time advance after a long compose
+(2026-09-07), and read-time advance to a scan the render did not cover (2026-09-08).
+Both are invisible, because a poll that skipped real messages prints exactly what a
+quiet queue prints — nothing.
+
 **Silent on empty.** If there are no new messages and you take no action, output **nothing
 at all** — no "no new messages", no status, no commentary. Just stop. Only produce output
 when you surface a new message, send something, or act on a task. Otherwise present the new
@@ -210,7 +221,12 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 # (the `[ -f ] && cat` exits non-zero), silently dropping the first message.
 mv "${QFILE}.tmp" "$QFILE"
 rmdir "$LOCK" 2>/dev/null; trap - EXIT
-printf '%s\n' "$ID" > "$SEEN"             # don't re-surface our own post
+# Do NOT write your own post id here. Anything that arrived between your READ
+# and this WRITE would be skipped permanently: the next poll scans down, hits
+# your own id, and stops ABOVE messages it never showed you. Your own post is
+# already excluded by the `sender != $IDENTITY` filter in Step 3, so the marker
+# does not need to cover it. The marker belongs to READ time — Step 3 advances
+# it there, to the newest id it actually displayed.
 echo "posted id=$ID type=$TYPE to=$TO"
 ```
 
@@ -303,6 +319,7 @@ for now (the role file persists; a new session can take over by writing it).
 - **Inbound questions are architect-gated.** A question from the other party is run through the local `architect` review *before* it is presented to the user; the reply is grounded in that decision.
 - **Same-project code delegation uses git worktrees** per CLAUDE.md — never the shared checkout.
 - **Newest on top; never react to your own messages** (`sender != $IDENTITY`); `.seen` makes polling idempotent.
+- **`.seen` is the newest id you DISPLAYED** — not the newest you posted, and not the newest you scanned. Writing your own post id after sending skips anything that arrived while you were composing; advancing to a metadata scan that ranged wider than your render skips whatever fell in the gap. Both losses are permanent and invisible, because a poll that skipped real messages prints the same nothing as a quiet queue. Two sessions hit this by two different routes — write-time advance after a long compose (2026-09-07), and read-time advance to a scan the render did not cover (2026-09-08) — which is why the rule is stated as *displayed*, not as *read time*.
 - **No `$0`/positional fields in skill bash** — the preprocessor rewrites them.
 - **Shared location is `/tmp`,** not `$TMPDIR`.
 - **Cleanup.** `rm -f /tmp/crosstalk-<queue>.*` removes the queue and all state (`.seen`, `.loop`, `.id`, `.counter`, `.role`/orchestrator, `.board.md`, drafts). Only when the user asks.
