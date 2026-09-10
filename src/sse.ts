@@ -4,6 +4,7 @@ import type { Ctx } from './context.js';
 import { createInterface } from 'node:readline';
 import { requestJson } from './api.js';
 import { CliError, HttpError } from './errors.js';
+import { resolveRequest } from './protocol.js';
 import { sleep } from './util.js';
 
 const CHAT_TERMINAL_EVENT_TYPES = new Set(['run.completed', 'run.failed', 'run.cancelled']);
@@ -42,8 +43,11 @@ export async function streamRunEvents(ctx: Ctx, runId: string, { onEvent, useStr
 }
 
 async function streamViaSse(ctx: Ctx, runId: string, onEvent: any) {
-  const url = new URL(`/v1/runs/${encodeURIComponent(runId)}/events`, ctx.baseUrl);
-  const headers: Record<string, string> = { accept: 'text/event-stream' };
+  // Same negotiation as requestJson (src/protocol.ts): under major 2 this is
+  // `/runs/{runId}/events` + `OpenWOP-Version: 2.0`. Joined relative to the
+  // base for the same reason api.ts does — a base with a path prefix survives.
+  const { path, headers } = await resolveRequest(ctx, `/v1/runs/${encodeURIComponent(runId)}/events`, { accept: 'text/event-stream' });
+  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
   if (ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
   const res = await ctx.fetchImpl(url, { method: 'GET', headers });
   if (!res.ok) throw new HttpError(`HTTP ${res.status}`, res.status, null);

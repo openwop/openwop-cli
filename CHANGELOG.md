@@ -2,9 +2,27 @@
 
 All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
-versioned on its own SemVer line (currently `0.x`).
+versioned on its own SemVer line.
 
-## [Unreleased]
+## [1.0.0] — 2026-09-10 — v2-native
+
+The CLI speaks the current protocol major. This reverses the 0.18.x "frozen
+v1-only" decision recorded below; the frozen line lives on branch
+`cli-v1-frozen`.
+
+### Added
+- `src/protocol.ts` — one negotiation per process (`spec/v2/core/versioning.md` §1.5): read `/.well-known/openwop` header-less, select the highest major the CLI implements that the host advertises (2, else 1), memoize on `ctx.protocolMajor`. `OPENWOP_PROTOCOL_MAJOR=1|2` pins it without a probe.
+- Under major 2 every request for an operation named in `spec/v2/path-manifest.json` (41 templates at corpus `v2.0.8`, embedded) is sent to the **unversioned path with `OpenWOP-Version: 2.0`** — REST (`requestJson`) and the SSE stream alike. Commands keep their `/v1/<op>` literals; the rewrite happens at the request boundary.
+- Host-proprietary routes the manifest does not name (`/v1/host/sample/*` on the demo backend) are sent exactly as written under either major — they have no v2 home yet (`versioning.md` §5).
+- `openwop doctor` `protocol` row now reports `protocolVersions`, `preferredVersion`, and the major this process selected; it fails only when the host advertises neither major the CLI implements (it no longer fails v2-only hosts).
+
+### Fixed
+- The SSE stream URL is joined relative to the base URL like every other request, so a base with a path prefix survives (it previously reset the base path to `/`).
+
+### Changed
+- README §"Protocol version support" rewritten for the negotiation above.
+
+## [0.18.2] — frozen v1-only (superseded by 1.0.0)
 
 ### Added
 - `openwop doctor` — a `protocol` row: reads `/.well-known/openwop` `protocolVersions` and fails with "host is v2-only — this CLI is v1-only" when no `1.x` entry is advertised (silent when the host does not advertise the list).

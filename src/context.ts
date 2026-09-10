@@ -14,6 +14,8 @@ export interface Ctx {
   fetchImpl: typeof fetch;
   baseUrl: string;
   apiKey?: string | undefined;
+  /** Protocol major negotiated for this process (memoized by `negotiateMajor`; see src/protocol.ts). */
+  protocolMajor?: 1 | 2;
   /** Active config profile (`--profile` / OPENWOP_PROFILE); undefined = the default profile. */
   profile?: string | undefined;
   json: boolean;

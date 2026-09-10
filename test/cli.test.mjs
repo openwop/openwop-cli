@@ -1708,6 +1708,8 @@ describe('runs ancestry command', () => {
     const cap = capture();
     let calls = 0;
     const fetchImpl = async (url) => {
+      // The once-per-process protocol negotiation (src/protocol.ts) is not a walk step.
+      if (new URL(url).pathname === '/.well-known/openwop') return new Response('{}', { status: 404 });
       calls++;
       return new Response(JSON.stringify({
         runId: 'leaf', hostId: 'h1',

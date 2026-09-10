@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { probeEndpoint, safeRequest } from '../api.js';
+import { negotiateMajor } from '../protocol.js';
 import { readDaemonRecord, processAlive } from '../daemon.js';
 import { demoProjects } from '../repo.js';
 import { ok, warn, fail, formatCheckTable, parseNodeVersion, npmCommand, type CheckResult } from './shared.js';
@@ -59,13 +60,18 @@ export async function runDoctor(ctx: Ctx, argv: string[]) {
   if (health.ok) checks.push(ok('demo health', `${ctx.baseUrl}/health responded`));
   else checks.push(warn('demo health', `demo is not reachable at ${ctx.baseUrl} (${health.message})`));
 
-  // Protocol-version row — this CLI speaks the v1 wire only (README §"Protocol version support").
+  // Protocol-version row — the CLI negotiates the major once per process
+  // (src/protocol.ts; versioning.md §1.5). Report what the host advertises and
+  // what this process selected; fail only when the two share no major.
   const discovery = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   const versions: unknown = discovery?.ok ? discovery.body?.protocolVersions : undefined;
   if (Array.isArray(versions) && versions.length > 0) {
-    const speaksV1 = versions.some((v) => typeof v === 'string' && v.startsWith('1.'));
-    if (speaksV1) checks.push(ok('protocol', `host serves v1 (protocolVersions ${versions.join(', ')})`));
-    else checks.push(fail('protocol', `host is v2-only (protocolVersions ${versions.join(', ')}) — this CLI is v1-only; see README §"Protocol version support"`));
+    const advertised = versions.filter((v): v is string => typeof v === 'string');
+    const preferred = typeof discovery.body?.preferredVersion === 'string' ? discovery.body.preferredVersion : '?';
+    const selected = await negotiateMajor(ctx);
+    const detail = `protocolVersions ${advertised.join(', ')}; preferredVersion ${preferred}; CLI speaks major ${selected}`;
+    if (advertised.some((v) => v.startsWith(`${selected}.`))) checks.push(ok('protocol', detail));
+    else checks.push(fail('protocol', `${detail} — host advertises neither major this CLI implements; see README §"Protocol version support"`));
   }
 
   // Daemon-status row — prefer the live D-1 route; fall back to the PID file.
