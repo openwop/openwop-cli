@@ -30,15 +30,18 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 > `triggers`, `goals`, `proposals`, `export`/`import`). See [`CHANGELOG.md`](./CHANGELOG.md)
 > for the per-group detail.
 
-## Protocol version support (v1 only — frozen)
+## Protocol version support (v2 and v1)
 
-The CLI speaks the **OpenWOP v1 wire directly** (`/v1/…` paths, `X-openwop-*` headers, the v1 `/.well-known/openwop` shape); it has no SDK dependency to swap. With the OpenWOP v2 line (`spec/v2/`, suite 2.0.0) the steward's recorded decision (v2 charter Phase 3, RFC 0167 §F consumer table) is:
+The CLI speaks the **OpenWOP wire directly** — no SDK dependency — and negotiates the protocol major once per invocation (`src/protocol.ts`, per `spec/v2/core/versioning.md` §1.5):
 
-- **Frozen v1-only.** No v2 rewrite lands on this package. It keeps working against any host that serves the v1 overlap (every v2 host advertising `protocolVersions` containing `1.x` — the dual-stack period described in `spec/v2/core/versioning.md`).
-- **End of life = v1 end-of-support.** The package is retired on the date `deprecations.json` in the spec corpus records for `v1-end-of-support`; until then it receives fixes only, no new command groups.
-- **A v2 CLI is a separate proposal.** Anyone wanting a client for the v2-only surface files an RFC against the spec corpus; the SDK 2 packages (`@openwop/openwop@2`, `openwop-client==2`, Go `go/v2`) are the intended base.
+- It reads `/.well-known/openwop` and selects the **highest major it implements that the host advertises** in `protocolVersions[]` — 2 when the host lists any `2.x`, otherwise 1.
+- Under major 2, every request for an operation named in `spec/v2/path-manifest.json` goes to the **unversioned path with `OpenWOP-Version: 2.0`** (`/v1/runs` → `/runs`). Host-proprietary routes the manifest does not name — the demo backend's `/v1/host/sample/*` — are sent exactly as written; they have no v2 home yet (`versioning.md` §5).
+- Under major 1 nothing changes: `/v1/…` paths, header-less, the v1 default the overlap guarantees.
+- `OPENWOP_PROTOCOL_MAJOR=1` or `=2` pins the major without probing discovery.
 
-Hosts that have dropped v1 (`protocolVersions` without a `1.x` entry) answer this CLI with `406 protocol_version_unsupported`; `openwop doctor` shows a failing `protocol` row ("host is v2-only — this CLI is v1-only").
+`openwop doctor`'s `protocol` row reports `protocolVersions`, `preferredVersion`, and the major this process selected; it fails only when the host advertises neither major the CLI implements.
+
+The pre-1.0 `0.18.x` line was frozen v1-only; that decision was reversed with 1.0.0 (CHANGELOG). The frozen line stays on branch `cli-v1-frozen` for anyone who needs a client that never sends `OpenWOP-Version`.
 
 ## Install
 

@@ -2,6 +2,7 @@ import type { Ctx } from './context.js';
 /** Host HTTP client — typed-ish wrapper over ctx.fetchImpl with bearer + JSON. */
 
 import { HttpError } from './errors.js';
+import { resolveRequest } from './protocol.js';
 
 export interface RequestOptions {
   method?: string;
@@ -11,17 +12,19 @@ export interface RequestOptions {
 }
 
 /** Perform a JSON request against `ctx.baseUrl`; throws HttpError on non-2xx. */
-export async function requestJson(ctx: Ctx, path: string, options: RequestOptions = {}): Promise<{ status: number; headers: Headers; body: any }> {
+export async function requestJson(ctx: Ctx, requestedPath: string, options: RequestOptions = {}): Promise<{ status: number; headers: Headers; body: any }> {
+  // Negotiate the protocol major once per process and rewrite manifest-named
+  // `/v1/<op>` paths for it (src/protocol.ts). Commands keep their literals.
+  const { path, headers } = await resolveRequest(ctx, requestedPath, {
+    accept: 'application/json',
+    ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
+    ...(options.headers ?? {}),
+  });
   // Join path RELATIVE to the base so a base with a path prefix
   // (e.g. https://app.openwop.dev/api) is preserved. `new URL(path, base)`
   // with an absolute `path` would otherwise reset the base path to '/' —
   // silently breaking any host that proxies under a prefix.
   const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
-  const headers: Record<string, string> = {
-    accept: 'application/json',
-    ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
-    ...(options.headers ?? {}),
-  };
   if (options.auth !== false && ctx.apiKey) {
     headers.authorization = `Bearer ${ctx.apiKey}`;
   }
