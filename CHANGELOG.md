@@ -4,6 +4,11 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
+## [1.0.1] — 2026-09-10
+
+### Fixed
+- `openwop --version` printed `0.18.2` from the 1.0.0 tarball: `src/constants.ts` hand-kept the string and nothing compared it to `package.json`. `VERSION` now comes from `package.json` at build time, and `test/version.test.mjs` fails the suite if the two ever differ.
+
 ## [1.0.0] — 2026-09-10 — v2-native
 
 The CLI speaks the current protocol major. This reverses the 0.18.x "frozen

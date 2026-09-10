@@ -1,6 +1,9 @@
 /** Static CLI constants — version, default endpoints, provider + host catalogs. Leaf module. */
+import pkg from '../package.json' with { type: 'json' };
 
-export const VERSION = '0.18.2';
+// The one version is package.json's; esbuild inlines it into the bundle. A
+// hand-kept literal here shipped 1.0.0 printing `0.18.2` (test/version.test.mjs).
+export const VERSION: string = pkg.version;
 export const DEFAULT_BASE_URL = 'http://localhost:8080';
 // Canonical signed node-pack registry. Distinct from the host --base-url
 // (the workflow-engine demo): the demo only knows its in-process nodes and
