@@ -92,6 +92,8 @@ export interface StreamRunEventsOptions {
   retryMs?: number;
   /** Abort + resume a connection that delivers no bytes for this long (default 45000; 0 disables). */
   idleTimeoutMs?: number;
+  /** Give up on a connection whose response headers have not arrived in this long (default min(idle, 10000)). */
+  headersTimeoutMs?: number;
   /** Called once per reconnect, before the request (for `--verbose` / tests). */
   onReconnect?: (info: { attempt: number; lastEventId: string | undefined; delayMs: number }) => void;
 }
@@ -117,6 +119,9 @@ export async function streamRunEvents(ctx: Ctx, runId: string, opts: StreamRunEv
       // silently drop the mode, so surface it.
       if (err instanceof HttpError && err.status >= 400 && err.status < 500 && (opts.streamMode || opts.lastEventId !== undefined || opts.afterSequence !== undefined)) throw err;
       if (err instanceof SseResumeExhausted) throw err.reason instanceof HttpError ? err.reason : err;
+      if (err instanceof StreamSilent && err.beforeHeaders && !ctx.quiet) {
+        ctx.io.stderr.write(`openwop: the event stream sent nothing for ${err.ms >= 1000 ? `${Math.round(err.ms / 1000)} s` : `${err.ms} ms`} — the host's front door may be buffering streams. Following by polling instead; for live events pass --stream-base-url <a direct origin> (see \`openwop doctor\`).\n`);
+      }
       // Fall through to polling.
     }
   }
@@ -204,8 +209,10 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
       // the reader forever and resume would never fire. ANY bytes — keep-alive
       // comments included — reset it; on expiry the request is aborted and the
       // drop is resumed with Last-Event-ID like any other.
-      idle = idleWatchdog(opts.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS);
+      const idleMs = opts.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
+      idle = idleWatchdog(idleMs, opts.headersTimeoutMs ?? (idleMs > 0 ? Math.min(idleMs, DEFAULT_HEADERS_TIMEOUT_MS) : 0));
       const res = await ctx.fetchImpl(url, { method: 'GET', headers, signal: idle.signal });
+      idle.headersArrived();
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         let body: unknown = null;
@@ -254,11 +261,14 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
     if (await runIsTerminal(ctx, runId)) return true;
     failures = progressed ? 1 : failures + 1;
     if (failures > maxReconnects) {
-      throw new SseResumeExhausted(`events stream for ${runId} dropped ${failures} times without progress${dropError instanceof Error ? `: ${dropError.message}` : ''}`, dropError);
+      throw new SseResumeExhausted(`events stream for ${runId} dropped ${failures} times without progress${dropError instanceof Error ? `: ${dropError.message}` : ''}. Re-run with --since <last sequence printed> to continue, or --no-stream to follow by polling.`, dropError);
     }
     const delayMs = Math.min(retryMs * 2 ** (failures - 1), 30000);
     opts.onReconnect?.({ attempt: failures, lastEventId, delayMs });
-    if (ctx.verbose) ctx.io.stderr.write(`openwop: events stream dropped; reconnecting in ${delayMs}ms with Last-Event-ID ${lastEventId ?? '(none)'}\n`);
+    if (ctx.verbose) {
+      const why = dropError instanceof StreamSilent ? `stalled (${dropError.message})` : 'dropped';
+      ctx.io.stderr.write(`openwop: events stream ${why}; reconnecting in ${delayMs}ms with Last-Event-ID ${lastEventId ?? '(none)'}\n`);
+    }
     await sleep(delayMs);
   }
 }
@@ -494,32 +504,53 @@ export function defaultReadTurn(ctx: Ctx): (prompt: string) => Promise<string | 
 export const DEFAULT_IDLE_TIMEOUT_MS = 45000;
 
 /**
+ * How long to wait for the RESPONSE HEADERS of an events stream. A host sends
+ * them immediately even when no event is pending; a front door that buffers
+ * streams (a CDN rewrite) sends nothing at all, so this is how the CLI tells
+ * the two apart in seconds instead of a full idle timeout.
+ */
+export const DEFAULT_HEADERS_TIMEOUT_MS = 10000;
+
+/** A stream delivered no bytes for `ms` — before its headers (`beforeHeaders`), or mid-stream. */
+export class StreamSilent extends Error {
+  constructor(readonly ms: number, readonly beforeHeaders: boolean) {
+    super(beforeHeaders ? `no response headers within ${ms}ms` : `no bytes for ${ms}ms`);
+    this.name = 'StreamSilent';
+  }
+}
+
+/**
  * An abort signal that fires after `ms` without bytes, and `watch(body)`: the
  * body re-wrapped so that every chunk re-arms the timer and expiry ERRORS the
  * wrapped stream (cancelling the source). Aborting the fetch signal alone is not
  * enough — a read already pending on a returned body is not guaranteed to
  * settle — so the watchdog fails the reader itself.
  */
-function idleWatchdog(ms: number) {
+function idleWatchdog(ms: number, headersMs: number = ms) {
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let onExpire: (() => void) | undefined;
-  const expire = () => { controller.abort(new Error(`no bytes for ${ms}ms`)); onExpire?.(); };
-  const arm = () => {
-    if (!(ms > 0)) return;
+  let beforeHeaders = true;
+  const expire = (after: number) => { controller.abort(new StreamSilent(after, beforeHeaders)); onExpire?.(); };
+  const arm = (after: number = ms) => {
+    if (!(after > 0)) return;
     if (timer !== undefined) clearTimeout(timer);
-    timer = setTimeout(expire, ms);
+    timer = setTimeout(() => expire(after), after);
   };
-  arm();
+  // Until the response headers arrive, the tighter headers timeout applies: a
+  // healthy host sends them at once even with no events to report.
+  arm(headersMs);
   return {
     signal: controller.signal,
+    /** The response headers arrived: from here on only the idle timeout applies. */
+    headersArrived() { beforeHeaders = false; arm(); },
     watch(body: any) {
       if (!(ms > 0) || typeof body?.getReader !== 'function') return body;
       const source = body.getReader();
       return new ReadableStream({
         start(out) {
           onExpire = () => {
-            out.error(new Error(`events stream idle for ${ms}ms`));
+            out.error(new StreamSilent(ms, false));
             source.cancel().catch(() => {});
           };
         },

@@ -4,6 +4,12 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
+## [Unreleased]
+
+### Changed
+- **A buffering front door is detected in 10 s, and said so.** An events stream whose response headers do not arrive within 10 s (`min(--idle-timeout-ms, 10000)`) is followed by polling, with one stderr line explaining why and naming `--stream-base-url` (`--quiet` suppresses it). Before, the command sat silent for the full 45 s idle timeout. Once headers arrive, only the idle timeout applies.
+- `--verbose` reconnect lines say whether the connection **dropped** or **stalled** (with the silence); giving up says how to continue (`--since <last sequence printed>` or `--no-stream`).
+
 ## [1.2.0] — 2026-09-27 — streams that work through a buffering front door
 
 Every event stream the CLI opens (`runs watch`, `chat`, `notifications stream`, `kanban watch`, `present`) delivered nothing through the reference host's public front door, which buffers streams entirely. 1.2.0 reads streams from a stream origin, resumes stalled streams, and lets anonymous reads of the protocol agent surfaces succeed on a v2 host. **Read § Changed before upgrading scripts** — two defaults moved.
