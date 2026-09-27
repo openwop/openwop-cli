@@ -92,7 +92,13 @@ export const PRIORITY_MATRIX_ROUTES: RouteCmd[] = [
     query: [{ flag: '--top-n', key: 'topN', type: 'number' }],
     table: { key: 'items', columns: ['source', 'listName', 'title', 'computedPriority', 'inListRank'], empty: 'No ideas.' } },
   { words: ['presets'], method: 'GET', path: `${PM}/presets`, summary: 'Built-in scoring presets (weighted, WSJF, RICE, ICE, value-effort).',
-    table: { key: 'presets', columns: ['presetId', 'aggregation', 'criteria'], empty: 'No presets.' } },
+    human: (b: any) => {
+      const rows = (Array.isArray(b?.presets) ? b.presets : []).map((p: any) => ({
+        presetId: p.presetId ?? '', aggregation: p.aggregation ?? '',
+        criteria: (Array.isArray(p.criteria) ? p.criteria : []).map((c: any) => `${c.id}×${c.weight}`).join(', '),
+      }));
+      return rows.length ? formatTable(rows, ['presetId', 'aggregation', 'criteria']) : 'No presets.';
+    } },
   { words: ['peers'], method: 'GET', path: `${PM}/peers`, summary: 'Federated peer hosts.',
     table: { key: 'peers', columns: ['id', 'label', 'baseUrl', 'createdBy', 'createdAt'], empty: 'No peers.' } },
   { words: ['peers', 'add'], method: 'POST', path: `${PM}/peers`, summary: 'Add a federated peer (https only; superadmin).',
