@@ -56,14 +56,14 @@ describe('normative-first reads — the RFC 0200 §B.1 no-credential fallback', 
     const r = await run(['roster', 'list'], (m, p) => (p === '/agents/roster' ? unauth(NO_CRED) : json({ roster: [{ rosterId: 'r1', name: 'Ops' }] })), {}, V2);
     assert.equal(r.code, 0, r.stderr);
     assert.deepEqual(r.calls.map((c) => c.path), ['/agents/roster', '/host/openwop-app/roster']);
-    assert.match(r.stderr, /not signed in — showing this host's anonymous demo view \(\/host\/openwop-app\/roster\)/, 'names the path actually sent under v2');
+    assert.match(r.stderr, /no credential sent — showing this host's anonymous view \(\/host\/openwop-app\/roster\), not your workspace\. Pass --api-key, or run `openwop onboard`/, 'names the path actually sent under v2');
   });
 
   it('--json keeps the notice on stderr and stdout parseable', async () => {
     const r = await run(['--json', 'roster', 'list'], (m, p) => (p === '/agents/roster' ? unauth(NO_CRED) : json({ roster: [] })), {}, V2);
     assert.equal(r.code, 0, r.stderr);
     assert.doesNotThrow(() => JSON.parse(r.stdout));
-    assert.match(r.stderr, /anonymous demo view/);
+    assert.match(r.stderr, /anonymous view/);
   });
 
   it('a PRESENTED credential refused with the same challenge shape is NOT retried anonymously (no silent identity switch)', async () => {

@@ -4,6 +4,11 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
+## [Unreleased]
+
+### Fixed
+- **Anonymous normative reads no longer dead-end on a v2 host.** `agents list|info`, `roster list` and `org-chart get|dept` read the normative `/v1/agents*` first; a v2 host MUST refuse a request that presents no credential (`401` + `WWW-Authenticate: Bearer` with no `error=`, RFC 0200 §B.1 / `identity.md` §2.5), so anonymous use of these commands exited 4. They now fall back to the host's anonymous view (the host-extension alias) on exactly that challenge **and** only when the request sent no credential — never on `invalid_token`, a refused `--api-key` or caller credential, a bare 401 or a 403 (no silent identity switch). The fallback is announced on stderr every time, naming the path actually sent; if the host has no such alias, the original 401 is reported.
+
 ## [1.1.0] — 2026-09-27 — full host coverage + v2 client compliance
 
 The CLI now drives every operator-facing route of the reference host (1,471 of 1,477 — the 6 not driven are provider webhooks, OAuth/SSO browser callbacks and the emailed-approval HTML pages, which no command line calls) and meets the v2 client obligations in `spec/v2/core/*` (corpus `v2.42.6`). It also fixes a 1.0.x regression: 66 host-extension commands 404'd against the live reference host.

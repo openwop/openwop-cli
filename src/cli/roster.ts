@@ -33,6 +33,8 @@ GET /v1/agents/roster. The normative view carries only protocol-shaped entries
 (the host may omit host-only entries such as advisors); when the host does not
 serve it (404/405/501), or with --host, 'list' reads the host-extension
 GET /v1/host/openwop-app/roster instead (--verbose names the path that answered).
+With no credential, a v2 host refuses the normative read (401); 'list' then
+shows the host's anonymous view from the alias and says so on stderr.
 'get'/'create'/'update'/'delete' drive the host-extension surface
 GET/POST/PATCH/DELETE /v1/host/openwop-app/roster[/{rosterId}].
 

@@ -24,6 +24,8 @@ GET /v1/agents and GET /v1/agents/{agentId}. When the host does not serve the
 normative read (404/405/501) they fall back to the host-extension alias
 GET /v1/host/openwop-app/agents[/{agentId}]; --host forces the alias (which also
 reports the host's runtime posture); --verbose names the path that answered.
+With no credential, a v2 host refuses the normative read (401); the command
+then shows the host's anonymous view from the alias and says so on stderr.
 'run' dispatches one agent turn via
 POST /v1/host/openwop-app/agents/{agentId}/dispatch — the tool surface is filtered to
 the agent's toolAllowlist (RFC 0002 §A14), task/return payloads are validated

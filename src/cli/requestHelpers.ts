@@ -90,7 +90,7 @@ export async function requestNormativeOrHost(
   if (anonymousRetryOf) {
     // Name the path the request actually went to (under v2 the host root, not the /v1 twin).
     const sent = (await resolveRequest(ctx, hostPath, {})).path;
-    writeLine(ctx.io.stderr, `openwop: not signed in — showing this host's anonymous demo view (${sent}). Sign in or pass --api-key to read your workspace.`);
+    writeLine(ctx.io.stderr, `openwop: no credential sent — showing this host's anonymous view (${sent}), not your workspace. Pass --api-key, or run \`openwop onboard\` to save one.`);
   } else if (ctx.verbose) {
     writeLine(ctx.io.stderr, `openwop: served by the host-extension path ${hostPath}`);
   }
