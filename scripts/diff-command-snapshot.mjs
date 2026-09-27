@@ -18,8 +18,9 @@
  *   blank-number   only blank-number invocations (`--<number-flag>=`) change, and each
  *                  becomes a usage error: exit 2, no request sent (a guarded group's
  *                  /.well-known/openwop capability probe aside), nothing on stdout
- *   presentation   the exit code, the requests sent and every `--json` stdout are
- *                  unchanged; only stderr, help text and human-mode stdout may move
+ *   presentation   the exit code, the requests sent, every `--json` stdout AND which
+ *                  check refused a failing invocation (read from stderr) are unchanged;
+ *                  only the wording of stderr, help text and human-mode stdout may move
  *
  * Without --expect it only prints the classification.
  */
@@ -73,6 +74,29 @@ export function classify(oldSnap, newSnap) {
   return { total: { old: a.size, new: b.size }, added, removed, changed };
 }
 
+/**
+ * Which check refused an invocation, read from its stderr — so a wording change
+ * is told apart from a change in WHICH check wins (e.g. the --yes gate now firing
+ * before input validation), which a same-exit-code comparison cannot see.
+ */
+export function errorKind(row) {
+  if (row.exit === 0) return 'ok';
+  const e = row.stderr;
+  if (/Refusing to /.test(e)) return 'refusal';
+  if (/--body.*must be/.test(e)) return 'body';
+  if (/is required/.test(e)) return 'required';
+  if (/must be a number/.test(e)) return 'number';
+  if (/must be true or false/.test(e)) return 'bool';
+  if (/must be valid JSON|is not valid JSON/.test(e)) return 'json';
+  if (/Cannot read|Could not read|needs a path/.test(e)) return 'unreadable';
+  if (/expects key=value/.test(e)) return 'map';
+  if (/Unknown option/.test(e)) return 'unknown-option';
+  if (/HTTP \d{3}/.test(e)) return `http`;
+  if (/^Usage:/.test(e)) return 'usage';
+  if (/Unknown .* command/.test(e)) return 'unknown-command';
+  return 'other';
+}
+
 const PROFILES = {
   additive(c) {
     const bad = c.changed.filter((x) => {
@@ -100,6 +124,8 @@ const PROFILES = {
       if (x.moved.includes('requests')) v.push(`REQUESTS changed: ${x.id}`);
       if (x.moved.includes('argv')) v.push(`argv changed: ${x.id}`);
       if (x.tags.includes('json') && x.moved.includes('stdout')) v.push(`--json STDOUT changed: ${x.id}`);
+      const [k0, k1] = [errorKind(x.before), errorKind(x.after)];
+      if (k0 !== k1) v.push(`refusing check changed ${k0}→${k1}: ${x.id}`);
     }
     return v;
   },

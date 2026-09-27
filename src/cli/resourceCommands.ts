@@ -16,14 +16,14 @@ import type { Ctx } from '../context.js';
  *
  * This module is only the concise DECLARATION syntax + its help renderer.
  * Execution is routeKit's one pipeline: `toRouteCmd` translates a spec into a
- * `RouteCmd`, setting every behaviour this syntax promises explicitly (the
- * `:org` binding, valued booleans, `--body` acceptance, the `--yes` gate,
- * rendering, error pass-through, messages), and `runRoute` executes it. The
- * group behaviour is pinned by test/command-behaviour-snapshot.test.mjs.
+ * `RouteCmd`, setting what this syntax promises explicitly (the `:org`
+ * binding, valued booleans, `--body` acceptance, the `--yes` gate, fail-fast
+ * validation), and `runRoute` executes it with routeKit's own rendering, help
+ * and error hints. Behaviour is pinned by test/command-behaviour-snapshot.test.mjs.
  */
 import { CliError } from '../errors.js';
 import { write } from '../io.js';
-import { matchRoute, runRoute, type FieldType, type FieldSpec as RouteField, type RouteCmd } from './routeKit.js';
+import { matchRoute, runRoute, usageLine as routeUsageLine, type FieldType, type FieldSpec as RouteField, type RouteCmd } from './routeKit.js';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -87,29 +87,9 @@ function parseField(spec: FieldSpec): ParsedField {
   return { key, flag, type, required };
 }
 
-/** True when the route binds `:org` exactly (not `:orgId`). */
-function hasOrg(route: string): boolean {
-  return /:org(?![A-Za-z0-9_])/.test(route);
-}
-
-function paramsOf(route: string): string[] {
-  return (route.match(/:[A-Za-z][A-Za-z0-9_]*/g) ?? []).map((p) => p.slice(1)).filter((p) => p !== 'org');
-}
-
-/** The one-line usage for a command (also used by the generated group help). */
+/** The one-line usage for a command — routeKit's, so group help and `<sub> --help` agree. */
 export function usageLine(group: string, spec: CommandSpec): string {
-  const parts = [`openwop ${group}`, ...spec.cmd, ...paramsOf(spec.route).map((p) => `<${p}>`)];
-  if (hasOrg(spec.route)) parts.push('--org <orgId>');
-  const fmt = (f: ParsedField) => {
-    const v = f.type === 'bool' ? 'true|false' : f.type === 'json' ? 'json' : f.type === 'list' ? 'a,b' : f.type === 'number' ? 'n' : f.type === 'file' ? 'path' : 'v';
-    return f.required ? `${f.flag} <${v}>` : `[${f.flag} <${v}>]`;
-  };
-  for (const f of (spec.query ?? []).map(parseField)) parts.push(fmt(f));
-  for (const f of (spec.body ?? []).map(parseField)) parts.push(fmt(f));
-  if (spec.body || spec.rawBody) parts.push('[--body <json> | --body-file <path>]');
-  if (spec.confirm) parts.push('--yes');
-  parts.push('[--json]');
-  return parts.join(' ');
+  return routeUsageLine(group, toRouteCmd(spec));
 }
 
 /** Generated help: prose + one usage/route/summary block per command + footer. */
@@ -138,9 +118,13 @@ function toField(spec: FieldSpec): RouteField {
   return { flag: f.flag, key: f.key, type: TYPES[f.type] ?? 'string', required: f.required };
 }
 
-/** Translate a spec into routeKit's command shape — every default set explicitly. */
-export function toRouteCmd(group: string, spec: CommandSpec): RouteCmd {
-  const usage = `Usage: ${usageLine(group, spec)}\n  ${spec.method} ${spec.route} — ${spec.summary}\n`;
+/**
+ * Translate a spec into routeKit's command shape. The spec syntax's promises
+ * (the `:org` binding, `--body` only when declared, fail-fast validation, …) are
+ * set explicitly; everything a user reads — human output, per-command help and
+ * usage, error hints — is routeKit's default, the same as every other group.
+ */
+export function toRouteCmd(spec: CommandSpec): RouteCmd {
   const rmwKey = spec.rmwKey;
   return {
     words: spec.cmd,
@@ -159,21 +143,7 @@ export function toRouteCmd(group: string, spec: CommandSpec): RouteCmd {
     ...(spec.notice !== undefined ? { notice: spec.notice } : {}),
     rawText: true, // every spec, as before — `text` only documents the route
     noContent: spec.method === 'DELETE' ? 'Deleted.' : 'Done (HTTP {status}).',
-    writeOutput: 'json',
-    hostErrors: false,
     validateFirst: true,
-    usageText: usage,
-    messages: {
-      required: (flag, usageText) => `${flag} is required.\n${usageText}`,
-      refusal: () => `Refusing to ${spec.summary.charAt(0).toLowerCase()}${spec.summary.slice(1).replace(/\.$/, '')} without --yes.`,
-      invalidNumber: (flag, raw) => `${flag} must be a number, got: ${raw}`,
-      invalidBool: (flag, raw) => `${flag} must be true or false, got: ${raw}`,
-      invalidJson: (flag) => `${flag} must be valid JSON`,
-      unreadable: (flag, path) => `Cannot read ${flag} ${path}`,
-      unreadableBody: (path) => `Cannot read --body-file ${path}`,
-      invalidBodyJson: '--body/--body-file must be valid JSON',
-      bodyNotObject: '--body/--body-file must be a JSON object',
-    },
   };
 }
 
@@ -183,7 +153,7 @@ function matchSpec(specs: CommandSpec[], argv: string[]): CommandSpec | undefine
 
 /** Execute one resolved command spec (`argv` excludes the spec's words) on routeKit's runner. */
 async function runSpec(ctx: Ctx, group: string, spec: CommandSpec, argv: string[]): Promise<number> {
-  return runRoute(ctx, group, toRouteCmd(group, spec), [...spec.cmd, ...argv]);
+  return runRoute(ctx, group, toRouteCmd(spec), [...spec.cmd, ...argv]);
 }
 
 /**

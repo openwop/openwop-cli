@@ -12,7 +12,7 @@ import type { Ctx } from '../context.js';
  * The rule set is tenant-wide policy. The host evaluates every rule and every
  * simulation; the CLI never computes a verdict — `simulate` prints the host's.
  */
-import { CliError, HttpError } from '../errors.js';
+import { CliError } from '../errors.js';
 import { gateAdvice } from './adminShared.js';
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
@@ -52,8 +52,9 @@ export async function runCapabilityFirewall(ctx: Ctx, argv: string[]): Promise<n
   try {
     return await runResourceGroup(ctx, 'capability-firewall', CAPABILITY_FIREWALL_HELP, CAPABILITY_FIREWALL_SPECS, argv);
   } catch (err) {
-    if (argv[0] === 'platform' && err instanceof HttpError && (err.status === 401 || err.status === 403)) {
-      throw new CliError(gateAdvice('superadmin', 'The capability-firewall platform baseline'), 4);
+    // routeKit maps a host 401/403 to exit 4; name the super-admin gate over it.
+    if (argv[0] === 'platform' && err instanceof CliError && err.code === 4) {
+      throw new CliError(`${gateAdvice('superadmin', 'The capability-firewall platform baseline')}\n${err.message}`, 4);
     }
     throw err;
   }
