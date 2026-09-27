@@ -121,6 +121,7 @@ describe('stream origin (openwop-app ADR 0761) — only event streams move; ever
     assert.equal(explicitStreamBase('http://anything.example/'), 'http://anything.example');
     assert.equal(explicitStreamBase(undefined), undefined);
     assert.throws(() => explicitStreamBase('nope'), /not a URL/);
+    assert.throws(() => explicitStreamBase('https://u:p@s.example'), /must not carry credentials.*--api-key/);
   });
 
   it('--stream-base-url (global) routes `runs watch`; OPENWOP_STREAM_BASE_URL too', async () => {

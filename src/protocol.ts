@@ -228,13 +228,21 @@ function isLoopback(url: URL): boolean {
 
 /**
  * A stream origin the USER chose (`--stream-base-url` / OPENWOP_STREAM_BASE_URL /
- * config `host.streamBaseUrl`): any URL is honoured — it is the user's decision —
- * but it must parse, and a trailing slash is dropped. An unparseable value is a
+ * config `host.streamBaseUrl`): any scheme is honoured — it is the user's
+ * decision — but it must parse and must not embed credentials; a trailing slash
+ * is dropped. An unparseable value is a
  * usage error, not a silent fallback.
  */
 export function explicitStreamBase(raw: unknown): string | undefined {
   if (typeof raw !== 'string' || raw.trim() === '') return undefined;
-  try { new URL(raw.trim()); } catch { throw new CliError(`--stream-base-url / OPENWOP_STREAM_BASE_URL is not a URL: ${raw}`); }
+  let url: URL;
+  try { url = new URL(raw.trim()); } catch { throw new CliError(`--stream-base-url / OPENWOP_STREAM_BASE_URL is not a URL: ${raw}`); }
+  // Golden rule 3 (secrets are references, never values): a `user:pass@` URL
+  // would sit in plaintext in ~/.openwop config and shell history. The bearer
+  // already travels in the Authorization header.
+  if (url.username !== '' || url.password !== '') {
+    throw new CliError('--stream-base-url / OPENWOP_STREAM_BASE_URL must not carry credentials (user:pass@); pass them with --api-key.');
+  }
   return raw.trim().replace(/\/+$/, '');
 }
 
