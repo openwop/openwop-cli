@@ -33,7 +33,7 @@ function hostDetail(err: HttpError): string {
   return parts.length ? ` Host said: ${parts.join(' ')}` : '';
 }
 
-function gateAdvice(gate: Gate, surface: string): string {
+export function gateAdvice(gate: Gate, surface: string): string {
   switch (gate) {
     case 'superadmin':
       return `${surface} requires a super-admin principal. Add your tenant id to OPENWOP_SUPERADMIN_TENANTS on the server and authenticate the CLI as that tenant (openwop onboard / --api-key).`;

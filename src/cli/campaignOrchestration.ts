@@ -4,8 +4,17 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
 const BASE = '/v1/host/openwop-app/campaign-orchestration/campaigns';
+
+/** Read-only campaign projections: the workspace (ADR 0356 P2), revision history, ad dispatch ledger. */
+export const CAMPAIGNS_ORCH_ROUTES: RouteCmd[] = [
+  { words: ['workspace'], method: 'GET', path: `${BASE}/:campaignId/workspace`, summary: 'The campaign + its brief + its linked production plan in one read.' },
+  { words: ['versions'], method: 'GET', path: `${BASE}/:campaignId/versions`, summary: 'Revision history.',
+    table: { key: 'versions', columns: ['version', 'versionId', 'snapshot.name', 'snapshot.status', 'actor', 'at'], empty: 'No versions.' } },
+  { words: ['dispatches'], method: 'GET', path: `${BASE}/:campaignId/dispatches`, summary: 'Ad dispatch state per platform (ids + platform state only).' },
+];
 
 export const CAMPAIGNS_ORCH_HELP = `Usage:
   openwop campaigns-orchestration list [--json]
@@ -16,11 +25,16 @@ export const CAMPAIGNS_ORCH_HELP = `Usage:
   openwop campaigns-orchestration finalize <campaignId> [--yes] [--json]
 
 Campaign orchestration (host-extension). \`finalize\` locks a campaign for execution.
-The host is the authority; the CLI mirrors + relays.`;
+The host is the authority; the CLI mirrors + relays.
+
+${routesHelp('campaigns-orchestration', CAMPAIGNS_ORCH_ROUTES)}
+`;
 
 export async function runCampaignsOrch(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, CAMPAIGNS_ORCH_HELP); return 0; }
+  const ext = await dispatchRoutes(ctx, 'campaigns-orchestration', CAMPAIGNS_ORCH_ROUTES, argv);
+  if (ext !== undefined) return ext;
   const args = argv.slice(['list', 'get', 'create', 'update', 'delete', 'finalize'].includes(sub) ? 1 : 0);
   const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--name'] });
   if (options.help) { write(ctx.io.stdout, CAMPAIGNS_ORCH_HELP); return 0; }

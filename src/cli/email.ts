@@ -5,9 +5,26 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
+import { dispatchSpecs, specsUsage, type CommandSpec } from './resourceCommands.js';
 import { APP, enc, dispatchTable, requestRaw, readText, writeText, rawJson, type Cmd, type RawResponse } from './marketingShared.js';
 
 const base = (org: string) => `/v1/host/openwop-app/email/orgs/${encodeURIComponent(org)}`;
+
+const EO = '/v1/host/openwop-app/email/orgs/:org';
+
+/** Sender identity, provider status, bounce-webhook configs (ADR 0241) and campaign engagement (ADR 0218 C4). */
+export const EMAIL_EXT_SPECS: CommandSpec[] = [
+  { cmd: ['settings'], method: 'GET', route: `${EO}/settings`, summary: 'The org\'s sender identity (campaigns cannot send until it is set).' },
+  { cmd: ['settings', 'set'], method: 'PUT', route: `${EO}/settings`, body: ['senderAddress!'], summary: 'Set the sender address.' },
+  { cmd: ['provider-status'], method: 'GET', route: `${EO}/provider-status`, summary: 'Which email providers you can send through, the host default, and the sender (no secrets).',
+    list: { key: 'providers', columns: ['provider', 'connected'], empty: 'No email providers.' } },
+  { cmd: ['webhooks'], method: 'GET', route: `${EO}/webhook-configs`, summary: 'Bounce/complaint webhook configs + the ingest path to point the provider at (secrets never returned).',
+    list: { key: 'configs', columns: ['webhookId', 'provider', 'enabled', 'ingestPath', 'updatedAt'], empty: 'No webhook configs.' } },
+  { cmd: ['webhooks', 'add'], method: 'POST', route: `${EO}/webhook-configs`, body: ['provider!', 'verificationSecret:file!=verification-secret-file', 'webhookId'],
+    summary: 'Configure a provider webhook (provider: sendgrid | postmark). The verification secret is read from a file and never echoed.' },
+  { cmd: ['webhooks', 'remove'], method: 'DELETE', route: `${EO}/webhook-configs/:webhookId`, confirm: true, summary: 'Remove a webhook config.' },
+  { cmd: ['campaigns', 'engagement'], method: 'GET', route: `${EO}/campaigns/:campaignId/engagement`, summary: 'Click + unsubscribe stats and the latest 200 events for one campaign.' },
+];
 
 export const EMAIL_HELP = `Usage:
   openwop email templates list --org <orgId> [--json]
@@ -21,6 +38,7 @@ export const EMAIL_HELP = `Usage:
   openwop email campaigns delete <campaignId> --org <orgId> [--yes]
   openwop email campaigns send <campaignId> --org <orgId> [--yes] [--json]
   openwop email campaigns sends <campaignId> --org <orgId> [--json]
+${specsUsage('email', EMAIL_EXT_SPECS)}
 
 Outbound email (host-extension, org-scoped). Templates hold a name/subject/body;
 a campaign binds a template + audience; \`send\` dispatches it and \`sends\` reads the
@@ -48,10 +66,12 @@ export async function runEmail(ctx: Ctx, argv: string[]) {
   const group = argv[0];
   if (group === '--help' || group === '-h' || group === undefined) { write(ctx.io.stdout, EMAIL_HELP); return group === undefined ? 2 : 0; }
   const rest = argv.slice(1);
+  const ext = await dispatchSpecs(ctx, 'email', EMAIL_EXT_SPECS, argv);
+  if (ext !== undefined) return ext;
   if (group === 'templates') return emailTemplates(ctx, rest);
   if (group === 'campaigns') return emailCampaigns(ctx, rest);
   if (group === 'public') return dispatchTable(ctx, 'email public', EMAIL_HELP, EMAIL_PUBLIC, rest, '--help');
-  throw new CliError(`Unknown email command: ${group}. Use 'templates' or 'campaigns'.`);
+  throw new CliError(`Unknown email command: ${group}. Use 'templates', 'campaigns', 'settings', 'provider-status', 'webhooks' or 'public'.`);
 }
 
 // ── templates ────────────────────────────────────────────────────────────────

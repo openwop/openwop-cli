@@ -20,6 +20,15 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, safeRequest } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+/** Per-user Microsoft Teams approval delivery (host-extension, self-scoped: YOUR preference only). */
+export const APPROVALS_ROUTES: RouteCmd[] = [
+  { words: ['teams-pref'], method: 'GET', path: '/v1/host/openwop-app/approval-delivery/teams', summary: 'Where your approval requests are delivered in Teams (null = not set).' },
+  { words: ['teams-pref', 'set'], method: 'PUT', path: '/v1/host/openwop-app/approval-delivery/teams', summary: 'Deliver your approval requests to a Teams chat through one of your connections.',
+    body: [{ flag: '--connection-id', key: 'connectionId', required: true }, { flag: '--chat-id', key: 'chatId', required: true }] },
+  { words: ['teams-pref', 'clear'], method: 'DELETE', path: '/v1/host/openwop-app/approval-delivery/teams', confirm: false, summary: 'Stop Teams delivery of your approval requests.' },
+];
 
 export const APPROVALS_HELP = `Usage:
   openwop approvals list [--status pending|approved|rejected] [--json]
@@ -80,6 +89,9 @@ Examples:
   openwop approvals get appr_123 --json
   openwop approvals claim appr_123 --note "LGTM, ship it"
   openwop approvals reject appr_123 --note "out of policy"
+
+Teams approval delivery:
+${routesHelp('approvals', APPROVALS_ROUTES)}
 `;
 
 const SUBCOMMANDS = ['list', 'get', 'claim', 'reject', 'approve', 'deny', 'sla-policy', 'email-pref', 'delegations'];
@@ -90,6 +102,8 @@ export async function runApprovals(ctx: Ctx, argv: string[]): Promise<number> {
     write(ctx.io.stdout, APPROVALS_HELP);
     return 0;
   }
+  const ext = await dispatchRoutes(ctx, 'approvals', APPROVALS_ROUTES, argv);
+  if (ext !== undefined) return ext;
   const args = argv.slice(SUBCOMMANDS.includes(sub) ? 1 : 0);
   switch (sub) {
     case 'list':

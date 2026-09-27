@@ -4,8 +4,17 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchSpecs, specsUsage, type CommandSpec } from './resourceCommands.js';
 import { requireOrg } from './shared.js';
 import { APP, enc, dispatchTable, detail, done, assign, jsonObject, type Cmd } from './marketingShared.js';
+
+/** Form templates (ADR 0516): the read-only pack catalog + instantiate one into a real form. */
+export const FORMS_EXT_SPECS: CommandSpec[] = [
+  { cmd: ['templates'], method: 'GET', route: '/v1/host/openwop-app/forms/orgs/:org/form-templates', summary: 'Installed form templates (with their pack provenance).',
+    list: { key: 'templates', columns: ['templateId', 'label', 'title', 'packName', 'packVersion'], empty: 'No form templates installed.' } },
+  { cmd: ['from-template'], method: 'POST', route: '/v1/host/openwop-app/forms/orgs/:org/forms/from-template', body: ['templateId!', 'title'],
+    summary: 'Create a form from a template (--title overrides the template\'s).' },
+];
 
 const base = (org: string) => `/v1/host/openwop-app/forms/orgs/${encodeURIComponent(org)}/forms`;
 
@@ -17,6 +26,7 @@ export const FORMS_HELP = `Usage:
   openwop forms status <formId> --org <orgId> --status <draft|published|closed> [--json]
   openwop forms delete <formId> --org <orgId> [--yes]
   openwop forms submissions <formId> --org <orgId> [--json]
+${specsUsage('forms', FORMS_EXT_SPECS)}
 
 Form builder + intake (host-extension, org-scoped). Every command needs --org.
 A form has a title + fields[]; \`status\` publishes/closes it; \`submissions\` reads
@@ -43,6 +53,8 @@ function parseFields(raw: unknown): unknown {
 export async function runForms(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, FORMS_HELP); return 0; }
+  const ext = await dispatchSpecs(ctx, 'forms', FORMS_EXT_SPECS, argv);
+  if (ext !== undefined) return ext;
   if (sub === 'public') return dispatchTable(ctx, 'forms public', FORMS_HELP, FORMS_PUBLIC, argv.slice(1), '--help');
   const args = argv.slice(['list', 'get', 'create', 'update', 'status', 'delete', 'submissions'].includes(sub) ? 1 : 0);
   switch (sub) {

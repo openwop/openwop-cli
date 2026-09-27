@@ -6,6 +6,25 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { enc, intFlag, renderFrame, streamHostSse } from './chatShared.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+const PREFS = '/v1/host/openwop-app/notifications/preferences';
+
+/** Your notification preferences (ADR 0010 Phase 2) — per user, cross-device. */
+export const NOTIFICATIONS_ROUTES: RouteCmd[] = [
+  { words: ['preferences'], method: 'GET', path: PREFS, summary: 'Your preferences (global mute, per-type mute/desktop, quiet hours, muted conversations).' },
+  { words: ['preferences', 'set'], method: 'PUT', path: PREFS, rmw: { pick: (b: any) => b?.preferences },
+    summary: 'Edit your preferences. Read-modify-write: the host replaces the whole document, so the CLI starts from the current one.',
+    body: [
+      { flag: '--global-mute', key: 'globalMute', type: 'boolean' },
+      { flag: '--quiet-hours', key: 'quietHours.enabled', type: 'boolean' },
+      { flag: '--quiet-start', key: 'quietHours.start', help: 'HH:MM' },
+      { flag: '--quiet-end', key: 'quietHours.end', help: 'HH:MM' },
+      { flag: '--timezone', key: 'quietHours.timezone', help: 'IANA zone; quiet hours are not enforced without one' },
+      { flag: '--types', key: 'types', type: 'json', help: '[{"type","muted","desktop"}]' },
+      { flag: '--muted-conversations', key: 'mutedConversations', type: 'csv' },
+    ] },
+];
 
 export const NOTIFICATIONS_HELP = `Usage:
   openwop notifications list [--status <s>] [--archived] [--limit n] [--json]
@@ -28,11 +47,16 @@ sample-extension surface, tenant-scoped, not part of the normative wire.
            …/push/subscribe (a browser PushSubscription's endpoint + keys), and
            DELETE …/push/subscriptions/{id}. The subscription's keys are sent once
            and never printed back.
+
+Preferences:
+${routesHelp('notifications', NOTIFICATIONS_ROUTES)}
 `;
 
 export async function runNotifications(ctx: Ctx, argv: string[]): Promise<number> {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, NOTIFICATIONS_HELP); return 0; }
+  const ext = await dispatchRoutes(ctx, 'notifications', NOTIFICATIONS_ROUTES, argv);
+  if (ext !== undefined) return ext;
   const base = '/v1/host/openwop-app/notifications';
   const rest = argv.slice(1);
   switch (sub) {

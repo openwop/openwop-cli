@@ -4,6 +4,20 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+const CO = '/v1/host/openwop-app/consent/orgs/:orgId';
+
+/** The purpose-vocabulary registry (ADR 0302, advisory) + the DSAR re-admit door (ADR 0657 D7). */
+export const CONSENT_ROUTES: RouteCmd[] = [
+  { words: ['purposes'], method: 'GET', path: `${CO}/purpose-vocab`, summary: 'The tenant\'s known purpose codes + whether capture is strict.' },
+  { words: ['purposes', 'add'], method: 'POST', path: `${CO}/purpose-vocab`, summary: 'Register a purpose code.', body: [{ flag: '--code', key: 'code', required: true }] },
+  { words: ['purposes', 'remove'], method: 'DELETE', path: `${CO}/purpose-vocab/:code`, summary: 'Remove a purpose code.' },
+  { words: ['purposes', 'strict'], method: 'PUT', path: `${CO}/purpose-vocab/strict`, summary: 'Refuse (--strict) or accept (--no-strict) unknown purpose codes at capture.',
+    body: [{ flag: '--strict', key: 'strict', type: 'boolean', required: true }] },
+  { words: ['readmit'], method: 'POST', path: `${CO}/subjects/:subjectKey/readmit`, confirm: true,
+    summary: 'Clear an erased subject\'s tombstone so they can opt in again (grants nothing; admin).', body: [{ flag: '--attestation', key: 'attestation' }] },
+];
 
 export const CONSENT_HELP = `Usage:
   openwop consent policy <orgId> [--json]
@@ -13,7 +27,7 @@ export const CONSENT_HELP = `Usage:
   openwop consent erase <orgId> <subjectKey> [--yes] [--json]
   openwop consent public get <orgId> <subjectKey> [--json]
   openwop consent public record <orgId> <subjectKey> [--category <name=bool>]... [--region <r>] [--json]
-
+${routesHelp('consent', CONSENT_ROUTES)}
 Tenant-scoped consent (ADR 0020). The host is the authority: consent is stored
 per-tenant and the host resolves a subject's effective categories. This command
 RENDERS the host's resolved view — it never computes or asserts a consent outcome
@@ -91,6 +105,8 @@ export async function runConsent(ctx: Ctx, argv: string[]) {
         throw new CliError(`Unknown consent public command: ${psub || '(none)'}\nRun \`openwop consent --help\` for usage.`);
     }
   }
+  const ext = await dispatchRoutes(ctx, 'consent', CONSENT_ROUTES, argv);
+  if (ext !== undefined) return ext;
   const args = argv.slice(1);
   switch (sub) {
     case 'policy':

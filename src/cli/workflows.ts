@@ -7,6 +7,18 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { runWorkflowOps, WORKFLOW_OPS_HELP, WORKFLOW_OPS_SUBS } from './workflowOps.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+const BUDGET = '/v1/host/openwop-app/workflows/:workflowId/budget';
+
+/** Per-workflow daily spend budget (host-extension; the workflow must be in your catalog). */
+export const WORKFLOWS_ROUTES: RouteCmd[] = [
+  { words: ['budget'], method: 'GET', path: BUDGET, summary: 'The workflow\'s daily USD budget (null = none) and today\'s spend.' },
+  { words: ['budget', 'set'], method: 'PUT', path: BUDGET, rmw: { pick: (b: any) => (b?.budget ? { hardCap: b.budget.hardCap } : {}) },
+    summary: 'Set the daily budget (--hard-cap blocks runs past it; otherwise it only warns). An unset --hard-cap keeps the current one.',
+    body: [{ flag: '--daily-usd', key: 'dailyUsd', type: 'number', required: true }, { flag: '--hard-cap', key: 'hardCap', type: 'boolean' }] },
+  { words: ['budget', 'clear'], method: 'PUT', path: BUDGET, fixed: { dailyUsd: null }, summary: 'Remove the budget.' },
+];
 
 export const WORKFLOWS_HELP = `Usage:
   openwop workflows list [--json]
@@ -21,6 +33,9 @@ export const WORKFLOWS_HELP = `Usage:
 \`from-chain\` expands one into a registered workflow you can run; \`chain-pack-install\`
 installs a signed workflow-chain pack.
 
+Budgets:
+${routesHelp('workflows', WORKFLOWS_ROUTES)}
+
 ${WORKFLOW_OPS_HELP}`;
 
 export async function runWorkflows(ctx: Ctx, argv: string[]) {
@@ -30,6 +45,8 @@ export async function runWorkflows(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, WORKFLOWS_HELP);
     return 0;
   }
+  const ext = await dispatchRoutes(ctx, 'workflows', WORKFLOWS_ROUTES, argv);
+  if (ext !== undefined) return ext;
   if (WORKFLOW_OPS_SUBS.includes(sub)) return runWorkflowOps(ctx, sub, argv.slice(1));
   switch (sub) {
     case 'list':

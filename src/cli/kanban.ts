@@ -6,6 +6,17 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { consumeSse } from '../sse.js';
 import { resolveRequest } from '../protocol.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+const KB = '/v1/host/openwop-app/kanban/boards/:boardId';
+
+/** The column WIP limit (a visual signal only) + explicit human dispatch of a work item. */
+export const KANBAN_ROUTES: RouteCmd[] = [
+  { words: ['column-limit'], method: 'PATCH', path: `${KB}/columns/:columnId/limit`, summary: 'Set a column\'s soft WIP limit (1–999). Nothing blocks on it.',
+    body: [{ flag: '--wip-limit', key: 'wipLimit', type: 'number', required: true }] },
+  { words: ['column-limit', 'clear'], method: 'PATCH', path: `${KB}/columns/:columnId/limit`, fixed: { wipLimit: null }, summary: 'Clear a column\'s WIP limit.' },
+  { words: ['work-item-run'], method: 'POST', path: `${KB}/work-items/:workItemId/run`, summary: 'Run a ready work item now (409 when it is not ready or already starting).' },
+];
 
 export const KANBAN_HELP = `Usage:
   openwop kanban boards [--json]
@@ -38,11 +49,15 @@ Examples:
   openwop kanban card-add b_1 --title "Triage inbox" --column todo
   openwop kanban card-move c_9 --column working
   openwop kanban watch b_1
+
+${routesHelp('kanban', KANBAN_ROUTES)}
 `;
 
 export async function runKanban(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'boards';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, KANBAN_HELP); return 0; }
+  const ext = await dispatchRoutes(ctx, 'kanban', KANBAN_ROUTES, argv);
+  if (ext !== undefined) return ext;
   const known = ['boards', 'board', 'board-create', 'board-delete', 'card-add', 'card-move', 'card-update', 'card-delete', 'card-assign', 'card-claim', 'boards-personal', 'assigned', 'watch'];
   const args = argv.slice(known.includes(sub) ? 1 : 0);
   switch (sub) {

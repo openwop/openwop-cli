@@ -25,6 +25,9 @@ export const PROFILES_ROUTES: RouteCmd[] = [
     body: [{ flag: '--org', key: 'orgId', required: true }] },
   { words: ['knowledge', 'retrieve'], method: 'POST', path: `${ME}/knowledge/retrieve`, summary: 'Retrieve chunks from your personal knowledge + memory.', body: [{ flag: '--query', key: 'query', required: true }] },
   { words: ['memory', 'remove'], method: 'DELETE', path: `${ME}/memory/:noteId`, summary: 'Forget one of your memory notes.' },
+  { words: ['memory-extraction'], method: 'GET', path: `${ME}/memory-extraction`, summary: 'Whether you have granted automatic memory extraction from your chats.' },
+  { words: ['memory-extraction', 'grant'], method: 'PUT', path: `${ME}/memory-extraction`, emptyBody: false, summary: 'Grant automatic memory extraction (your own consent; nobody else can grant it).' },
+  { words: ['memory-extraction', 'revoke'], method: 'DELETE', path: `${ME}/memory-extraction`, confirm: false, summary: 'Revoke the grant (extraction stops; existing notes stay until you remove them).' },
 ];
 
 export const PROFILES_HELP = `Usage:
