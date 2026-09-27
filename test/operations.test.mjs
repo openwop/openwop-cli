@@ -66,7 +66,7 @@ describe('operations', () => {
     const host = mockHost(() => json({ error: 'forbidden', message: 'Superadmin only.' }, 403));
     const cap = capture();
     assert.equal(await runCli(['operations', 'health'], opts(host, cap)), 4);
-    assert.match(cap.stderr, /HTTP 403: Superadmin only\. — forbidden \(permission denied\)/);
+    assert.match(cap.stderr, /HTTP 403 forbidden: Superadmin only\.\n  Permission denied/);
     assert.doesNotMatch(cap.stderr, /at .*\.js/);
   });
 

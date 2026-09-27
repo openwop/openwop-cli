@@ -59,7 +59,7 @@ describe('job-search', () => {
     let host = mockHost(() => json({ error: 'not_found' }, 404));
     let cap = capture();
     assert.equal(await runCli(['job-search', 'status'], opts(host, cap)), 2);
-    assert.match(cap.stderr, /feature is not enabled/);
+    assert.match(cap.stderr, /HTTP 404 not_found\n  Not found — or the feature is not enabled/);
     host = mockHost(() => json({ error: 'unauthenticated' }, 401));
     cap = capture();
     assert.equal(await runCli(['job-search', 'exceptions'], opts(host, cap)), 4);

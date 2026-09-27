@@ -4,6 +4,7 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
 const ANALYTICS_BASE = '/v1/host/openwop-app/analytics/orgs';
 const PUBLIC_BASE = '/v1/host/openwop-app/public-analytics';
@@ -11,11 +12,23 @@ const PUBLIC_BASE = '/v1/host/openwop-app/public-analytics';
 // Mirror the host wire enum EXACTLY (analyticsService.ts EVENT_TYPES).
 const EVENT_TYPES = ['pageview', 'event', 'conversion'] as const;
 
+/** Declared analytics commands (routeKit): the daily trend + workspace-nav telemetry. */
+export const ANALYTICS_ROUTES: RouteCmd[] = [
+  { words: ['trend'], method: 'GET', path: `${ANALYTICS_BASE}/:orgId/trend`, summary: 'Daily pageviews / events / conversions / uniques over the window.',
+    query: [{ flag: '--days', key: 'days', type: 'number', required: true, help: '7 | 30 | 90' }],
+    table: { key: 'trend', columns: ['day', 'pageviews', 'events', 'conversions', 'uniques', 'partial'], empty: 'No data in the window.' } },
+  { words: ['nav', 'report'], method: 'GET', path: '/v1/host/openwop-app/analytics/nav/report', summary: 'Workspace navigation telemetry: which routes people reach, and from where (last 6 weeks).',
+    table: { key: 'rows', columns: ['route', 'source', 'count'], empty: 'No navigation recorded.' } },
+  { words: ['nav', 'record'], method: 'POST', path: '/v1/host/openwop-app/analytics/nav', summary: 'Record one navigation (202; invalid or capped input is dropped, not rejected).',
+    body: [{ flag: '--route', key: 'route', required: true }, { flag: '--source', key: 'source', required: true, help: 'sidebar | palette | hub | breadcrumb | deep-link | in-app-link | admin-rail' }] },
+];
+
 export const ANALYTICS_HELP = `Usage:
-  openwop analytics summary <orgId> [--json]
-  openwop analytics events <orgId> [--json]
+  openwop analytics summary <orgId> [--days 7|30|90] [--json]
+  openwop analytics events <orgId> [--days 7|30|90] [--json]
   openwop analytics collect <orgId> --session <key> [--type <t>] [--path <p>] [--name <n>] [--prop k=v]... [--json]
   openwop analytics rollup <orgId> [--json]
+${routesHelp('analytics', ANALYTICS_ROUTES)}
 
 Org-scoped usage analytics (ADR 0018 host extension). Aliased as \`usage\`.
 Endpoints:
@@ -74,6 +87,8 @@ export async function runAnalytics(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, ANALYTICS_HELP);
     return 0;
   }
+  const declared = await dispatchRoutes(ctx, 'analytics', ANALYTICS_ROUTES, argv);
+  if (declared !== undefined) return declared;
   switch (sub) {
     case 'summary':
       return await runSummary(ctx, argv.slice(1));
@@ -89,12 +104,12 @@ export async function runAnalytics(ctx: Ctx, argv: string[]) {
 }
 
 async function runSummary(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--days'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, 'Usage: openwop analytics summary <orgId> [--json]\n');
+    write(ctx.io.stdout, 'Usage: openwop analytics summary <orgId> [--days 7|30|90] [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await analyticsRequest(ctx, `${ANALYTICS_BASE}/${encodeURIComponent(positionals[0])}/summary`);
+  const res = await analyticsRequest(ctx, `${ANALYTICS_BASE}/${encodeURIComponent(positionals[0])}/summary${options.days !== undefined ? `?days=${encodeURIComponent(String(options.days))}` : ''}`);
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -116,12 +131,12 @@ async function runSummary(ctx: Ctx, argv: string[]) {
 }
 
 async function runEvents(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--days'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, 'Usage: openwop analytics events <orgId> [--json]\n');
+    write(ctx.io.stdout, 'Usage: openwop analytics events <orgId> [--days 7|30|90] [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await analyticsRequest(ctx, `${ANALYTICS_BASE}/${encodeURIComponent(positionals[0])}/events`);
+  const res = await analyticsRequest(ctx, `${ANALYTICS_BASE}/${encodeURIComponent(positionals[0])}/events${options.days !== undefined ? `?days=${encodeURIComponent(String(options.days))}` : ''}`);
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;

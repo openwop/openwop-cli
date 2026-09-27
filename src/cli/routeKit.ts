@@ -20,7 +20,7 @@ import type { Ctx } from '../context.js';
  *   - 401/403 → exit 4 with the host's message; other 4xx → exit 2; 5xx → 1.
  */
 import { readFileSync } from 'node:fs';
-import { CliError, HttpError } from '../errors.js';
+import { CliError, HttpError, describeHttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
@@ -29,9 +29,10 @@ import { requestJson } from '../api.js';
  * `file` reads a local file's text into the field (one trailing newline dropped, so
  * a token file works); `map` is a repeatable `key=value` flag collected into an
  * object (numeric values become numbers); `file64` reads a local file as base64
- * (for hosts that take an upload inline in a JSON body).
+ * (for hosts that take an upload inline in a JSON body); `json-file` reads and
+ * parses a local JSON file.
  */
-export type FieldType = 'string' | 'number' | 'boolean' | 'json' | 'list' | 'csv' | 'file' | 'file64' | 'map';
+export type FieldType = 'string' | 'number' | 'boolean' | 'json' | 'list' | 'csv' | 'file' | 'file64' | 'json-file' | 'map';
 
 /** A flag that maps onto a body (or query) field. `key` may be dotted (`a.b`). */
 export interface FieldSpec {
@@ -72,6 +73,12 @@ export interface RouteCmd {
    * answering 503 `degraded`): the body is rendered and the command exits 1.
    */
   bodyOnError?: number[];
+  /** Constant body fields sent under every request (flags and --body override them). */
+  fixed?: Record<string, unknown>;
+  /** Applied to the host body before ANY output, `--json` included (e.g. a secret redactor). */
+  transform?: (body: any) => any;
+  /** Custom human rendering (the `--json` path always prints the raw body). */
+  human?: (body: any) => string;
   /** Extra usage hint (positional names are derived from the path). */
   usage?: string;
 }
@@ -88,7 +95,7 @@ function paramNames(path: string): string[] {
 
 function flagHint(f: FieldSpec): string {
   const t = f.type ?? 'string';
-  const v = t === 'boolean' ? '' : t === 'file' || t === 'file64' ? ' <path>' : t === 'map' ? ' <key=value>...' : t === 'list' ? ` <${f.key}>...` : t === 'json' ? ` <json>` : ` <${f.key.split('.').pop()}>`;
+  const v = t === 'boolean' ? '' : t === 'file' || t === 'file64' || t === 'json-file' ? ' <path>' : t === 'map' ? ' <key=value>...' : t === 'list' ? ` <${f.key}>...` : t === 'json' ? ` <json>` : ` <${f.key.split('.').pop()}>`;
   return f.required ? `${f.flag}${v}` : `[${f.flag}${v}]`;
 }
 
@@ -110,7 +117,9 @@ export function usageLine(group: string, cmd: RouteCmd): string {
 export function routesHelp(group: string, cmds: RouteCmd[]): string {
   const usage = cmds.map((c) => `  ${usageLine(group, c)}`).join('\n');
   const endpoints = cmds.map((c) => `  ${c.words.join(' ').padEnd(28)} ${c.method.padEnd(6)} ${templates(c).join(' | ')}\n  ${''.padEnd(28)} ${c.summary}`).join('\n');
-  return `${usage}\n\nEvery write also accepts --body <json> / --body-file <path> for the full request body (typed flags override it).\n\nEndpoints:\n${endpoints}\n`;
+  const writes = cmds.some((c) => c.method !== 'GET' && c.method !== 'DELETE');
+  const note = writes ? '\n\nEvery write also accepts --body <json> / --body-file <path> for the full request body (typed flags override it).' : '';
+  return `${usage}${note}\n\nEndpoints:\n${endpoints}\n`;
 }
 
 /** The command whose `words` are the longest prefix of `argv`, or undefined. */
@@ -155,6 +164,12 @@ function coerce(f: FieldSpec, raw: unknown): unknown {
     if (!Number.isFinite(n)) throw new CliError(`${f.flag} must be a number (got "${s}").`, 2);
     return n;
   }
+  if (t === 'json-file') {
+    let text: string;
+    try { text = readFileSync(s, 'utf8'); }
+    catch (err) { throw new CliError(`Could not read ${s} for ${f.flag}: ${err instanceof Error ? err.message : String(err)}`, 2); }
+    try { return JSON.parse(text); } catch { throw new CliError(`${s} (${f.flag}) is not valid JSON.`, 2); }
+  }
   if (t === 'file64') {
     try { return readFileSync(s).toString('base64'); }
     catch (err) { throw new CliError(`Could not read ${s} for ${f.flag}: ${err instanceof Error ? err.message : String(err)}`, 2); }
@@ -185,15 +200,18 @@ function readBodyOptions(options: Record<string, any>): Record<string, any> {
   return parsed as Record<string, any>;
 }
 
-/** Legible error mapping: 401/403 → exit 4, other 4xx → 2, 5xx → 1. */
+/**
+ * Legible error mapping: the shared `HTTP <status> <code>: <message>` line
+ * (src/errors.ts) plus a one-line hint; 401/403 → exit 4, other 4xx → 2, 5xx → 1.
+ */
 export function hostError(err: HttpError): CliError {
-  const b = err.body as Record<string, unknown> | null;
-  const parts = [b?.message, b?.error, b?.reason].filter((x) => typeof x === 'string' && x.length > 0) as string[];
-  const detail = parts.length ? `: ${[...new Set(parts)].join(' — ')}` : '';
-  if (err.status === 401) return new CliError(`HTTP 401${detail} (not signed in — pass --api-key)`, 4);
-  if (err.status === 403) return new CliError(`HTTP 403${detail} (permission denied)`, 4);
-  if (err.status === 404) return new CliError(`HTTP 404${detail} (not found, or the feature is not enabled on this host)`, 2);
-  return new CliError(`HTTP ${err.status}${detail}`, err.status >= 500 ? 1 : 2);
+  const line = describeHttpError(err);
+  const hint = err.status === 401 ? 'Not signed in — pass --api-key (or run `openwop onboard`).'
+    : err.status === 403 ? 'Permission denied for this principal.'
+    : err.status === 404 ? 'Not found — or the feature is not enabled on this host.'
+    : undefined;
+  const code = err.status === 401 || err.status === 403 ? 4 : err.status >= 500 ? 1 : 2;
+  return new CliError(hint ? `${line}\n  ${hint}` : line, code);
 }
 
 /** Parse + send + render one declared command. `argv` still includes the words. */
@@ -253,7 +271,7 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
       const picked = cmd.rmw.pick ? cmd.rmw.pick(current.body) : current.body;
       base = picked && typeof picked === 'object' && !Array.isArray(picked) ? { ...picked } : {};
     }
-    body = { ...base, ...explicit };
+    body = { ...structuredClone(cmd.fixed ?? {}), ...base, ...explicit };
     // Deep-apply each flag so a dotted key (`policy.roles`) edits inside a
     // read-modify-write base instead of replacing the whole sub-object.
     for (const f of cmd.body ?? []) {
@@ -294,10 +312,13 @@ async function send(ctx: Ctx, url: string, init: { method: string; body?: unknow
   }
 }
 
-function render(ctx: Ctx, cmd: RouteCmd, positionals: string[], status: number, body: any): void {
+function render(ctx: Ctx, cmd: RouteCmd, positionals: string[], status: number, rawBody: any): void {
+  const body = cmd.transform ? cmd.transform(rawBody) : rawBody;
   if (ctx.json) { writeJson(ctx.io.stdout, body); return; }
-  if (cmd.method === 'GET' && cmd.table) {
+  if (cmd.human) { writeLine(ctx.io.stdout, cmd.human(body)); return; }
+  if (cmd.table) {
     const rows = cmd.table.key ? getPath(body ?? {}, cmd.table.key) : body;
+    if (rows === null || rows === undefined) { writeLine(ctx.io.stdout, cmd.table.empty ?? 'None.'); return; }
     if (Array.isArray(rows)) {
       if (rows.length === 0) { writeLine(ctx.io.stdout, cmd.table.empty ?? 'None.'); return; }
       const flat = rows.map((r: any) => Object.fromEntries(cmd.table!.columns.map((c) => {
