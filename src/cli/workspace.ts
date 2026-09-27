@@ -5,19 +5,43 @@ import { readFile } from 'node:fs/promises';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+/**
+ * Declared workspace commands (routeKit). `op` drives the RFC 0059 WCT-1
+ * cross-owner CONFORMANCE seam: the owner comes from the body, so it exists only
+ * on a host started with OPENWOP_TEST_SEAM_ENABLED=true (404 everywhere else,
+ * including production). Operators use it to reproduce a conformance scenario.
+ */
+export const WORKSPACE_ROUTES: RouteCmd[] = [
+  { words: ['op'], method: 'POST', path: '/v1/host/openwop-app/workspace/op',
+    summary: 'Test seam: run one workspace op (list | get | put | delete) as an explicit --tenant/--workspace owner.',
+    body: [
+      { flag: '--tenant', key: 'tenant', required: true },
+      { flag: '--workspace', key: 'workspace', required: true },
+      { flag: '--op', key: 'op', required: true },
+      { flag: '--path', key: 'path' },
+      { flag: '--prefix', key: 'prefix' },
+      { flag: '--content', key: 'content' },
+      { flag: '--file', key: 'content', type: 'file' },
+      { flag: '--content-type', key: 'contentType' },
+      { flag: '--if-match', key: 'ifMatch' },
+    ] },
+];
 
 export const WORKSPACE_HELP = `Usage:
   openwop workspace list [--prefix <p>] [--json]
   openwop workspace get <path> [--json]
   openwop workspace put <path> (--content <text> | --file <localPath>) [--content-type <ct>] [--if-match <etag>] [--json]
   openwop workspace delete <path> [--yes]
+${routesHelp('workspace', WORKSPACE_ROUTES)}
 
 Agent workspace (RFC 0059 §C). A tenant-scoped file area an agent reads and
 writes during a run, with optimistic concurrency via ETag / If-Match (WCT-1
 cross-owner isolation is enforced host-side). Drives the real CRUD surface
 GET/PUT/DELETE /v1/host/workspace/files. (The /v1/host/openwop-app/workspace/op
-cross-owner seam is a conformance-only test seam and is intentionally not
-exposed here.)
+cross-owner seam is a conformance-only test seam — reachable here as
+\`workspace op\`, and only on a host started with OPENWOP_TEST_SEAM_ENABLED=true.)
 
   --prefix <p>      (list) Only files whose path starts with this prefix.
   --content <text>  (put) Inline file content.
@@ -35,6 +59,8 @@ Examples:
 export async function runWorkspace(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, WORKSPACE_HELP); return 0; }
+  const declared = await dispatchRoutes(ctx, 'workspace', WORKSPACE_ROUTES, argv);
+  if (declared !== undefined) return declared;
   const args = argv.slice(['list', 'get', 'put', 'delete'].includes(sub) ? 1 : 0);
   switch (sub) {
     case 'list': return await wsList(ctx, args);

@@ -23,8 +23,21 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, safeRequest } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
 const STATUSES = ['shadow', 'piloting', 'production'];
+
+/** Declared workforce commands (routeKit), behind the same advertisement probe. */
+export const WORKFORCES_ROUTES: RouteCmd[] = [
+  { words: ['migration', 'set'], method: 'PATCH', path: '/v1/host/openwop-app/workforces/:workforceId/migration',
+    summary: 'Merge-patch the migration journey (only sections you pass change; JSON null clears one). --stage key=pending|done (target, assess, map-data, map-boundaries, shadow-prove, cut-over).',
+    body: [
+      { flag: '--target', key: 'target', type: 'json', help: '{workflowId, targetOutcome}' },
+      { flag: '--data-manifest', key: 'dataManifest', type: 'json', help: '{dataSources, sensitivity, approvalModel}' },
+      { flag: '--boundaries', key: 'boundaries', type: 'json', help: '{auto:[], review:[]}' },
+      { flag: '--stage', key: 'stageStatus', type: 'map' },
+    ] },
+];
 
 export const WORKFORCES_HELP = `Usage:
   openwop workforces list [--json]
@@ -36,6 +49,7 @@ export const WORKFORCES_HELP = `Usage:
   openwop workforces shadow <workforceId> [--json]
   openwop workforces status <workforceId> <shadow|piloting|production> [--json]
   openwop workforces eval <workforceId> [--json]
+${routesHelp('workforces', WORKFORCES_ROUTES)}
 
 Durable multi-agent orchestration at fleet scale (alias: \`fleet\`). A workforce is
 a governed bundle — agent specs, graduated-autonomy posture, and aggregate
@@ -81,6 +95,8 @@ export async function runWorkforces(ctx: Ctx, argv: string[]): Promise<number> {
     write(ctx.io.stdout, WORKFORCES_HELP);
     return 0;
   }
+  const declared = await dispatchRoutes(ctx, 'workforces', WORKFORCES_ROUTES, argv, ensureAdvertised);
+  if (declared !== undefined) return declared;
   const args = argv.slice(SUBCOMMANDS.includes(sub) ? 1 : 0);
   switch (sub) {
     case 'list':

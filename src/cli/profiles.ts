@@ -4,14 +4,36 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+const ME = '/v1/host/openwop-app/profiles/me';
+
+/** Declared profile commands (routeKit): pins, avatar, workflows, personal knowledge + memory. Mirrors features/profiles + features/profile-memory. */
+export const PROFILES_ROUTES: RouteCmd[] = [
+  { words: ['pin-chat'], method: 'PUT', path: `${ME}/pinned-chat-agents/:rosterId`, summary: 'Pin an agent to your AI-chat welcome screen.' },
+  { words: ['unpin-chat'], method: 'DELETE', path: `${ME}/pinned-chat-agents/:rosterId`, confirm: false, summary: 'Unpin an agent from your AI-chat welcome screen.' },
+  { words: ['avatar', 'set'], method: 'PUT', path: `${ME}/avatar`, summary: 'Set your avatar from a tenant image media token.', body: [{ flag: '--token', key: 'token', required: true }] },
+  { words: ['avatar', 'clear'], method: 'DELETE', path: `${ME}/avatar`, confirm: false, summary: 'Remove your avatar.' },
+  { words: ['workflows', 'set'], method: 'PUT', path: `${ME}/workflows`, summary: 'REPLACE the workflows on your profile.', body: [{ flag: '--workflows', key: 'workflows', type: 'csv', required: true }] },
+  { words: ['knowledge', 'bind'], method: 'POST', path: `${ME}/knowledge/bindings`, summary: 'Bind a knowledge collection to your profile.', body: [{ flag: '--collection-id', key: 'collectionId', required: true }] },
+  { words: ['knowledge', 'unbind'], method: 'DELETE', path: `${ME}/knowledge/bindings/:collectionId`, summary: 'Unbind a collection from your profile.' },
+  { words: ['knowledge', 'collections', 'create'], method: 'POST', path: `${ME}/knowledge/collections`, summary: 'Create a collection in --org and bind it to your profile.',
+    body: [{ flag: '--org', key: 'orgId', required: true }, { flag: '--name', key: 'name', required: true }, { flag: '--description', key: 'description' }] },
+  { words: ['knowledge', 'documents', 'add'], method: 'POST', path: `${ME}/knowledge/collections/:collectionId/documents`, summary: 'Add a document: inline --text, a --text-file, or an uploaded --media-token.',
+    body: [{ flag: '--org', key: 'orgId', required: true }, { flag: '--title', key: 'title' }, { flag: '--text', key: 'text' }, { flag: '--text-file', key: 'text', type: 'file' }, { flag: '--media-token', key: 'mediaToken' }] },
+  { words: ['knowledge', 'documents', 'remove'], method: 'DELETE', path: `${ME}/knowledge/collections/:collectionId/documents/:documentId`, summary: 'Remove a document (the host needs its --org).',
+    body: [{ flag: '--org', key: 'orgId', required: true }] },
+  { words: ['knowledge', 'retrieve'], method: 'POST', path: `${ME}/knowledge/retrieve`, summary: 'Retrieve chunks from your personal knowledge + memory.', body: [{ flag: '--query', key: 'query', required: true }] },
+  { words: ['memory', 'remove'], method: 'DELETE', path: `${ME}/memory/:noteId`, summary: 'Forget one of your memory notes.' },
+];
 
 export const PROFILES_HELP = `Usage:
   openwop profiles list [--json]
   openwop profiles get [<userId>] [--json]            (omit userId for your own — same as 'me')
   openwop profiles me [--json]
   openwop profiles activity [--limit <n>] [--status <s>] [--json]
-  openwop profiles edit [--job-title <t>] [--department <t>] [--bio <t>] [--location <t>]
-                        [--equipment <x>]... [--interests <x>]...
+  openwop profiles edit [--preferred-name <t>] [--job-title <t>] [--department <t>] [--bio <t>] [--location <t>]
+                        [--link <label=url>]... [--equipment <x>]... [--interests <x>]... [--growth-interests <x>]...
                         [--availability-status available|busy|away] [--timezone <tz>] [--hours-per-week <n>] [--json]
   openwop profiles skills set --skill <name=proficiency>... [--json]
   openwop profiles portfolio add --token <mediaToken> [--json]
@@ -20,6 +42,7 @@ export const PROFILES_HELP = `Usage:
   openwop profiles unpin <rosterId> [--json]
   openwop profiles endorse <userId> <skill> [--json]
   openwop profiles unendorse <userId> <skill> [--json]
+${routesHelp('profiles', PROFILES_ROUTES)}
 
 Self-service PERSONA: your job title, bio, contact, skills, availability, portfolio,
 and pinned agents (ADR 0005). The host is the authority and renders the resolved view —
@@ -32,7 +55,8 @@ lifecycle lives in the host's users surface) and NOT RBAC (that's \`orgs\`). \`p
 is the persona directory of the tenant, not an account-management list.
 
   --job-title/--department/--bio/--location   (edit) Text fields; pass empty string to clear.
-  --equipment/--interests <x>                 (edit) Repeatable; replaces the whole list.
+  --equipment/--interests/--growth-interests <x>  (edit) Repeatable; replaces the whole list.
+  --link <label=url>                          (edit) Repeatable contact link; replaces the link list (location is kept).
   --availability-status / --timezone / --hours-per-week  (edit) Availability sub-fields.
   --skill <name=proficiency>                  (skills set) Repeatable; proficiency is 1..5. Replaces the skill list.
   --token <mediaToken>                        (portfolio add) A tenant media-asset token (must be an image).
@@ -75,6 +99,8 @@ export async function runProfiles(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, PROFILES_HELP);
     return 0;
   }
+  const declared = await dispatchRoutes(ctx, 'profiles', PROFILES_ROUTES, argv);
+  if (declared !== undefined) return declared;
   if (sub === 'portfolio') {
     const psub = argv[1] ?? '';
     const rest = argv.slice(2);
@@ -196,17 +222,33 @@ async function runActivity(ctx: Ctx, argv: string[]) {
 async function runEdit(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, {
     bool: ['--help'],
-    value: ['--job-title', '--department', '--bio', '--location', '--availability-status', '--timezone', '--hours-per-week'],
-    multi: ['--equipment', '--interests'],
+    value: ['--preferred-name', '--job-title', '--department', '--bio', '--location', '--availability-status', '--timezone', '--hours-per-week'],
+    multi: ['--equipment', '--interests', '--growth-interests', '--link'],
   });
   if (options.help) { write(ctx.io.stdout, PROFILES_HELP); return 0; }
   const body: Record<string, unknown> = {};
+  if (options.preferredName !== undefined) body.preferredName = options.preferredName;
   if (options.jobTitle !== undefined) body.jobTitle = options.jobTitle;
   if (options.department !== undefined) body.department = options.department;
   if (options.bio !== undefined) body.bio = options.bio;
   if (Array.isArray(options.equipment)) body.equipment = options.equipment;
   if (Array.isArray(options.interests)) body.interests = options.interests;
-  if (options.location !== undefined) body.contact = { location: options.location };
+  if (Array.isArray(options.growthInterests)) body.growthInterests = options.growthInterests;
+  if (options.location !== undefined || Array.isArray(options.link)) {
+    // The host REPLACES the whole contact object, so read-modify-write: keep the
+    // links when only --location changes, and the location when only --link does.
+    const current = (await profilesRequest(ctx, `${BASE}/me`)).body?.contact ?? {};
+    const contact: Record<string, unknown> = { ...current };
+    if (options.location !== undefined) contact.location = options.location;
+    if (Array.isArray(options.link)) {
+      contact.links = options.link.map((l: string) => {
+        const eq = l.indexOf('=');
+        if (eq <= 0) throw new CliError(`--link must be label=url (got '${l}')`, 2);
+        return { label: l.slice(0, eq), url: l.slice(eq + 1) };
+      });
+    }
+    body.contact = contact;
+  }
   const avail: Record<string, unknown> = {};
   if (options.availabilityStatus !== undefined) {
     if (!['available', 'busy', 'away'].includes(options.availabilityStatus)) {

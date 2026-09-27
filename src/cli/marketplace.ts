@@ -4,10 +4,28 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 import { requireOrg } from './shared.js';
 
 const MP = '/v1/host/openwop-app/marketplace';
 const reviews = (org: string, pack: string) => `${MP}/orgs/${encodeURIComponent(org)}/listings/${encodeURIComponent(pack)}/reviews`;
+
+/**
+ * Declared marketplace commands (routeKit): feature bundles, per-workspace pack
+ * enablement, connection-pack certification, and superadmin pack removal/restore.
+ */
+export const MARKETPLACE_ROUTES: RouteCmd[] = [
+  { words: ['feature-bundles'], method: 'GET', path: `${MP}/feature-bundles`, summary: 'Feature bundles, standalone + core features (read-only).',
+    table: { key: 'bundles', columns: ['id', 'label', 'features'], empty: 'No bundles.' } },
+  { words: ['pack-enablement'], method: 'GET', path: `${MP}/pack-enablement`, summary: 'Packs disabled in your workspace.' },
+  { words: ['pack-enablement', 'set'], method: 'PUT', path: `${MP}/pack-enablement/:packName`, summary: 'Enable (--enabled) or disable (--no-enabled) a pack for your workspace.',
+    body: [{ flag: '--enabled', key: 'enabled', type: 'boolean', required: true }] },
+  { words: ['certify'], method: 'POST', path: `${MP}/certify`, summary: 'Lint a candidate connection-pack manifest (read-only; passed:false is an answer, not an error).',
+    body: [{ flag: '--manifest', key: 'manifest', type: 'json' }, { flag: '--manifest-file', key: 'manifest', type: 'json-file' }] },
+  { words: ['packs', 'remove'], method: 'DELETE', path: `${MP}/packs/:packName`, summary: 'Tombstone an installed pack (superadmin); --purge deletes an already-tombstoned one.',
+    query: [{ flag: '--purge', key: 'purge', type: 'boolean' }] },
+  { words: ['packs', 'restore'], method: 'POST', path: `${MP}/packs/:packName/restore`, summary: 'Restore a tombstoned pack (superadmin).' },
+];
 
 export const MARKETPLACE_HELP = `Usage:
   openwop marketplace listings [--json]
@@ -15,6 +33,7 @@ export const MARKETPLACE_HELP = `Usage:
   openwop marketplace reviews <packName> --org <orgId> [--json]
   openwop marketplace review <packName> --org <orgId> --rating <1-5> [--comment <t>] [--json]
   openwop marketplace unreview <packName> --org <orgId> [--yes]
+${routesHelp('marketplace', MARKETPLACE_ROUTES)}
 
 The pack marketplace (host-extension). \`listings\`/\`install\` browse + install shared
 packs; \`reviews\`/\`review\`/\`unreview\` are org-scoped (need --org). Distinct from the
@@ -25,6 +44,8 @@ signed node-pack \`packs\` registry. The host is the authority; the CLI mirrors 
 export async function runMarketplace(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'listings';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, MARKETPLACE_HELP); return 0; }
+  const declared = await dispatchRoutes(ctx, 'marketplace', MARKETPLACE_ROUTES, argv);
+  if (declared !== undefined) return declared;
   const args = argv.slice(['listings', 'install', 'reviews', 'review', 'unreview'].includes(sub) ? 1 : 0);
   switch (sub) {
     case 'listings': return mpListings(ctx, args);

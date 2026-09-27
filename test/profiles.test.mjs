@@ -214,3 +214,45 @@ describe('profiles command', () => {
     assert.match(cap.stderr, /Unknown profiles command: bogus/);
   });
 });
+
+// ── Declared (routeKit) profile commands ──
+import * as kit from './_routekit-helpers.mjs';
+
+describe('profiles (extended)', () => {
+  const ME = '/v1/host/openwop-app/profiles/me';
+  it('pin-chat PUTs the chat-welcome pin; unpin-chat DELETEs it without --yes', async () => {
+    const host = kit.mockHost(() => kit.json({ userId: 'u' }));
+    await runCli(['profiles', 'pin-chat', 'r1'], kit.opts(host, kit.capture()));
+    assert.equal(host.last().method, 'PUT');
+    assert.equal(host.last().path, `${ME}/pinned-chat-agents/r1`);
+    const cap = kit.capture();
+    assert.equal(await runCli(['profiles', 'unpin-chat', 'r1'], kit.opts(host, cap)), 0, cap.stderr);
+    assert.equal(host.last().method, 'DELETE');
+  });
+
+  it('workflows set replaces the list; knowledge retrieve posts the query', async () => {
+    const host = kit.mockHost(() => kit.json({ chunks: [] }));
+    await runCli(['profiles', 'workflows', 'set', '--workflows', 'a,b'], kit.opts(host, kit.capture()));
+    assert.deepEqual(host.last().body, { workflows: ['a', 'b'] });
+    await runCli(['profiles', 'knowledge', 'retrieve', '--query', 'q'], kit.opts(host, kit.capture()));
+    assert.equal(host.last().path, `${ME}/knowledge/retrieve`);
+    assert.deepEqual(host.last().body, { query: 'q' });
+  });
+
+  it('avatar set 403 → exit 4', async () => {
+    const host = kit.mockHost(() => kit.json({ error: 'forbidden' }, 403));
+    const cap = kit.capture();
+    assert.equal(await runCli(['profiles', 'avatar', 'set', '--token', 'tok'], kit.opts(host, cap)), 4);
+    assert.deepEqual(host.last().body, { token: 'tok' });
+  });
+});
+
+describe('profiles edit (contact read-modify-write)', () => {
+  it('--link keeps the saved location; --preferred-name + --growth-interests are sent', async () => {
+    const host = kit.mockHost((c) => kit.json(c.method === 'GET' ? { userId: 'u', contact: { location: 'Oslo', links: [] } } : { userId: 'u' }));
+    const cap = kit.capture();
+    assert.equal(await runCli(['profiles', 'edit', '--preferred-name', 'Dee', '--growth-interests', 'ML', '--link', 'site=https://dee.dev'], kit.opts(host, cap)), 0, cap.stderr);
+    assert.equal(host.last().method, 'PATCH');
+    assert.deepEqual(host.last().body, { preferredName: 'Dee', growthInterests: ['ML'], contact: { location: 'Oslo', links: [{ label: 'site', url: 'https://dee.dev' }] } });
+  });
+});

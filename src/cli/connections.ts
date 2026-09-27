@@ -21,6 +21,31 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, safeRequest } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+const CONN = '/v1/host/openwop-app/connections/:id';
+
+/**
+ * Declared connection commands (routeKit): revoke a connection, manage its
+ * INBOUND webhook binding (provider → workflow), and browse the provider
+ * catalog. Output passes through the same secret redactor; the inbound signing
+ * secret is read from a file and is never echoed (the host never returns it).
+ */
+export const CONNECTIONS_ROUTES: RouteCmd[] = [
+  { words: ['delete'], method: 'DELETE', path: CONN, transform: redact, summary: 'Revoke a connection (tears down its inbound binding first). Org connections need connections-manage; user connections, the owner.' },
+  { words: ['inbound'], method: 'GET', path: `${CONN}/inbound`, transform: redact, summary: 'The connection\'s inbound webhook binding + the ingest URL to give the provider.' },
+  { words: ['inbound', 'set'], method: 'PUT', path: `${CONN}/inbound`, transform: redact,
+    summary: 'Bind inbound events to a workflow (slack, discord, telegram, whatsapp, zoom-webinar, stream). The signing secret is read from a file, never from the command line.',
+    body: [
+      { flag: '--signing-secret-file', key: 'signingSecret', type: 'file', required: true },
+      { flag: '--workflow-id', key: 'workflowId' },
+      { flag: '--source', key: 'source', help: 'stream | change (stream/CDC providers only)' },
+    ] },
+  { words: ['inbound', 'remove'], method: 'DELETE', path: `${CONN}/inbound`, summary: 'Remove the inbound binding.' },
+  { words: ['providers'], method: 'GET', path: ['/v1/host/openwop-app/providers', '/v1/host/openwop-app/providers/:id'], transform: redact,
+    summary: 'The connection-provider catalog (or one provider\'s manifest): auth flow, scopes, whether OAuth is configured here.',
+    table: { key: 'providers', columns: ['id', 'label', 'category', 'authFlow', 'oauthConfigured'], empty: 'No providers.' } },
+];
 
 export const CONNECTIONS_HELP = `Usage:
   openwop connections list [--json]
@@ -29,6 +54,7 @@ export const CONNECTIONS_HELP = `Usage:
   openwop connections authorize <provider> [--scope <s>]... [--write] [--return-to <url>] [--json]
   openwop connections oauth-clients list [--json]
   openwop connections oauth-clients get <provider> [--json]
+${routesHelp('connections', CONNECTIONS_ROUTES)}
 
 Inspect the host's third-party connections and their OAuth client configuration
 (ADR 0024). \`list\`/\`get\` render connection metadata + status; \`test\` health-probes
@@ -97,6 +123,8 @@ export async function runConnections(ctx: Ctx, argv: string[]): Promise<number> 
     write(ctx.io.stdout, CONNECTIONS_HELP);
     return 0;
   }
+  const declared = await dispatchRoutes(ctx, 'connections', CONNECTIONS_ROUTES, argv, ensureAdvertised);
+  if (declared !== undefined) return declared;
   const args = argv.slice(TOP.includes(sub) ? 1 : 0);
   switch (sub) {
     case 'list':

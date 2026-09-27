@@ -25,6 +25,21 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, safeRequest } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+/**
+ * Declared goal verbs (routeKit) beyond the lifecycle above: arm a schedule
+ * continuation, ask the judge to evaluate a snapshot, and attribute a run.
+ * They pass through the same advertisement probe (fail closed).
+ */
+export const GOALS_ROUTES: RouteCmd[] = [
+  { words: ['arm'], method: 'POST', path: '/v1/host/openwop-app/goals/:id/arm', summary: 'Arm a schedule continuation: run --workflow-id on --cron-expr until the judge is satisfied or a bound stops it.',
+    body: [{ flag: '--workflow-id', key: 'workflowId', required: true }, { flag: '--cron-expr', key: 'cronExpr', required: true }, { flag: '--timezone', key: 'timezone' }] },
+  { words: ['evaluate'], method: 'POST', path: '/v1/host/openwop-app/goals/:id/evaluate', summary: 'Ask the host judge to verdict a snapshot (the host decides; replay-safe by snapshot hash).',
+    body: [{ flag: '--snapshot-ref', key: 'snapshotRef', required: true }, { flag: '--snapshot-hash', key: 'snapshotHash', required: true }] },
+  { words: ['record-run'], method: 'POST', path: '/v1/host/openwop-app/goals/:id/runs', summary: 'Attribute a run (and its cost) to the goal\'s progress + bounds.',
+    body: [{ flag: '--run-id', key: 'runId', required: true }, { flag: '--cost-usd', key: 'costUsd', type: 'number' }] },
+];
 
 export const GOALS_HELP = `Usage:
   openwop goals list [--state <s>] [--json]
@@ -34,6 +49,7 @@ export const GOALS_HELP = `Usage:
   openwop goals pause <goalId> [--json]
   openwop goals resume <goalId> [--json]
   openwop goals abandon <goalId> [--yes]
+${routesHelp('goals', GOALS_ROUTES)}
 
 Standing goals (RFC 0097). A goal is an objective the host pursues across runs
 until a JUDGE (RFC 0090) verdicts it satisfied or a BOUND (RFC 0058) stops it.
@@ -90,6 +106,8 @@ export async function runGoals(ctx: Ctx, argv: string[]): Promise<number> {
     write(ctx.io.stdout, GOALS_HELP);
     return 0;
   }
+  const declared = await dispatchRoutes(ctx, 'goals', GOALS_ROUTES, argv, ensureAdvertised);
+  if (declared !== undefined) return declared;
   const args = argv.slice(SUBCOMMANDS.includes(sub) ? 1 : 0);
   switch (sub) {
     case 'list':

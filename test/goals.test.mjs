@@ -165,3 +165,39 @@ describe('goals pause / resume / abandon', () => {
     assert.match(cap.stderr, /Unknown goals command/);
   });
 });
+
+// ── Declared (routeKit) goal verbs: arm / evaluate / record-run ──
+describe('goals arm / evaluate / record-run', () => {
+  it('arm POSTs workflowId + cronExpr after the advertisement probe', async () => {
+    const cap = capture();
+    let seen;
+    const fetchImpl = host(async (url, init) => { seen = { path: new URL(url).pathname, method: init.method, body: JSON.parse(init.body) }; return jsonResponse({ id: 'g1', state: 'active' }); });
+    const code = await runCli(['goals', 'arm', 'g1', '--workflow-id', 'wf', '--cron-expr', '0 * * * *'], opts(fetchImpl, cap));
+    assert.equal(code, 0, cap.stderr);
+    assert.deepEqual(seen, { path: '/v1/host/openwop-app/goals/g1/arm', method: 'POST', body: { workflowId: 'wf', cronExpr: '0 * * * *' } });
+  });
+
+  it('record-run coerces --cost-usd; evaluate needs both snapshot fields', async () => {
+    let cap = capture();
+    let seen;
+    const fetchImpl = host(async (url, init) => { seen = JSON.parse(init.body); return jsonResponse({ id: 'g1' }); });
+    await runCli(['goals', 'record-run', 'g1', '--run-id', 'run_1', '--cost-usd', '0.25'], opts(fetchImpl, cap));
+    assert.deepEqual(seen, { runId: 'run_1', costUsd: 0.25 });
+    cap = capture();
+    assert.equal(await runCli(['goals', 'evaluate', 'g1', '--snapshot-ref', 'r'], opts(fetchImpl, cap)), 2);
+    assert.match(cap.stderr, /--snapshot-hash is required/);
+  });
+
+  it('fails closed (exit 1) when goals are not advertised', async () => {
+    const cap = capture();
+    const fetchImpl = host(async () => jsonResponse({}), { advertised: false });
+    assert.equal(await runCli(['goals', 'arm', 'g1', '--workflow-id', 'w', '--cron-expr', 'c'], opts(fetchImpl, cap)), 1);
+    assert.match(cap.stderr, /does not advertise/);
+  });
+
+  it('403 → exit 4', async () => {
+    const cap = capture();
+    const fetchImpl = host(async () => jsonResponse({ error: 'forbidden' }, 403));
+    assert.equal(await runCli(['goals', 'evaluate', 'g1', '--snapshot-ref', 'r', '--snapshot-hash', 'h'], opts(fetchImpl, cap)), 4);
+  });
+});

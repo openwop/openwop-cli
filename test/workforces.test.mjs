@@ -175,3 +175,21 @@ describe('workforces eval', () => {
     assert.match(cap.stderr, /does not enable the agent eval suite/);
   });
 });
+
+// ── Declared (routeKit) workforce commands: migration set ──
+describe('workforces migration set', () => {
+  it('PATCHes only the sections given; --stage collects into stageStatus', async () => {
+    const cap = capture();
+    let seen;
+    const fetchImpl = host(async (url, init) => { seen = { path: new URL(url).pathname, method: init.method, body: JSON.parse(init.body) }; return jsonResponse({ workforceId: 'wf_1' }); });
+    const code = await runCli(['workforces', 'migration', 'set', 'wf_1', '--target', '{"workflowId":"w","targetOutcome":"o"}', '--stage', 'target=done', '--stage', 'assess=pending'], opts(fetchImpl, cap));
+    assert.equal(code, 0, cap.stderr);
+    assert.deepEqual(seen, { path: '/v1/host/openwop-app/workforces/wf_1/migration', method: 'PATCH', body: { target: { workflowId: 'w', targetOutcome: 'o' }, stageStatus: { target: 'done', assess: 'pending' } } });
+  });
+
+  it('fails closed when the workforces surface is not advertised', async () => {
+    const cap = capture();
+    const fetchImpl = host(async () => jsonResponse({}), { advertised: false });
+    assert.equal(await runCli(['workforces', 'migration', 'set', 'wf_1', '--stage', 'target=done'], opts(fetchImpl, cap)), 1);
+  });
+});

@@ -188,6 +188,19 @@ import { runWhatsapp, WHATSAPP_HELP } from './cli/whatsapp.js';
 import { runAgentAuthor, AGENT_AUTHOR_HELP } from './cli/agentAuthor.js';
 import { runWorkflowAuthor, WORKFLOW_AUTHOR_HELP } from './cli/workflowAuthor.js';
 import { runWorkflowProposals, WORKFLOW_PROPOSALS_HELP } from './cli/workflowProposals.js';
+import { runOperations, OPERATIONS_HELP } from './cli/operations.js';
+import { runServiceDesk, SERVICE_DESK_HELP } from './cli/serviceDesk.js';
+import { runJobSearch, JOB_SEARCH_HELP } from './cli/jobSearch.js';
+import { runKicktodo, KICKTODO_HELP } from './cli/kicktodo.js';
+import { runDashboard, DASHBOARD_HELP } from './cli/dashboard.js';
+import { runBi, BI_HELP } from './cli/bi.js';
+import { runInsightsSuite, INSIGHTS_SUITE_HELP } from './cli/insightsSuite.js';
+import { runIntentLedger, INTENT_LEDGER_HELP } from './cli/intentLedger.js';
+import { runWorkGraph, WORK_GRAPH_HELP } from './cli/workGraph.js';
+import { runWorkSelection, WORK_SELECTION_HELP } from './cli/workSelection.js';
+import { runTasks, TASKS_HELP } from './cli/tasks.js';
+import { runModelRouter, MODEL_ROUTER_HELP } from './cli/modelRouter.js';
+import { runDev, DEV_HELP } from './cli/dev.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -554,6 +567,32 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runWorkflowAuthor(ctx, commandArgs);
       case 'workflow-proposals':
         return await runWorkflowProposals(ctx, commandArgs);
+      case 'operations':
+        return await runOperations(ctx, commandArgs);
+      case 'service-desk':
+        return await runServiceDesk(ctx, commandArgs);
+      case 'job-search':
+        return await runJobSearch(ctx, commandArgs);
+      case 'kicktodo':
+        return await runKicktodo(ctx, commandArgs);
+      case 'dashboard':
+        return await runDashboard(ctx, commandArgs);
+      case 'bi':
+        return await runBi(ctx, commandArgs);
+      case 'insights-suite':
+        return await runInsightsSuite(ctx, commandArgs);
+      case 'intent-ledger':
+        return await runIntentLedger(ctx, commandArgs);
+      case 'work-graph':
+        return await runWorkGraph(ctx, commandArgs);
+      case 'work-selection':
+        return await runWorkSelection(ctx, commandArgs);
+      case 'tasks':
+        return await runTasks(ctx, commandArgs);
+      case 'model-router':
+        return await runModelRouter(ctx, commandArgs);
+      case 'dev':
+        return await runDev(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -736,6 +775,19 @@ const HELP_MAP: Record<string, string> = {
     'agent-author': AGENT_AUTHOR_HELP,
     'workflow-author': WORKFLOW_AUTHOR_HELP,
     'workflow-proposals': WORKFLOW_PROPOSALS_HELP,
+    operations: OPERATIONS_HELP,
+    'service-desk': SERVICE_DESK_HELP,
+    'job-search': JOB_SEARCH_HELP,
+    kicktodo: KICKTODO_HELP,
+    dashboard: DASHBOARD_HELP,
+    bi: BI_HELP,
+    'insights-suite': INSIGHTS_SUITE_HELP,
+    'intent-ledger': INTENT_LEDGER_HELP,
+    'work-graph': WORK_GRAPH_HELP,
+    'work-selection': WORK_SELECTION_HELP,
+    tasks: TASKS_HELP,
+    'model-router': MODEL_ROUTER_HELP,
+    dev: DEV_HELP,
 };
 
 /** All top-level command names + aliases — the single drift-free source for the
@@ -1215,6 +1267,19 @@ Commands:
   agent-author        The agent draft the AI Agent Architect stashed for you (read/clear)
   workflow-author     AI workflow authoring: node catalog + draft a workflow from an intent (--follow)
   workflow-proposals  Operator auto-approval policies for agent-proposed workflows
+  operations health   Operator console (ADR 0395): health/SLO/DLQ/outbox/webhook summaries + recovery + compensation
+  service-desk tickets  Help-desk tickets + intake config (ADR 0422); \`public send|thread\` = the anonymous widget
+  job-search applications  Job-search vertical (ADR 0539): applications, drafts, follow-ups, funnel, steering, grants
+  kicktodo readiness  KickTodo readiness probe + Challenge Author agent (superadmin)
+  dashboard layout    Your dashboard tiles, note and AI-briefing conversation (ADR 0375/0577)
+  bi metrics          Org business-intelligence metrics: define, edit, run (ADR 0417)
+  insights-suite config  Insights-suite configuration (ADR 0599)
+  intent-ledger draft A conversation's intent ledger: draft / approve / reject / reckoning (ADR 0136)
+  work-graph refresh  Ambient work-graph suggestions: refresh / accept / dismiss (ADR 0137)
+  work-selection ranking  Ranked work-selection agenda for a board (ADR 0534)
+  tasks deck          Your run task deck, bucketed by state (ADR 0133)
+  model-router enable Turn an org's model-router config on/off (ADR 0130)
+  dev ucp-merchant call  Demo-only: JSON-RPC tools/call against the reference UCP merchant
 
 Examples:
   openwop onboard
