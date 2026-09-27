@@ -199,7 +199,7 @@ export async function runSpec(ctx: Ctx, group: string, spec: CommandSpec, argv: 
     qs.set(f.key, Array.isArray(c) ? c.join(',') : typeof c === 'object' ? JSON.stringify(c) : String(c));
   }
   const q = qs.toString();
-  if (q) path += `?${q}`;
+  if (q) path += `${path.includes('?') ? '&' : '?'}${q}`;
 
   let body: Record<string, unknown> | undefined;
   if (allowBody || spec.method === 'POST' || spec.method === 'PUT' || spec.method === 'PATCH') {
