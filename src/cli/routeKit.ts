@@ -89,6 +89,13 @@ export interface RouteCmd {
   human?: (body: any) => string;
   /** Extra usage hint (positional names are derived from the path). */
   usage?: string;
+  // ── Adapter-compatibility options ─────────────────────────────────────────
+  // Everything from here to the end of the interface exists so the
+  // `resourceCommands` spec-table groups run on THIS pipeline with their
+  // behaviour byte-identical (pinned by test/command-behaviour-snapshot). They
+  // are set by `resourceCommands.ts`'s adapter. A NEW group should declare its
+  // routes with the options above and take the defaults; converging the
+  // adapter onto the defaults is a follow-up, not a license to add more.
   /**
    * Bind an exact `:org` path param (not `:orgId`) to a required `--org <orgId>`
    * flag (via `requireOrg`) instead of a positional. Default: false.
