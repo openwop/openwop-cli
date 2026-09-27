@@ -1044,7 +1044,9 @@ Usage:
 
 Global options:
   --base-url <url>    Host base URL (default: --base-url > OPENWOP_BASE_URL > saved config > http://localhost:8080)
-  --stream-base-url <url>  Where to read event streams (default: OPENWOP_STREAM_BASE_URL > saved config > the host's advertised https streamBase > --base-url)
+  --stream-base-url <url>
+                      Where to read event streams (default: OPENWOP_STREAM_BASE_URL >
+                      saved config > the host's advertised https streamBase > --base-url)
   --api-key <key>     Bearer API key (default: OPENWOP_API_KEY > saved config > sample-token for localhost)
   --profile <name>    Use a named config profile (~/.openwop-<name>); also OPENWOP_PROFILE
   --json              Print machine-readable JSON where supported
