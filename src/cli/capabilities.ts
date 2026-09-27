@@ -77,7 +77,7 @@ export async function readDiscovery(ctx: Ctx): Promise<{ doc: any; servedVersion
 export function isV2Discovery(caps: any, servedVersion?: string): boolean {
   if (typeof servedVersion === 'string' && servedVersion.startsWith('2.')) return true;
   if (!caps || typeof caps !== 'object' || 'capabilities' in caps || 'supportedTransports' in caps) return false;
-  return Object.entries(caps).some(([k, v]) => !V2_METADATA_KEYS.has(k) && !!v && typeof v === 'object' && typeof (v as any).witness === 'string');
+  return Object.entries(caps).some(([k, v]) => !V2_METADATA_KEYS.has(k) && !!v && typeof v === 'object' && typeof (v as { witness?: unknown }).witness === 'string');
 }
 
 export function summarizeCapabilities(caps: any, opts: { servedVersion?: string } = {}) {

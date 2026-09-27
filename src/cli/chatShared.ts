@@ -78,7 +78,7 @@ export async function streamHostSse(ctx: Ctx, requestedPath: string, opts: HostS
       throw new HttpError(httpErrorLine(res.status, body), res.status, body, res.headers);
     }
     const ct = res.headers?.get?.('content-type') ?? '';
-    if (!ct.includes('text/event-stream') || !res.body || typeof (res.body as any).getReader !== 'function') {
+    if (!ct.includes('text/event-stream') || !res.body || typeof (res.body as { getReader?: unknown }).getReader !== 'function') {
       throw new CliError(`The server did not answer ${requestedPath} with an event stream (content-type: ${ct || 'none'}).`, 1);
     }
     await new Promise<void>((resolve, reject) => {

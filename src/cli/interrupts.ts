@@ -91,7 +91,8 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
       if (b.key) writeLine(ctx.io.stdout, `key: ${b.key}`);
       writeLine(ctx.io.stdout, `resolved: ${b.resolved ? 'yes' : 'no'}`);
       if (b.expiresAt) writeLine(ctx.io.stdout, `expiresAt: ${b.expiresAt}`);
-      if (b.data && typeof b.data === 'object' && typeof (b.data as any).prompt === 'string') writeLine(ctx.io.stdout, `prompt: ${(b.data as any).prompt}`);
+      const prompt = b.data && typeof b.data === 'object' ? (b.data as { prompt?: unknown }).prompt : undefined;
+      if (typeof prompt === 'string') writeLine(ctx.io.stdout, `prompt: ${prompt}`);
       if (b.resumeSchema !== undefined) writeLine(ctx.io.stdout, `resumeSchema: ${JSON.stringify(b.resumeSchema)}`);
       return 0;
     }

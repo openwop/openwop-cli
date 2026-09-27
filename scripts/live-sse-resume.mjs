@@ -3,7 +3,7 @@
  * Live check: does `openwop runs watch` resume a REAL run's event stream after
  * the connection breaks? (stdlib only; run after `npm run build`.)
  *
- *   node scripts/live-sse-resume.mjs [--upstream <url>] [--mode drop|stall]
+ *   node scripts/live-sse-resume.mjs [--upstream <url> | --base-url <url>] [--mode drop|stall]
  *                                    [--delay-ms 6000] [--workflow conformance-delay]
  *
  * 1. Mints an anonymous session on the upstream by starting a run of a
@@ -22,7 +22,8 @@
  *    sequence printed exactly once, the terminal event arrived, exit 0.
  *
  * The upstream must be an origin that streams (NOT a buffering CDN front door):
- * the default is the reference host's Cloud Run origin. No credential of yours
+ * --upstream, else the `streamBase` advertised by --base-url (default
+ * https://app.openwop.dev/api), else the reference host's Cloud Run origin. No credential of yours
  * is used or printed.
  */
 import http from 'node:http';
@@ -32,7 +33,19 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith('--') ? [...acc, [a.slice(2), all[i + 1]]] : acc), []));
-const upstream = new URL(args.upstream ?? 'https://openwop-app-backend-89896419173.us-central1.run.app');
+// The upstream must stream (not a buffering CDN front door). Precedence: --upstream,
+// else the `streamBase` the host at --base-url advertises (openwop-app ADR 0761),
+// else the reference host's Cloud Run origin (known to stream).
+const REFERENCE_STREAM_ORIGIN = 'https://openwop-app-backend-89896419173.us-central1.run.app';
+async function advertisedStreamBase(base) {
+  try {
+    const res = await fetch(new URL('.well-known/openwop', base.endsWith('/') ? base : `${base}/`), { headers: { accept: 'application/json', 'openwop-version': '2' } });
+    const doc = await res.json();
+    for (const v of Object.values(doc?.extensions ?? {})) if (typeof v?.streamBase === 'string' && v.streamBase.startsWith('https://')) return v.streamBase;
+  } catch { /* fall through */ }
+  return undefined;
+}
+const upstream = new URL(args.upstream ?? (await advertisedStreamBase(args['base-url'] ?? 'https://app.openwop.dev/api')) ?? REFERENCE_STREAM_ORIGIN);
 const mode = args.mode ?? 'drop';
 const delayMs = Number(args['delay-ms'] ?? 6000);
 const workflowId = args.workflow ?? 'conformance-delay';
