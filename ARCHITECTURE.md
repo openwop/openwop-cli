@@ -181,6 +181,36 @@ surface the host didn't actually serve, must not relax a normative `MUST` or
 required field in CLI code, and must fail closed when its capability isn't
 advertised.
 
+## Request seams (every call goes through one of these)
+
+A command never builds a URL, picks a protocol path, or attaches the bearer
+itself. Four seams own that, so a protocol or host change lands once:
+
+| Seam | File | Owns |
+|---|---|---|
+| `requestJson` / `safeRequest` / `probeEndpoint` | `src/api.ts` | every JSON request: joins to `--base-url` (keeping a path prefix), bearer, error envelope → `HttpError` |
+| `negotiateMajor` + `resolveRequest` | `src/protocol.ts` | ONE discovery read per process (`OpenWOP-Version: 2`; a `406` answer lists what the host serves); under major 2 a manifest `/v1/<op>` → `/<op>` + `OpenWOP-Version: 2.0`, tenant-bound run ids projected (`~2F`), `/v1/host/<org>/…` → the advertised `/host/<org>/…` root. `OPENWOP_PROTOCOL_MAJOR=1\|2` pins it |
+| `resolveStreamRequest` | `src/protocol.ts` | every event stream (run events, host streams, `kanban watch`, `present`): the same path negotiation, joined to the **stream origin** — `--stream-base-url` > `OPENWOP_STREAM_BASE_URL` > config `host.streamBaseUrl` > a host-advertised `extensions.*.streamBase` (https-only, no credentials) > `--base-url` — because a front door may buffer streams entirely (openwop-app ADR 0761: 0 bytes in 25 s). The run stream adds `Last-Event-ID` resume and an idle watchdog (`src/sse.ts`) |
+| `requestNormativeOrHost` | `src/cli/requestHelpers.ts` | a normative read with a host-extension fallback: on 404/405/501, or on the RFC 0200 §B.1 **no-credential** 401 (`Bearer` challenge without `error=`) when the request carried no credential — never on a refused credential, a bare 401 or a 403. The fallback is announced on stderr |
+
+**Why they are seams and not conventions:** each replaced several hand-rolled
+copies that had drifted (four stream call sites, one missing the bearer), and
+mocked tests assert whatever literal a command was written with — the 1.0.x line
+404'd on 66 host commands after a server rename with the suite green. Verify a
+routing change live (`scripts/live-sse-resume.mjs` for streams).
+
+### The command-table engine
+
+Declarative groups run on ONE pipeline, `src/cli/routeKit.ts` (parse → coerce →
+read-modify-write → confirm → request → render). `src/cli/resourceCommands.ts`
+keeps a terser declaration syntax (`key:type!=flag` field specs) as an
+**adapter** onto that pipeline; its behaviour is pinned by
+`test/command-behaviour-snapshot.test.mjs` (regenerate the fixture with
+`scripts/snapshot-commands.mjs` only for an intended, reviewed change). The
+`RouteCmd` options below the adapter-compatibility marker exist for that
+adapter — a new group uses the defaults. `marketingShared.dispatchTable` is a
+different thing: a dispatcher for hand-written handlers, not a route engine.
+
 ## The messaging/relay channel subsystem
 
 `messaging` (host-driven gateway) and `relay` (local bridge loop) compose a small
@@ -211,9 +241,13 @@ channel is one registry entry + one normalizer — **not** a new command group.
   write path where one exists. Validate a write by asserting its `201` (an
   unauthenticated live host issues a throwaway `anon:<sid>` tenant per invocation,
   so a follow-up `list` runs under a different tenant).
-- **Release** — independently versioned at **0.x** (`package.json` + `VERSION` in
-  `src/constants.ts`), NOT pinned to the protocol corpus version. Changes land in
-  this repo and ship on its own `vX.Y.Z` tags via PR → merge.
+- **Release** — independently versioned on its own SemVer line (1.x), NOT pinned
+  to the protocol corpus version. `package.json` is the only version source
+  (`--version` reads it; `test/version.test.mjs` guards it). Changes accumulate
+  under `## [Unreleased]`; a release PR bumps the version (`npm version X.Y.Z
+  --no-git-tag-version`) and dates the section. **Pushing the `vX.Y.Z` tag
+  publishes** (`.github/workflows/publish.yml`, npm trusted publisher with
+  provenance). Provision worktrees with `npx -y npm@10.9.8 ci`.
 
 ## Boundary discipline
 

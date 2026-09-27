@@ -1,7 +1,7 @@
 # CLAUDE.md — working in `@openwop/cli`
 
 Guidance for Claude / agents making changes in this repo. Read this first, then
-[`ARCHITECTURE.md`](./ARCHITECTURE.md) (the shape) and [`FEATURES.md`](./FEATURES.md)
+[`ARCHITECTURE.md`](./ARCHITECTURE.md) (the shape — and § Request seams: never build a URL, pick a protocol path or attach the bearer in a command) and [`FEATURES.md`](./FEATURES.md)
 (the command-group catalog). For what to build next, use
 [`ROADMAP.md`](./ROADMAP.md) as the feature roadmap.
 
