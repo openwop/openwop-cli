@@ -89,19 +89,17 @@ export interface RouteCmd {
   human?: (body: any) => string;
   /** Extra usage hint (positional names are derived from the path). */
   usage?: string;
-  // ── Adapter-compatibility options ─────────────────────────────────────────
-  // Everything from here to the end of the interface exists so the
-  // `resourceCommands` spec-table groups run on THIS pipeline with their
-  // behaviour byte-identical (pinned by test/command-behaviour-snapshot). They
-  // are set by `resourceCommands.ts`'s adapter. A NEW group should declare its
-  // routes with the options above and take the defaults; converging the
-  // adapter onto the defaults is a follow-up, not a license to add more.
   /**
    * Bind an exact `:org` path param (not `:orgId`) to a required `--org <orgId>`
-   * flag (via `requireOrg`) instead of a positional. Default: false.
+   * flag (via `requireOrg`, so the configured default org applies) instead of a
+   * positional. Default: false.
    */
   orgFlag?: boolean;
-  /** Accept `--body <json>` / `--body-file <path>`; when true the body is built even for GET/DELETE. Default: accepted, built for writes + body flags. */
+  /**
+   * `--body <json>` / `--body-file <path>`: `false` rejects them (an unknown
+   * flag), `true` builds a body even for a GET/DELETE. Default: accepted, and a
+   * body is built for writes and for commands that declare body flags.
+   */
   bodyFlags?: boolean;
   /** Printed to stderr (one line) just before the request — e.g. a secret-reveal warning. */
   notice?: string;
@@ -113,18 +111,28 @@ export interface RouteCmd {
    * (null is rendered like any other body).
    */
   noContent?: string;
+  /**
+   * Fail-fast mode: validate every input — query flags, body flags, `--body`,
+   * required fields — BEFORE the `--yes` gate and before any read-modify-write
+   * GET, field by field in declaration order, so a bad invocation is refused
+   * without a round-trip or a confirmation prompt it could never pass.
+   * Required body fields must then be satisfied by the flags + `--body` alone
+   * (not by the read-modify-write base). Default: false (the `--yes` gate
+   * first; required fields checked after the read-modify-write merge, so a
+   * field the current document already holds is not required again).
+   */
+  validateFirst?: boolean;
+  // ── Adapter-compatibility options ─────────────────────────────────────────
+  // Everything from here to the end of the interface exists so the
+  // `resourceCommands` spec-table groups run on THIS pipeline with their
+  // behaviour byte-identical (pinned by test/command-behaviour-snapshot). They
+  // are set by `resourceCommands.ts`'s adapter. A NEW group should declare its
+  // routes with the options above and take the defaults; converging the
+  // adapter onto the defaults is a follow-up, not a license to add more.
   /** Human rendering of a write with no table/human renderer: `summary` (the OK line + body, default) or `json` (the body only). */
   writeOutput?: 'summary' | 'json';
   /** Wrap host errors with a hint + exit-code mapping (`hostError`). `false` rethrows the HttpError as-is. Default: true. */
   hostErrors?: boolean;
-  /**
-   * Validate every input (query, body flags, required fields) BEFORE the `--yes`
-   * gate and before any read-modify-write GET, field by field in declaration
-   * order; required body fields are satisfied by the flags + `--body` only (not
-   * by the read-modify-write base). Default: false (gate first, required checked
-   * after the merge).
-   */
-  validateFirst?: boolean;
   /** `number` fields reject a blank value (`--n=`) instead of reading it as 0. Default: false. */
   strictNumbers?: boolean;
   /** Printed verbatim for `--help` (stdout) and a positional-count mismatch (stderr) instead of the generated usage. */
