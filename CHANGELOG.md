@@ -4,6 +4,15 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
+## [Unreleased]
+
+### Fixed
+- **A blank number flag is a usage error, no longer sent as 0.** In the route-table groups a blank value such as `--limit=` or `--cost-usd=` read as `Number('')` = 0 and was sent (e.g. `roster activity <id> --limit=` requested `?limit=0`). Every group now refuses it with `--<flag> must be a number (got "")` and exit 2 before any request — the behaviour the spec-table groups already had.
+
+### Changed
+- **The 15 spec-table groups** (`capability-firewall`, `chat-widget`, `cms`, `commerce`, `commerce-connect`, `commissions`, `crm`, `dealers`, `email`, `forms`, `kb`, `promotions`, `recommendations`, `sales-maps`, `territories`) **now match the rest of the CLI** in human output (a write prints `OK — <command> (HTTP n).` before the body), per-command `--help`/usage text, input-error wording, and host-error hints (401 → "Not signed in…", 403 → "Permission denied…", 404 → "Not found — or the feature is not enabled…"). **Exit codes and `--json` output are unchanged** — verified over every recorded invocation of the command-behaviour snapshot. Scripts that parse human-mode output should use `--json`.
+- The command-behaviour snapshot now covers every route-table group (501 commands, 7274 invocations, up from 289 / 4126), and `scripts/diff-command-snapshot.mjs` classifies a fixture diff against an explicit profile.
+
 ## [1.2.1] — 2026-09-27 — quality pass on 1.2.0
 
 Findings from the post-release code / UX / data grading of the 1.1–1.2 work. No new flags.
