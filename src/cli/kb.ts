@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const base = (org: string) => `/v1/host/sample/kb/orgs/${encodeURIComponent(org)}`;
+const base = (org: string) => `/v1/host/openwop-app/kb/orgs/${encodeURIComponent(org)}`;
 const cols = (org: string) => `${base(org)}/collections`;
 
 export const KB_HELP = `Usage:

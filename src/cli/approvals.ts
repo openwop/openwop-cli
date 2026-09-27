@@ -2,9 +2,9 @@ import type { Ctx } from '../context.js';
 /** `openwop approvals ...` — the human side of "agents propose, humans dispose".
  *
  * Drives the host's approval inbox (sample host-extension, non-normative):
- *   GET  /v1/host/sample/approvals[?status=pending|approved|rejected]
- *   POST /v1/host/sample/approvals/{id}/claim   — affirmative sign-off (starts the run)
- *   POST /v1/host/sample/approvals/{id}/reject  — dismiss the proposal
+ *   GET  /v1/host/openwop-app/approvals[?status=pending|approved|rejected]
+ *   POST /v1/host/openwop-app/approvals/{id}/claim   — affirmative sign-off (starts the run)
+ *   POST /v1/host/openwop-app/approvals/{id}/reject  — dismiss the proposal
  *
  * Capability honesty is the whole point of this group: the HOST is the authority
  * for every policy decision. The CLI only RENDERS the host's resolved queue and
@@ -39,11 +39,11 @@ host does not advertise the approval surface (/.well-known/openwop), the group
 fails closed rather than guessing.
 
 Endpoints:
-  list    GET  /v1/host/sample/approvals[?status=...]
-  get     GET  /v1/host/sample/approvals   (filtered to <approvalId> client-side;
+  list    GET  /v1/host/openwop-app/approvals[?status=...]
+  get     GET  /v1/host/openwop-app/approvals   (filtered to <approvalId> client-side;
           the host exposes no single-approval GET)
-  claim   POST /v1/host/sample/approvals/{id}/claim
-  reject  POST /v1/host/sample/approvals/{id}/reject
+  claim   POST /v1/host/openwop-app/approvals/{id}/claim
+  reject  POST /v1/host/openwop-app/approvals/{id}/reject
 
   --status <s>   (list) Filter the queue: pending | approved | rejected (default: all).
   --note <text>  (claim/reject) Optional human note recorded with the decision.
@@ -109,10 +109,10 @@ async function ensureApprovalsAdvertised(ctx: Ctx): Promise<void> {
   const paths = wk.body && typeof wk.body === 'object' ? (wk.body as { paths?: unknown }).paths : undefined;
   const advertised =
     paths !== null && typeof paths === 'object' &&
-    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/sample/approvals'));
+    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/openwop-app/approvals'));
   if (!advertised) {
     throw new CliError(
-      'approvals: this host does not advertise the approval-inbox surface (/v1/host/sample/approvals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
+      'approvals: this host does not advertise the approval-inbox surface (/v1/host/openwop-app/approvals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
       1,
     );
   }
@@ -127,7 +127,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `approvals: ${detail} (the host must mount /v1/host/sample/approvals; the CLI renders the host's queue, it never decides).`,
+      `approvals: ${detail} (the host must mount /v1/host/openwop-app/approvals; the CLI renders the host's queue, it never decides).`,
       1,
     );
   }
@@ -135,7 +135,7 @@ function gate404(err: unknown): never {
 }
 
 async function fetchQueue(ctx: Ctx, status?: string): Promise<any[]> {
-  const path = status ? `/v1/host/sample/approvals?status=${encodeURIComponent(status)}` : '/v1/host/sample/approvals';
+  const path = status ? `/v1/host/openwop-app/approvals?status=${encodeURIComponent(status)}` : '/v1/host/openwop-app/approvals';
   let res;
   try {
     res = await requestJson(ctx, path);
@@ -215,7 +215,7 @@ async function runApprovalsResolve(ctx: Ctx, argv: string[], verb: 'claim' | 're
     return options.help ? 0 : 2;
   }
   await ensureApprovalsAdvertised(ctx);
-  const path = `/v1/host/sample/approvals/${encodeURIComponent(positionals[0])}/${verb}`;
+  const path = `/v1/host/openwop-app/approvals/${encodeURIComponent(positionals[0])}/${verb}`;
   const body = options.note !== undefined ? { note: options.note } : undefined;
   let res;
   try {

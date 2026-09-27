@@ -22,7 +22,7 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
   switch (sub) {
     case 'list': {
       if (rest.length !== 1) { write(ctx.io.stdout, 'Usage: openwop interrupts list <runId> [--json]\n'); return 2; }
-      const res = await requestJson(ctx, `/v1/host/sample/runs/${encodeURIComponent(rest[0])}/interrupts`);
+      const res = await requestJson(ctx, `/v1/host/openwop-app/runs/${encodeURIComponent(rest[0])}/interrupts`);
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       const items = Array.isArray(res.body?.interrupts) ? res.body.interrupts : [];
       if (items.length === 0) { writeLine(ctx.io.stdout, `No open interrupts for run ${rest[0]}.`); return 0; }

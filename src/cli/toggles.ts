@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const TOGGLES_BASE = '/v1/host/sample/feature-toggles';
+const TOGGLES_BASE = '/v1/host/openwop-app/feature-toggles';
 
 export const TOGGLES_HELP = `Usage:
   openwop toggles list [--json]

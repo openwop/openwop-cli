@@ -16,7 +16,7 @@ Agent roster (RFC 0086). A roster entry is a named, tenant-scoped standing
 agent that owns a portfolio of workflows[]; its triggers compose RFC 0052
 (schedules) + RFC 0083 (the durable trigger bridge), and a run it initiates
 emits the content-free roster.run.initiated attribution event. Drives the
-host-extension surface POST/GET/PATCH/DELETE /v1/host/sample/roster.
+host-extension surface POST/GET/PATCH/DELETE /v1/host/openwop-app/roster.
 
   --persona <name>   The agent's display persona (required on create).
   --agent-ref <id>   The agentId this entry binds to (RFC 0002 AgentRef; required on create).
@@ -61,7 +61,7 @@ export async function runRoster(ctx: Ctx, argv: string[]) {
 async function rosterList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, ROSTER_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/roster');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/roster');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const roster = Array.isArray(res.body?.roster) ? res.body.roster : [];
   if (roster.length === 0) {
@@ -85,7 +85,7 @@ async function rosterGet(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop roster get <rosterId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/sample/roster/${encodeURIComponent(positionals[0])}`);
+  const res = await requestJson(ctx, `/v1/host/openwop-app/roster/${encodeURIComponent(positionals[0])}`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const e = res.body ?? {};
   writeLine(ctx.io.stdout, `rosterId: ${e.rosterId ?? positionals[0]}`);
@@ -121,7 +121,7 @@ async function rosterCreate(ctx: Ctx, argv: string[]) {
   if (options.description) body.description = options.description;
   if (options.disabled) body.enabled = false;
   if (options.avatarUrl) body.avatarUrl = options.avatarUrl;
-  const res = await requestJson(ctx, '/v1/host/sample/roster', { method: 'POST', body });
+  const res = await requestJson(ctx, '/v1/host/openwop-app/roster', { method: 'POST', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Created roster entry ${res.body?.rosterId} (${res.body?.persona}).`);
   return 0;
@@ -146,7 +146,7 @@ async function rosterUpdate(ctx: Ctx, argv: string[]) {
   if (options.enabled) body.enabled = true;
   if (options.disabled) body.enabled = false;
   if (options.avatarUrl) body.avatarUrl = options.avatarUrl;
-  const res = await requestJson(ctx, `/v1/host/sample/roster/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/roster/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Updated roster entry ${res.body?.rosterId ?? positionals[0]}.`);
   return 0;
@@ -162,7 +162,7 @@ async function rosterDelete(ctx: Ctx, argv: string[]) {
     writeLine(ctx.io.stderr, `Refusing to delete ${positionals[0]} without --yes (this removes the roster entry and its triggers).`);
     return 2;
   }
-  await requestJson(ctx, `/v1/host/sample/roster/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/v1/host/openwop-app/roster/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted roster entry ${positionals[0]}.`);
   return 0;
 }

@@ -25,7 +25,7 @@ describe('toggles list', () => {
   it('renders the host-resolved assignments verbatim (status/enabled/variant)', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/feature-toggles\/assignments$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/feature-toggles\/assignments$/);
       return jsonResponse({
         assignments: [
           { id: 'crm.triageAgent', status: 'beta', enabled: true, variant: 'B', bindings: [{ slot: 'crm.triage', ref: { kind: 'agent', name: 'feature.crm/triage-v2', version: '1.2.0' } }] },

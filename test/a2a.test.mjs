@@ -56,7 +56,7 @@ describe('a2a task', () => {
   it('reads the durable A2ATaskState and renders it', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/a2a\/tasks\/run_abc$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/a2a\/tasks\/run_abc$/);
       return jsonResponse({ taskId: 'run_abc', runId: 'run_abc', state: 'working', contextId: 'ctx_1', updatedAt: '2026-06-14T00:00:00Z' });
     });
     const code = await runCli(['a2a', 'task', 'run_abc'], opts(fetchImpl, cap));

@@ -26,7 +26,7 @@ so a secret-looking field can never leak even if a host returns one by mistake.
 (SP metadata XML is the exception — it is PUBLIC by design, meant to be uploaded to
 your IdP, and contains only the SP's public certificate.)
 
-BOUNDARY: \`auth\` is SSO/SAML/SCIM identity-provider config (hits /v1/host/sample/auth/*).
+BOUNDARY: \`auth\` is SSO/SAML/SCIM identity-provider config (hits /v1/host/openwop-app/auth/*).
 It is NOT the user directory (\`users\`), NOT RBAC (\`orgs\`), and NOT BYOK provider
 credentials (\`byok\`/\`providers\`).
 
@@ -54,7 +54,7 @@ Examples:
   openwop auth scim provision --op create-user --user-name jo@acme.com --email jo@acme.com
 `;
 
-const BASE = '/v1/host/sample/auth';
+const BASE = '/v1/host/openwop-app/auth';
 
 // Belt-and-suspenders: never emit a secret-looking field, even if a host returns
 // one. `cert`/`assertion`/`pem`/`bearer` join the connections-group list because

@@ -21,14 +21,14 @@ locally. The org→tenant mapping and the per-tenant 'consent' feature toggle ar
 enforced host-side; when the toggle is off the host returns a uniform 404 and this
 command fails closed with a legible message (it does not assume permissive).
 
-Authed, org-scoped (RBAC) — hits /v1/host/sample/consent/orgs/<orgId>/*:
+Authed, org-scoped (RBAC) — hits /v1/host/openwop-app/consent/orgs/<orgId>/*:
   policy        GET  .../policy        Show the tenant consent policy (defaultMode + regulated regions).
   set-policy    PUT  .../policy        Update defaultMode and/or regulatedRegions (workspace:write).
   records       GET  .../records       List all consent records for the tenant.
   get           GET  .../subjects/<k>  Show one subject's consent record (or none).
   erase         DEL  .../subjects/<k>  GDPR erasure — purge the record + fan out to feature erasers (idempotent).
 
-Public, unauthed — hits /v1/host/sample/public-consent/<orgId>:
+Public, unauthed — hits /v1/host/openwop-app/public-consent/<orgId>:
   public get    GET  .../<k>           Read a visitor's recorded categories, or the policy default if none.
   public record POST .../             Record a visitor's category choices (source=public).
 
@@ -50,8 +50,8 @@ Examples:
   openwop consent public record org_123 visitor-abc --category analytics=true --category marketing=false
 `;
 
-const ORG_BASE = '/v1/host/sample/consent/orgs';
-const PUB_BASE = '/v1/host/sample/public-consent';
+const ORG_BASE = '/v1/host/openwop-app/consent/orgs';
+const PUB_BASE = '/v1/host/openwop-app/public-consent';
 
 /**
  * requestJson, but map the host's uniform 404 (org-tenant's `consent` toggle off,

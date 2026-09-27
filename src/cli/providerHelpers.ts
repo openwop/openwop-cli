@@ -104,7 +104,7 @@ export async function resolveModel(ctx: Ctx, options: any, provider: any, existi
 
 export async function testProviderConnection(ctx: Ctx, credentialRef: any) {
   try {
-    const res = await requestJson(ctx, '/v1/host/sample/byok/secrets');
+    const res = await requestJson(ctx, '/v1/host/openwop-app/byok/secrets');
     const secrets = Array.isArray(res.body?.secrets) ? res.body.secrets : [];
     const found = secrets.some((s: any) => (typeof s === 'string' ? s === credentialRef : s.credentialRef === credentialRef));
     if (!found) return { ok: false, message: `BYOK list did not include \`${credentialRef}\`` };

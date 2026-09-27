@@ -25,7 +25,7 @@ describe('notifications command', () => {
   it('lists inbox entries as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/notifications$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/notifications$/);
       return jsonResponse({ notifications: [{ notificationId: 'n1', status: 'unread', priority: 'high', title: 'Run failed', createdAt: '2026-05-27' }] });
     };
     const code = await runCli(['notifications', 'list'], opts(fetchImpl, cap));

@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const LISTS = '/v1/host/sample/priority-matrix/lists';
+const LISTS = '/v1/host/openwop-app/priority-matrix/lists';
 
 export const PRIORITY_MATRIX_HELP = `Usage:
   openwop priority-matrix lists [--json]

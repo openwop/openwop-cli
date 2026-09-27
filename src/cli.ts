@@ -134,6 +134,7 @@ export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantT
 export { summarizeCapabilities };
 export { formatTable };
 export { extractGlobalOptions };
+export { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, hostRootsFrom, hostRootFor } from './protocol.js';
 export { configPathFor, readConfigSafe, saveConfig, openwopHomeDir };
 
 export async function runCli(argv: string[], options: any = {}): Promise<number> {
@@ -580,7 +581,7 @@ function showHelp(io: any, command: any) {
 
 
 // Gap D-2 — media helpers wired to the demo backend's sample media routes
-// (POST /v1/host/sample/media/{generate-image,transcribe,synthesize}),
+// (POST /v1/host/openwop-app/media/{generate-image,transcribe,synthesize}),
 // which exercise the core.openwop.ai image-generate / audio-transcribe /
 // audio-synthesize node family. The demo backend STUBS the actual provider
 // calls (it honestly advertises aiProviders.imageGeneration: supported:false)
@@ -593,9 +594,9 @@ function showHelp(io: any, command: any) {
 // `openwop memory ...` — read the demo MemoryAdapter ledger (RFC 0004)
 //
 // Backed by the host-extension routes:
-//   GET    /v1/host/sample/memory[?memoryRef=&tag=&limit=]
-//   GET    /v1/host/sample/memory/:memoryId[?memoryRef=]
-//   DELETE /v1/host/sample/memory/:memoryId[?memoryRef=]
+//   GET    /v1/host/openwop-app/memory[?memoryRef=&tag=&limit=]
+//   GET    /v1/host/openwop-app/memory/:memoryId[?memoryRef=]
+//   DELETE /v1/host/openwop-app/memory/:memoryId[?memoryRef=]
 //
 // CTI-1: the backend scopes every read/delete to the caller's principal
 // (`req.tenantId`), NEVER a query value, so the CLI cannot cross a tenant
@@ -629,8 +630,8 @@ function showHelp(io: any, command: any) {
 // RFC 0070 — manifest-agent runtime. The demo backend loads pack `agents[]`
 // (RFC 0003) into an AgentRegistry and advertises `agents.manifestRuntime`.
 // `list`/`info` render that registry-backed inventory at the sample-extension
-// route `/v1/host/sample/agents`; `run` dispatches one agent turn via
-// `POST /v1/host/sample/agents/{agentId}/dispatch` (toolAllowlist-filtered,
+// route `/v1/host/openwop-app/agents`; `run` dispatches one agent turn via
+// `POST /v1/host/openwop-app/agents/{agentId}/dispatch` (toolAllowlist-filtered,
 // handoff-validated, confidence-escalating per RFC 0002 §A14/§F).
 
 
@@ -639,7 +640,7 @@ function showHelp(io: any, command: any) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Messaging relay-gateway (demo host-extension — /v1/host/sample/messaging).
+// Messaging relay-gateway (demo host-extension — /v1/host/openwop-app/messaging).
 // Operator endpoints use the host bearer; the device loop authenticates with
 // the per-device token in the x-openwop-device-token header.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const pages = (org: string) => `/v1/host/sample/cms/orgs/${encodeURIComponent(org)}/pages`;
+const pages = (org: string) => `/v1/host/openwop-app/cms/orgs/${encodeURIComponent(org)}/pages`;
 const LIFECYCLE = ['submit', 'approve', 'reject', 'publish', 'unpublish', 'archive'];
 
 export const CMS_HELP = `Usage:

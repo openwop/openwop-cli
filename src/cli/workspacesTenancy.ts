@@ -22,7 +22,7 @@ export async function runWorkspaces(ctx: Ctx, argv: string[]) {
   if (options.help) { write(ctx.io.stdout, WORKSPACES_HELP); return 0; }
   switch (sub) {
     case 'list': {
-      const res = await requestJson(ctx, '/v1/host/sample/me/workspaces');
+      const res = await requestJson(ctx, '/v1/host/openwop-app/me/workspaces');
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       const items = Array.isArray(res.body?.workspaces) ? res.body.workspaces : [];
       if (items.length === 0) { writeLine(ctx.io.stdout, 'No workspaces.'); return 0; }
@@ -31,13 +31,13 @@ export async function runWorkspaces(ctx: Ctx, argv: string[]) {
     }
     case 'create': {
       if (!options.name) { write(ctx.io.stderr, 'Usage: openwop workspaces create --name <n> [--json]\n'); return 2; }
-      const res = await requestJson(ctx, '/v1/host/sample/workspaces', { method: 'POST', body: { name: String(options.name) } });
+      const res = await requestJson(ctx, '/v1/host/openwop-app/workspaces', { method: 'POST', body: { name: String(options.name) } });
       if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Created workspace ${res.body?.id ?? ''} (${String(options.name)}).`);
       return 0;
     }
     case 'switch': {
       if (positionals.length !== 1) { write(ctx.io.stderr, 'Usage: openwop workspaces switch <workspaceId> [--json]\n'); return 2; }
-      const res = await requestJson(ctx, `/v1/host/sample/workspaces/${encodeURIComponent(positionals[0])}/switch`, { method: 'POST', body: {} });
+      const res = await requestJson(ctx, `/v1/host/openwop-app/workspaces/${encodeURIComponent(positionals[0])}/switch`, { method: 'POST', body: {} });
       if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Switched to workspace ${positionals[0]}.`);
       return 0;
     }

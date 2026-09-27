@@ -41,7 +41,7 @@ describe('goals list', () => {
   it('renders the goals as a table with iterations/bounds', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/goals$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/goals$/);
       return jsonResponse({ goals: [
         { goalId: 'goal_1', state: 'active', completion: { check: 'verifier' }, objective: 'Keep backlog under 20', progress: { iterations: 3 }, bounds: { maxLoopIterations: 50 }, createdAt: '2026-06-13' },
       ] });

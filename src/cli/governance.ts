@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const GOV_BASE = '/v1/host/sample/governance';
+const GOV_BASE = '/v1/host/openwop-app/governance';
 
 // Mirror the host wire enums EXACTLY (governanceService.ts / routes/governance.ts).
 // These bound the CLI's input hygiene only — the host stays the policy authority.

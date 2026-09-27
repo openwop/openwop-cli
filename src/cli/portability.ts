@@ -4,9 +4,9 @@ import type { Ctx } from '../context.js';
  * Move reusable estate (agents, packs, schedules, rosters, templates) between
  * hosts as a portable BUNDLE. This module owns both portability commands (wired
  * as two dispatcher cases that share the bundle shapes + the secret redactor):
- *   GET  /v1/host/sample/export[?kinds=]        — produce an ExportBundle (refs only)
- *   POST /v1/host/sample/import?dryRun=true      — an ImportPlan (no writes)
- *   POST /v1/host/sample/import                  — apply → ImportResult
+ *   GET  /v1/host/openwop-app/export[?kinds=]        — produce an ExportBundle (refs only)
+ *   POST /v1/host/openwop-app/import?dryRun=true      — an ImportPlan (no writes)
+ *   POST /v1/host/openwop-app/import                  — apply → ImportResult
  *
  * Secrets are refs, never values (golden rule 3 / RFC 0098 §E(1)). The host
  * guarantees the export bundle carries NO credential material — only
@@ -112,7 +112,7 @@ async function ensureAdvertised(ctx: Ctx): Promise<void> {
 function gate404(err: unknown, verb: string): never {
   if (err instanceof HttpError && err.status === 404) {
     throw new CliError(
-      `${verb}: the host does not mount /v1/host/sample/${verb} (the CLI renders the host's portability surface, it never fabricates a bundle).`,
+      `${verb}: the host does not mount /v1/host/openwop-app/${verb} (the CLI renders the host's portability surface, it never fabricates a bundle).`,
       1,
     );
   }
@@ -129,7 +129,7 @@ export async function runExport(ctx: Ctx, argv: string[]): Promise<number> {
   }
   await ensureAdvertised(ctx);
   const kinds = Array.isArray(options.kinds) ? options.kinds : [];
-  const path = kinds.length ? `/v1/host/sample/export?kinds=${encodeURIComponent(kinds.join(','))}` : '/v1/host/sample/export';
+  const path = kinds.length ? `/v1/host/openwop-app/export?kinds=${encodeURIComponent(kinds.join(','))}` : '/v1/host/openwop-app/export';
   let res;
   try {
     res = await requestJson(ctx, path);
@@ -183,7 +183,7 @@ export async function runImport(ctx: Ctx, argv: string[]): Promise<number> {
     throw new CliError(`import: could not read bundle file ${positionals[0]} — ${err instanceof Error ? err.message : 'invalid JSON'}`, 2);
   }
   await ensureAdvertised(ctx);
-  const path = options.dryRun ? '/v1/host/sample/import?dryRun=true' : '/v1/host/sample/import';
+  const path = options.dryRun ? '/v1/host/openwop-app/import?dryRun=true' : '/v1/host/openwop-app/import';
   let res;
   try {
     // The import route reads the bundle under a top-level `bundle` key.

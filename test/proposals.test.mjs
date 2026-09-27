@@ -41,7 +41,7 @@ describe('proposals list', () => {
   it('renders the queue as a table', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/proposals$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/proposals$/);
       return jsonResponse({ proposals: [
         { proposalId: 'prop_1', state: 'pending', kind: 'agent-manifest', activation: 'approval-gate', persona: 'Triage', title: 'Tighten the triage rubric', createdAt: '2026-06-13' },
       ] });
@@ -85,7 +85,7 @@ describe('proposals get', () => {
   it('renders one proposal and exits 3 for a pending state', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/proposals\/prop_1$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/proposals\/prop_1$/);
       return jsonResponse({ proposalId: 'prop_1', state: 'pending', kind: 'agent-manifest', activation: 'approval-gate', title: 'x' });
     });
     const code = await runCli(['proposals', 'get', 'prop_1'], opts(fetchImpl, cap));

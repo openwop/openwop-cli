@@ -14,7 +14,7 @@ import { loadRelayConfig, detectChannelAvailability } from './relayShared.js';
 export const DOCTOR_HELP = `Usage: openwop doctor [--json]
 
 Checks Node/npm, local demo app dependencies, repository layout, whether the demo
-backend is reachable, the demo daemon status (via /v1/host/sample/daemon-status or
+backend is reachable, the demo daemon status (via /v1/host/openwop-app/daemon-status or
 the ~/.openwop/ PID file), and reachability of each stored BYOK provider credential.
 `;
 
@@ -75,14 +75,14 @@ export async function runDoctor(ctx: Ctx, argv: string[]) {
   }
 
   // Daemon-status row — prefer the live D-1 route; fall back to the PID file.
-  const daemon = await safeRequest(ctx, '/v1/host/sample/daemon-status');
+  const daemon = await safeRequest(ctx, '/v1/host/openwop-app/daemon-status');
   if (daemon.ok && daemon.body) {
     const b = daemon.body;
     checks.push(ok('daemon', `pid ${b.pid ?? '?'}, up ${b.uptimeSeconds ?? '?'}s (since ${b.startTime ?? '?'})`));
   } else {
     const record = readDaemonRecord(ctx.env);
     if (record && record.pid && processAlive(record.pid)) {
-      checks.push(warn('daemon', `PID file says pid ${record.pid} is running but ${ctx.baseUrl}/v1/host/sample/daemon-status is unreachable`));
+      checks.push(warn('daemon', `PID file says pid ${record.pid} is running but ${ctx.baseUrl}/v1/host/openwop-app/daemon-status is unreachable`));
     } else if (record && record.pid) {
       checks.push(warn('daemon', `stale PID file (pid ${record.pid} not running); run \`openwop demo stop\` to clear it`));
     } else {
@@ -91,7 +91,7 @@ export async function runDoctor(ctx: Ctx, argv: string[]) {
   }
 
   // Provider-reachability rows — one per stored BYOK credential ref.
-  const byok = await safeRequest(ctx, '/v1/host/sample/byok/secrets');
+  const byok = await safeRequest(ctx, '/v1/host/openwop-app/byok/secrets');
   if (byok.ok) {
     const secrets = Array.isArray(byok.body?.secrets) ? byok.body.secrets : [];
     if (secrets.length === 0) {

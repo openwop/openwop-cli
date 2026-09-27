@@ -5,7 +5,7 @@ import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const H = '/v1/host/sample';
+const H = '/v1/host/openwop-app';
 
 export const AGENT_OPS_HELP = `Usage:
   openwop agent-ops seed [--heal] [--json]

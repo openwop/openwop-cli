@@ -50,7 +50,7 @@ Examples:
   openwop profiles activity --limit 10 --status failed
 `;
 
-const BASE = '/v1/host/sample/profiles';
+const BASE = '/v1/host/openwop-app/profiles';
 
 /** requestJson with profile-aware, fail-closed error mapping. */
 async function profilesRequest(ctx: Ctx, path: string, options?: Parameters<typeof requestJson>[2], notFoundMsg?: string) {

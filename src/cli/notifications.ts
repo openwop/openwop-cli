@@ -12,14 +12,14 @@ export const NOTIFICATIONS_HELP = `Usage:
   openwop notifications mark-all-read [--json]
   openwop notifications delete <id> [--json]
 
-Operate the demo notification inbox (/v1/host/sample/notifications) — a
+Operate the demo notification inbox (/v1/host/openwop-app/notifications) — a
 sample-extension surface, tenant-scoped, not part of the normative wire.
 `;
 
 export async function runNotifications(ctx: Ctx, argv: string[]): Promise<number> {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, NOTIFICATIONS_HELP); return 0; }
-  const base = '/v1/host/sample/notifications';
+  const base = '/v1/host/openwop-app/notifications';
   const rest = argv.slice(1);
   switch (sub) {
     case 'list': {

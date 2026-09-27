@@ -108,9 +108,9 @@ export async function runOnboard(ctx: Ctx, argv: string[]) {
   // Step 6 — POST credential to backend BYOK store
   const credentialRef = options.credentialRef ?? `${provider}-default`;
   const byokCtx = { ...ctx, baseUrl };
-  writeLine(ctx.io.stdout, `Storing credential at ${baseUrl}/v1/host/sample/byok/secrets ...`);
+  writeLine(ctx.io.stdout, `Storing credential at ${baseUrl}/v1/host/openwop-app/byok/secrets ...`);
   try {
-    await requestJson(byokCtx, '/v1/host/sample/byok/secrets', {
+    await requestJson(byokCtx, '/v1/host/openwop-app/byok/secrets', {
       method: 'POST',
       body: { credentialRef, value: apiKey },
     });

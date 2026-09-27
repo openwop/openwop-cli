@@ -3,7 +3,7 @@
 The feature roadmap for the CLI: what shipped, what's queued, and what's **gated on
 upstream `openwop/openwop` RFCs** before it can be built. The CLI is a host-agnostic
 reference *client* — a surface lands here only once the host route it drives is real
-(normative `/v1/*` behind an Accepted RFC, or a `/v1/host/sample/*` host extension).
+(normative `/v1/*` behind an Accepted RFC, or a `/v1/host/openwop-app/*` host extension).
 
 > Companion docs: [`FEATURES.md`](./FEATURES.md) (catalog of shipped groups) ·
 > [`ARCHITECTURE.md`](./ARCHITECTURE.md) (shape) · [`CHANGELOG.md`](./CHANGELOG.md)
@@ -49,10 +49,10 @@ reference *client* — a surface lands here only once the host route it drives i
 2. **Release `0.3.0`.** Consolidate `CHANGELOG [Unreleased]`, bump `package.json` +
    `VERSION` in `src/constants.ts` (lockstep), tag `v0.3.0` (OIDC trusted-publisher
    pipeline publishes on tag).
-3. **`kb` group** 💤 — host knowledge-base surface (`/v1/host/sample/kb`). Real but
+3. **`kb` group** 💤 — host knowledge-base surface (`/v1/host/openwop-app/kb`). Real but
    reads more as a reference-app product feature than a control-plane primitive; ship
    behind a capability probe.
-4. **`crm` group** 💤 — host contact/triage surface (`/v1/host/sample/crm`). Same
+4. **`crm` group** 💤 — host contact/triage surface (`/v1/host/openwop-app/crm`). Same
    posture as `kb`.
 
 ## ⏳ RFC-gated — build once the RFC is Accepted *and* the host route exists
@@ -82,7 +82,7 @@ Expected shapes (subject to the RFCs' final wire):
   refs only; reports `secretsToRebind`.
 
 Gate to lift the ⏳: RFC `Accepted` + the host advertises the surface in
-`/.well-known/openwop` (or serves the `/v1/host/sample/*` route).
+`/.well-known/openwop` (or serves the `/v1/host/openwop-app/*` route).
 
 ## 💤 Deferred / out of scope
 

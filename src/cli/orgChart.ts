@@ -16,7 +16,7 @@ Org chart (RFC 0087). A purely DESCRIPTIVE map of departments, roles, and
 reportsTo edges — it confers no authority (the org-position-no-authority-
 escalation invariant: the schema carries no permissions/scopes/canDispatch
 field). Drives the host-extension surface GET/PUT/DELETE
-/v1/host/sample/org-chart. 'set' replaces the whole chart from a JSON file
+/v1/host/openwop-app/org-chart. 'set' replaces the whole chart from a JSON file
 with { "departments": [...], "members": [...] }.
 
   --no-recursive   (dept) Show only the named department, not its sub-tree.
@@ -50,7 +50,7 @@ export async function runOrgChart(ctx: Ctx, argv: string[]) {
 async function orgChartGet(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, ORG_CHART_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/org-chart');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/org-chart');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const chart = res.body ?? {};
   const departments = Array.isArray(chart.departments) ? chart.departments : [];
@@ -86,7 +86,7 @@ async function orgChartDept(ctx: Ctx, argv: string[]) {
     return options.help ? 0 : 2;
   }
   const recursive = options.noRecursive ? 'false' : 'true';
-  const res = await requestJson(ctx, `/v1/host/sample/org-chart/${encodeURIComponent(positionals[0])}?recursive=${recursive}`);
+  const res = await requestJson(ctx, `/v1/host/openwop-app/org-chart/${encodeURIComponent(positionals[0])}?recursive=${recursive}`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeJson(ctx.io.stdout, res.body);
   return 0;
@@ -107,7 +107,7 @@ async function orgChartSet(ctx: Ctx, argv: string[]) {
   if (!Array.isArray(parsed?.departments) || !Array.isArray(parsed?.members)) {
     throw new CliError('The chart file MUST be a JSON object with `departments` and `members` arrays.', 2);
   }
-  const res = await requestJson(ctx, '/v1/host/sample/org-chart', {
+  const res = await requestJson(ctx, '/v1/host/openwop-app/org-chart', {
     method: 'PUT',
     body: { departments: parsed.departments, members: parsed.members },
   });
@@ -124,7 +124,7 @@ async function orgChartClear(ctx: Ctx, argv: string[]) {
     writeLine(ctx.io.stderr, 'Refusing to clear the org chart without --yes.');
     return 2;
   }
-  await requestJson(ctx, '/v1/host/sample/org-chart', { method: 'DELETE' });
+  await requestJson(ctx, '/v1/host/openwop-app/org-chart', { method: 'DELETE' });
   writeLine(ctx.io.stdout, 'Cleared the org chart.');
   return 0;
 }

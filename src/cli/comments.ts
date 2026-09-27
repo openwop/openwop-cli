@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const base = (org: string) => `/v1/host/sample/comments/orgs/${encodeURIComponent(org)}/comments`;
+const base = (org: string) => `/v1/host/openwop-app/comments/orgs/${encodeURIComponent(org)}/comments`;
 
 export const COMMENTS_HELP = `Usage:
   openwop comments list --org <orgId> --resource-type <t> --resource-id <id> [--json]

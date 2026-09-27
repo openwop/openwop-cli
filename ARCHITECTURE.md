@@ -27,7 +27,7 @@ flag, channel plugin, or helper:
   field, capability flag, endpoint contract, auth profile, error semantic, or a
   normative `MUST`, that belongs in the upstream `openwop/openwop` RFC/spec
   process before or with the CLI work. Don't bake a command against an unsettled
-  wire contract. Host-extension surfaces under `/v1/host/sample/*` are
+  wire contract. Host-extension surfaces under `/v1/host/openwop-app/*` are
   non-normative and may be driven freely.
 - **Use the command-group seam.** A "feature" is a module under `src/cli/<id>.ts`
   exporting `<ID>_HELP` + `run<Id>(ctx, argv)`, wired into the `src/cli.ts`
@@ -51,7 +51,7 @@ flag, channel plugin, or helper:
 - **Stay host-agnostic.** Drive commands off what `/.well-known/openwop`
   advertises and what `api/openapi.yaml` defines, not off the reference app's
   internals. Prefer normative `/v1/*` paths when a host serves them; fall back to
-  `/v1/host/sample/*` only for demo-only surfaces — and **say which path a command
+  `/v1/host/openwop-app/*` only for demo-only surfaces — and **say which path a command
   hits in its help text**.
 - **Stay zero-dependency.** The CLI bundles to a single file with
   `esbuild --packages=external` and ships **no runtime dependencies**. Use Node
@@ -166,9 +166,13 @@ workflow definitions.
 
 - **Normative `/v1/*`** — defined in `openwop/openwop` `api/openapi.yaml` + an
   Accepted RFC. Host-agnostic; **prefer these** when a host serves them.
-- **Host-extension `/v1/host/sample/*`** — non-normative surfaces the reference app
-  exposes for product features (orgs, kanban, messaging, memory, …). Rich and
-  durable, but not the wire. When a sample pattern becomes generally needed across
+- **Host-extension `/v1/host/openwop-app/*`** — non-normative surfaces the reference app
+  (org `openwop-app`; the pre-2026-06 name `/v1/host/sample/*` now 404s) exposes
+  for product features (orgs, kanban, messaging, memory, …). Rich and durable, but
+  not the wire. Commands write the `/v1/host/<org>/…` twin; under negotiated major
+  2, `src/protocol.ts` sends it to the unversioned `/host/<org>/…` root the host
+  advertises in discovery `extensions.*` (`versioning.md` §5), with no
+  `OpenWOP-Version` header. When a sample pattern becomes generally needed across
   hosts, it is promoted through an RFC; the command then switches to the normative
   path (noted in help + CHANGELOG).
 

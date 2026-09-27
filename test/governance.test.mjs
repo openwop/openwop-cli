@@ -37,7 +37,7 @@ describe('governance policy get', () => {
   it('renders the host-resolved view (stored value + default fallbacks)', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/governance\/policy$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/governance\/policy$/);
       return jsonResponse(POLICY_BODY);
     };
     const code = await runCli(['governance', 'policy'], opts(fetchImpl, cap));

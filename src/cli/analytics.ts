@@ -5,8 +5,8 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const ANALYTICS_BASE = '/v1/host/sample/analytics/orgs';
-const PUBLIC_BASE = '/v1/host/sample/public-analytics';
+const ANALYTICS_BASE = '/v1/host/openwop-app/analytics/orgs';
+const PUBLIC_BASE = '/v1/host/openwop-app/public-analytics';
 
 // Mirror the host wire enum EXACTLY (analyticsService.ts EVENT_TYPES).
 const EVENT_TYPES = ['pageview', 'event', 'conversion'] as const;

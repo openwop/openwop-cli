@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { VERSION } from '../constants.js';
 
-const MCP_ENDPOINT = '/v1/host/sample/mcp';
+const MCP_ENDPOINT = '/v1/host/openwop-app/mcp';
 
 // Per-request JSON-RPC id (a monotonic counter; the host echoes it back).
 let rpcId = 0;
@@ -24,7 +24,7 @@ export const MCP_HELP = `Usage:
 
 MCP client for the host's JSON-RPC server mount (RFC 0020): a single JSON-RPC 2.0
 endpoint at POST ${MCP_ENDPOINT} speaking modelcontextprotocol.io 2025-06-18.
-This is a SAMPLE host extension (the /v1/host/sample/* prefix) — NOT part of the openwop
+This is a SAMPLE host extension (the /v1/host/openwop-app/* prefix) — NOT part of the openwop
 wire contract and NOT advertised in /.well-known/openwop. The mount is HOST-CONTROLLED:
 env-gated (OPENWOP_MCP_SERVER_ENABLED) and OFF by default; the CLI cannot toggle it. When
 the mount is not exposed the endpoint 404s and these commands FAIL CLOSED legibly (exit 2)

@@ -34,8 +34,8 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 
 The CLI speaks the **OpenWOP wire directly** — no SDK dependency — and negotiates the protocol major once per invocation (`src/protocol.ts`, per `spec/v2/core/versioning.md` §1.5):
 
-- It reads `/.well-known/openwop` and selects the **highest major it implements that the host advertises** in `protocolVersions[]` — 2 when the host lists any `2.x`, otherwise 1.
-- Under major 2, every request for an operation named in `spec/v2/path-manifest.json` goes to the **unversioned path with `OpenWOP-Version: 2.0`** (`/v1/runs` → `/runs`). Host-proprietary routes the manifest does not name — the demo backend's `/v1/host/sample/*` — are sent exactly as written; they have no v2 home yet (`versioning.md` §5).
+- It reads `/.well-known/openwop` once (asking for the v2 representation with `OpenWOP-Version: 2`; a host that doesn't serve major 2 answers `406` with the list it does serve) and selects the **highest major it implements that the host advertises** in `protocolVersions[]` — 2 when the host lists any `2.x`, otherwise 1.
+- Under major 2, every request for an operation named in `spec/v2/path-manifest.json` goes to the **unversioned path with `OpenWOP-Version: 2.0`** (`/v1/runs` → `/runs`). Host-proprietary routes the manifest does not name — the reference host's `/v1/host/openwop-app/*` — go to the **unversioned root the host advertises** for that org under `extensions.*` (`{ "root": "/host/openwop-app/", "twin": "/v1/host/openwop-app/" }`, `versioning.md` §5), with **no** version header (a `/host/<org>/` path has no major). With no advertised root, the `/v1/host/<org>/…` twin is sent as written.
 - Under major 1 nothing changes: `/v1/…` paths, header-less, the v1 default the overlap guarantees.
 - `OPENWOP_PROTOCOL_MAJOR=1` or `=2` pins the major without probing discovery.
 
@@ -74,7 +74,7 @@ The `onboard` wizard walks you through:
 
 1. **Host URL** — `https://app.openwop.dev/api` (shared demo), `http://localhost:8080` (local), or a custom URL.
 2. **AI provider** — `anthropic`, `openai`, `google`, or `minimax` (matches what the demo backend dispatches to).
-3. **API key** — auto-detects `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` / `MINIMAX_API_KEY`, or hidden-input via raw-mode stdin. The key is POSTed to `/v1/host/sample/byok/secrets` on the configured host. **The key is never written to your local config file** — only a credential ref pointer is stored.
+3. **API key** — auto-detects `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` / `MINIMAX_API_KEY`, or hidden-input via raw-mode stdin. The key is POSTed to `/v1/host/openwop-app/byok/secrets` on the configured host. **The key is never written to your local config file** — only a credential ref pointer is stored.
 4. **Model** — provider-specific recommended defaults plus a custom option.
 5. **Test the connection** — verifies the credential ref appears in the host's BYOK list.
 
@@ -99,7 +99,7 @@ openwop providers remove openai
 openwop providers test anthropic
 ```
 
-`providers add` POSTs to `/v1/host/sample/byok/secrets`; `remove` DELETEs; `list` and `test` read.
+`providers add` POSTs to `/v1/host/openwop-app/byok/secrets`; `remove` DELETEs; `list` and `test` read.
 
 ## Chat
 
@@ -136,7 +136,7 @@ These talk to the signed node-pack registry — a **separate surface** from the 
 
 ## Messaging & relay
 
-Connect chat channels (Signal / WhatsApp / iMessage) to the host so inbound messages drive workflow runs and replies are delivered back. Channels are a **host-extension** surface (`/v1/host/sample/messaging`), not part of the normative OpenWOP wire — the protocol stays channel-agnostic.
+Connect chat channels (Signal / WhatsApp / iMessage) to the host so inbound messages drive workflow runs and replies are delivered back. Channels are a **host-extension** surface (`/v1/host/openwop-app/messaging`), not part of the normative OpenWOP wire — the protocol stays channel-agnostic.
 
 ```bash
 openwop relay setup --channel signal        # register + activate a device, store its token
@@ -268,7 +268,7 @@ Exit codes: `0` success · `1` host/HTTP error (including consent not enabled) �
 
 ## MCP server mount
 
-An MCP client for the host's JSON-RPC server mount (RFC 0020) — a single JSON-RPC 2.0 endpoint at `POST /v1/host/sample/mcp` speaking modelcontextprotocol.io 2025-06-18. The mount is **host-controlled**: it's env-gated (`OPENWOP_MCP_SERVER_ENABLED`, **OFF by default**) and the CLI cannot toggle it. When the mount isn't exposed the endpoint 404s and these commands **fail closed legibly** (exit 2).
+An MCP client for the host's JSON-RPC server mount (RFC 0020) — a single JSON-RPC 2.0 endpoint at `POST /v1/host/openwop-app/mcp` speaking modelcontextprotocol.io 2025-06-18. The mount is **host-controlled**: it's env-gated (`OPENWOP_MCP_SERVER_ENABLED`, **OFF by default**) and the CLI cannot toggle it. When the mount isn't exposed the endpoint 404s and these commands **fail closed legibly** (exit 2).
 
 ```bash
 openwop mcp ping                                  # liveness probe of the mount
@@ -328,7 +328,7 @@ Identity `source` is one of `oidc | password | saml | scim | manual`. Exit codes
 
 ## Feature toggles
 
-`toggles` renders the caller's **resolved** feature-toggle assignments (a non-normative host extension under `/v1/host/sample/feature-toggles/assignments`). The **host** is the sole authority — it resolves every toggle server-side from the authenticated principal — and the CLI only *displays* what the host returns. It **never** computes, asserts, or overrides a toggle decision locally, and it does not author config (the superadmin config surface is intentionally not exposed). When the host doesn't serve the surface the command fails closed (exit 2).
+`toggles` renders the caller's **resolved** feature-toggle assignments (a non-normative host extension under `/v1/host/openwop-app/feature-toggles/assignments`). The **host** is the sole authority — it resolves every toggle server-side from the authenticated principal — and the CLI only *displays* what the host returns. It **never** computes, asserts, or overrides a toggle decision locally, and it does not author config (the superadmin config surface is intentionally not exposed). When the host doesn't serve the surface the command fails closed (exit 2).
 
 ```bash
 openwop toggles list                                             # every toggle's resolved state for you (incl. off)

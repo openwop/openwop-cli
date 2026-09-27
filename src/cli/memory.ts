@@ -12,7 +12,7 @@ export const MEMORY_HELP = `Usage:
   openwop memory delete <memoryId> [--memory-ref ref] [--json]
 
 Reads the demo MemoryAdapter ledger (RFC 0004) via the host-extension routes
-under /v1/host/sample/memory. Every read and delete is tenant-scoped to the
+under /v1/host/openwop-app/memory. Every read and delete is tenant-scoped to the
 caller's API key on the host (CTI-1) — the CLI never sends a tenantId and cannot
 cross tenant boundaries. Select the tenant with --api-key / OPENWOP_API_KEY.
 
@@ -76,7 +76,7 @@ async function runMemoryList(ctx: Ctx, argv: string[]) {
     return 0;
   }
   const query = memoryQuery(options);
-  const path = `/v1/host/sample/memory${query.size ? `?${query.toString()}` : ''}`;
+  const path = `/v1/host/openwop-app/memory${query.size ? `?${query.toString()}` : ''}`;
   const res = await requestJson(ctx, path);
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
@@ -107,7 +107,7 @@ async function runMemorySearch(ctx: Ctx, argv: string[]) {
   // The host route filters by tag server-side; free-text search is client-side
   // over the tenant-scoped result set (the route returns no full-text index).
   const query = memoryQuery(options);
-  const path = `/v1/host/sample/memory${query.size ? `?${query.toString()}` : ''}`;
+  const path = `/v1/host/openwop-app/memory${query.size ? `?${query.toString()}` : ''}`;
   const res = await requestJson(ctx, path);
   let entries = Array.isArray(res.body?.entries) ? res.body.entries : [];
   if (term) {
@@ -136,7 +136,7 @@ async function runMemoryGet(ctx: Ctx, argv: string[]) {
     return options.help ? 0 : 2;
   }
   const query = options.memoryRef ? `?memoryRef=${encodeURIComponent(options.memoryRef)}` : '';
-  const res = await requestJson(ctx, `/v1/host/sample/memory/${encodeURIComponent(positionals[0])}${query}`);
+  const res = await requestJson(ctx, `/v1/host/openwop-app/memory/${encodeURIComponent(positionals[0])}${query}`);
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -161,7 +161,7 @@ async function runMemoryDelete(ctx: Ctx, argv: string[]) {
     return options.help ? 0 : 2;
   }
   const query = options.memoryRef ? `?memoryRef=${encodeURIComponent(options.memoryRef)}` : '';
-  const res = await requestJson(ctx, `/v1/host/sample/memory/${encodeURIComponent(positionals[0])}${query}`, { method: 'DELETE' });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/memory/${encodeURIComponent(positionals[0])}${query}`, { method: 'DELETE' });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;

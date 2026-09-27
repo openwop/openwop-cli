@@ -35,7 +35,7 @@ describe('profiles command', () => {
   it('shows your own profile (me → GET /me)', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/profiles\/me$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/profiles\/me$/);
       return jsonResponse(SAMPLE);
     };
     const code = await runCli(['profiles', 'me'], opts(fetchImpl, cap));
@@ -66,7 +66,7 @@ describe('profiles command', () => {
   it('lists the tenant profile directory as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/profiles$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/profiles$/);
       return jsonResponse({ profiles: [SAMPLE] });
     };
     const code = await runCli(['profiles', 'list'], opts(fetchImpl, cap));

@@ -24,7 +24,7 @@ function opts(fetchImpl, cap) {
 // A JSON-RPC mount mock: asserts the envelope, dispatches on method, returns `result`.
 function rpcMock(handler) {
   return async (url, init) => {
-    assert.match(new URL(url).pathname, /\/v1\/host\/sample\/mcp$/);
+    assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/mcp$/);
     assert.equal(init.method, 'POST');
     const req = JSON.parse(init.body);
     assert.equal(req.jsonrpc, '2.0');

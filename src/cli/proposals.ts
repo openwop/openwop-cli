@@ -6,12 +6,12 @@ import type { Ctx } from '../context.js';
  * activation gate. This group drives the host's proposal surface (sample
  * host-extension, non-normative; promotable to the normative /v1/proposals path
  * at graduation):
- *   GET    /v1/host/sample/proposals[?state=&kind=]   — the review queue
- *   GET    /v1/host/sample/proposals/{id}             — one proposal
- *   PATCH  /v1/host/sample/proposals/{id}             — revise the draft (never activates)
- *   POST   /v1/host/sample/proposals/{id}/apply       — materialize the stored draft via the host's activation mode
- *   POST   /v1/host/sample/proposals/{id}/reject      — decline
- *   DELETE /v1/host/sample/proposals/{id}             — archive (soft-delete)
+ *   GET    /v1/host/openwop-app/proposals[?state=&kind=]   — the review queue
+ *   GET    /v1/host/openwop-app/proposals/{id}             — one proposal
+ *   PATCH  /v1/host/openwop-app/proposals/{id}             — revise the draft (never activates)
+ *   POST   /v1/host/openwop-app/proposals/{id}/apply       — materialize the stored draft via the host's activation mode
+ *   POST   /v1/host/openwop-app/proposals/{id}/reject      — decline
+ *   DELETE /v1/host/openwop-app/proposals/{id}             — archive (soft-delete)
  *
  * Capability honesty is the whole point: the HOST is the authority. `apply` does
  * NOT activate anything locally — it asks the host to install the byte image last
@@ -52,12 +52,12 @@ advertise the proposal surface (/.well-known/openwop), the group fails closed
 rather than guessing.
 
 Endpoints:
-  list     GET    /v1/host/sample/proposals[?state=&kind=]
-  get      GET    /v1/host/sample/proposals/{id}
-  revise   PATCH  /v1/host/sample/proposals/{id}      (revise; never activates)
-  apply    POST   /v1/host/sample/proposals/{id}/apply
-  reject   POST   /v1/host/sample/proposals/{id}/reject
-  archive  DELETE /v1/host/sample/proposals/{id}      (soft)
+  list     GET    /v1/host/openwop-app/proposals[?state=&kind=]
+  get      GET    /v1/host/openwop-app/proposals/{id}
+  revise   PATCH  /v1/host/openwop-app/proposals/{id}      (revise; never activates)
+  apply    POST   /v1/host/openwop-app/proposals/{id}/apply
+  reject   POST   /v1/host/openwop-app/proposals/{id}/reject
+  archive  DELETE /v1/host/openwop-app/proposals/{id}      (soft)
 
   --state <s>          (list) Filter by lifecycle state (e.g. pending, applied, rejected, archived).
   --kind <k>           (list) Filter by artifact kind (RFC 0096 artifactKinds).
@@ -147,7 +147,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `proposals: ${detail} (the host must mount /v1/host/sample/proposals; the CLI renders the host's queue, it never decides).`,
+      `proposals: ${detail} (the host must mount /v1/host/openwop-app/proposals; the CLI renders the host's queue, it never decides).`,
       1,
     );
   }
@@ -157,7 +157,7 @@ function gate404(err: unknown): never {
 async function fetchOne(ctx: Ctx, id: string): Promise<any> {
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/proposals/${encodeURIComponent(id)}`);
+    res = await requestJson(ctx, `/v1/host/openwop-app/proposals/${encodeURIComponent(id)}`);
   } catch (err) {
     gate404(err);
   }
@@ -174,7 +174,7 @@ async function runProposalsList(ctx: Ctx, argv: string[]): Promise<number> {
   const query: string[] = [];
   if (options.state !== undefined) query.push(`state=${encodeURIComponent(options.state)}`);
   if (options.kind !== undefined) query.push(`kind=${encodeURIComponent(options.kind)}`);
-  const path = `/v1/host/sample/proposals${query.length ? `?${query.join('&')}` : ''}`;
+  const path = `/v1/host/openwop-app/proposals${query.length ? `?${query.join('&')}` : ''}`;
   let res;
   try {
     res = await requestJson(ctx, path);
@@ -256,7 +256,7 @@ async function runProposalsRevise(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/proposals/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
+    res = await requestJson(ctx, `/v1/host/openwop-app/proposals/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
   } catch (err) {
     if (err instanceof HttpError && err.status === 422) {
       const detail = (err.body as { message?: string } | undefined)?.message ?? 'revision rejected (malformed for kind)';
@@ -285,7 +285,7 @@ async function runProposalsApply(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/proposals/${encodeURIComponent(positionals[0])}/apply`, { method: 'POST' });
+    res = await requestJson(ctx, `/v1/host/openwop-app/proposals/${encodeURIComponent(positionals[0])}/apply`, { method: 'POST' });
   } catch (err) {
     if (err instanceof HttpError && err.status === 403) {
       throw new CliError(`proposals: the host refused to apply ${positionals[0]} — you lack the scope to activate this proposal (the host is the authority).`, 1);
@@ -321,7 +321,7 @@ async function runProposalsReject(ctx: Ctx, argv: string[]): Promise<number> {
   const body = options.note !== undefined ? { note: options.note } : undefined;
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/proposals/${encodeURIComponent(positionals[0])}/reject`, { method: 'POST', ...(body !== undefined ? { body } : {}) });
+    res = await requestJson(ctx, `/v1/host/openwop-app/proposals/${encodeURIComponent(positionals[0])}/reject`, { method: 'POST', ...(body !== undefined ? { body } : {}) });
   } catch (err) {
     gate404(err);
   }
@@ -349,7 +349,7 @@ async function runProposalsArchive(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/proposals/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+    res = await requestJson(ctx, `/v1/host/openwop-app/proposals/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   } catch (err) {
     gate404(err);
   }

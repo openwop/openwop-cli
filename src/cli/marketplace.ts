@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const MP = '/v1/host/sample/marketplace';
+const MP = '/v1/host/openwop-app/marketplace';
 const reviews = (org: string, pack: string) => `${MP}/orgs/${encodeURIComponent(org)}/listings/${encodeURIComponent(pack)}/reviews`;
 
 export const MARKETPLACE_HELP = `Usage:

@@ -49,11 +49,11 @@ export async function runWorkflows(ctx: Ctx, argv: string[]) {
   }
 }
 
-/** GET /v1/host/sample/workflow-chains — the host's workflow-chain templates. */
+/** GET /v1/host/openwop-app/workflow-chains — the host's workflow-chain templates. */
 async function runWorkflowsChains(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, WORKFLOWS_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/workflow-chains');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/workflow-chains');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const chains = Array.isArray(res.body?.chains) ? res.body.chains : [];
   if (chains.length === 0) { writeLine(ctx.io.stdout, 'No workflow chains.'); return 0; }
@@ -64,7 +64,7 @@ async function runWorkflowsChains(ctx: Ctx, argv: string[]) {
   return 0;
 }
 
-/** POST /v1/host/sample/workflows/from-chain — expand a chain into a registered workflow. */
+/** POST /v1/host/openwop-app/workflows/from-chain — expand a chain into a registered workflow. */
 async function runWorkflowsFromChain(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { value: ['--chain', '--params-json'] });
   const chainId = options.chain ?? positionals[0];
@@ -73,19 +73,19 @@ async function runWorkflowsFromChain(ctx: Ctx, argv: string[]) {
   if (options.paramsJson) {
     try { params = JSON.parse(String(options.paramsJson)); } catch { throw new CliError('--params-json must be valid JSON.', 2); }
   }
-  const res = await requestJson(ctx, '/v1/host/sample/workflows/from-chain', { method: 'POST', body: { chainId, params } });
+  const res = await requestJson(ctx, '/v1/host/openwop-app/workflows/from-chain', { method: 'POST', body: { chainId, params } });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Registered workflow ${res.body?.workflowId ?? ''} from chain ${chainId}.`);
   return 0;
 }
 
-/** POST /v1/host/sample/workflow-chain-packs/install — install a signed chain pack. */
+/** POST /v1/host/openwop-app/workflow-chain-packs/install — install a signed chain pack. */
 async function runWorkflowsChainPackInstall(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { value: ['--name', '--version'] });
   if (!options.name) { write(ctx.io.stderr, 'Usage: openwop workflows chain-pack-install --name <pack> [--version <v>] [--json]\n'); return 2; }
   const body: Record<string, unknown> = { name: String(options.name) };
   if (options.version) body.version = String(options.version);
-  const res = await requestJson(ctx, '/v1/host/sample/workflow-chain-packs/install', { method: 'POST', body });
+  const res = await requestJson(ctx, '/v1/host/openwop-app/workflow-chain-packs/install', { method: 'POST', body });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Installed workflow-chain pack ${options.name}.`);
   return 0;
@@ -97,7 +97,7 @@ async function runWorkflowsList(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, WORKFLOWS_HELP);
     return 0;
   }
-  const res = await requestJson(ctx, '/v1/host/sample/workflows');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/workflows');
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -133,7 +133,7 @@ async function runWorkflowsRegister(ctx: Ctx, argv: string[]) {
   }
   const file = resolvePath(ctx.cwd, positionals[0]);
   const body = JSON.parse(await readFile(file, 'utf8'));
-  const res = await requestJson(ctx, '/v1/host/sample/workflows', { method: 'POST', body });
+  const res = await requestJson(ctx, '/v1/host/openwop-app/workflows', { method: 'POST', body });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Registered workflow ${res.body.workflowId} (${res.body.nodeCount} nodes)`);
   return 0;
@@ -146,7 +146,7 @@ async function runWorkflowsDelete(ctx: Ctx, argv: string[]) {
     return options.help ? 0 : 2;
   }
   const workflowId = encodeURIComponent(positionals[0]);
-  const res = await requestJson(ctx, `/v1/host/sample/workflows/${workflowId}`, { method: 'DELETE' });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/workflows/${workflowId}`, { method: 'DELETE' });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `${res.body.removed ? 'Deleted' : 'No matching workflow'}: ${res.body.workflowId}`);
   return 0;

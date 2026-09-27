@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const links = (org: string) => `/v1/host/sample/sharing/orgs/${encodeURIComponent(org)}/links`;
+const links = (org: string) => `/v1/host/openwop-app/sharing/orgs/${encodeURIComponent(org)}/links`;
 
 export const SHARING_HELP = `Usage:
   openwop sharing list --org <orgId> [--json]
@@ -72,7 +72,7 @@ async function sharingRevoke(ctx: Ctx, argv: string[]) {
 async function sharingResolve(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop sharing resolve <token> [--json]\n'); return options.help ? 0 : 2; }
-  const res = await requestJson(ctx, `/v1/host/sample/shared/${encodeURIComponent(positionals[0])}`, { auth: false });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/shared/${encodeURIComponent(positionals[0])}`, { auth: false });
   writeJson(ctx.io.stdout, res.body);
   return 0;
 }

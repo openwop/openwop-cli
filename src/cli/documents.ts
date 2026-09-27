@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const base = (org: string) => `/v1/host/sample/documents/orgs/${encodeURIComponent(org)}`;
+const base = (org: string) => `/v1/host/openwop-app/documents/orgs/${encodeURIComponent(org)}`;
 
 export const DOCUMENTS_HELP = `Usage:
   openwop documents list --org <orgId> [--json]

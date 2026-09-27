@@ -40,14 +40,14 @@ surface should:
 - **Never pretend** — don't print a fabricated success for a surface the host
   didn't actually honor. Capability honesty is the same rule the host obeys.
 
-### Normative `/v1/*` vs host-extension `/v1/host/sample/*`
+### Normative `/v1/*` vs host-extension `/v1/host/openwop-app/*`
 
 Every command targets one of two kinds of route, and **says which in its help text**:
 
 - **Normative `/v1/*`** — protocol-standard surfaces defined in `api/openapi.yaml`
   and backed by an Accepted RFC (e.g. `/v1/runs`, `/v1/agents`). Host-agnostic:
   any conformant host serves these. **Prefer these** when a host serves them.
-- **Host-extension `/v1/host/sample/*`** — non-normative surfaces the reference
+- **Host-extension `/v1/host/openwop-app/*`** — non-normative surfaces the reference
   app (and lookalike hosts) expose for product features (orgs, kanban, messaging,
   memory, …). Rich and durable, but not part of the wire contract. When a sample
   pattern becomes generally needed, it gets promoted through an RFC and the
@@ -102,49 +102,49 @@ host route is what the subcommands hit.
 | **demo** | — | (local process) | Run/inspect the workflow-engine demo app locally; `install` lays down a LaunchAgent/systemd/Scheduled-Task service (`src/daemon.ts`). |
 | **health** | — | `/health`, `/readiness` | Liveness/readiness probe. |
 | **capabilities** (`caps`) | — | `/.well-known/openwop` | Read + summarize the host capability advertisement. **This is the gap-discovery entry point.** |
-| **catalog** | — | `/v1/host/sample/node-catalog` | List the host node catalog + installed packs. |
+| **catalog** | — | `/v1/host/openwop-app/node-catalog` | List the host node catalog + installed packs. |
 | **packs** (`pack`) | C-5 (signed registry) | registry @ `packs.openwop.dev` | Search/info/install (SRI + Ed25519 verify)/publish/yank signed node packs. |
-| **workflows** (`workflow`) | — | `/v1/host/sample/workflows` | List/get/register/delete demo workflow definitions. |
+| **workflows** (`workflow`) | — | `/v1/host/openwop-app/workflows` | List/get/register/delete demo workflow definitions. |
 | **runs** (`run`) | RFC 0040 (ancestry) | `/v1/runs` (normative) | Create/list/inspect/annotate/debug-bundle; `ancestry` shows the cross-host parent chain. |
 | **chat** | — | `/v1/runs` + SSE | Interactive streaming REPL over a workflow (uses `src/sse.ts`). |
-| **memory** | — | `/v1/host/sample/memory` | Demo MemoryAdapter list/search/get/delete (tenant-scoped). |
+| **memory** | — | `/v1/host/openwop-app/memory` | Demo MemoryAdapter list/search/get/delete (tenant-scoped). |
 | **media** | `core.openwop.ai` | `/v1/runs` (ai nodes) | generate-image / transcribe / synthesize via the AI pack. |
 | **conformance** | — | (in-repo `@openwop/openwop-conformance`) | Run the conformance CLI against a host. |
-| **providers** (`provider`) | — | `/v1/host/sample/byok/secrets` | Manage BYOK credential **refs** (never values). |
-| **agents** (`agent`) | RFC 0070 | `/v1/agents` + `/v1/host/sample/agents` | Manifest-agent inventory + dispatch; CRUD for user-defined agents. Exit codes `0`/`3`/`1`. |
-| **roster** | RFC 0086 | `/v1/host/sample/roster` | Named standing agents + their workflow portfolio. |
-| **org-chart** (`orgchart`) | RFC 0087 | `/v1/host/sample/org-chart` | Descriptive department/role/reporting structure. |
-| **kanban** (`boards`) | host-extension (composes RFC 0086 triggers) | `/v1/host/sample/kanban` | Agent task boards; `watch` streams card events. |
-| **orgs** (`org`) | RFC 0049 | `/v1/host/sample/orgs` | Orgs/teams/groups/roles/members RBAC; `effective` resolves a subject's access. |
-| **workspace** | RFC 0059 §C | `/v1/host/sample/workspace` | Per-tenant agent workspace files (list/put/get). |
-| **byok** | — | `/v1/host/sample/byok/secrets` | Host-side BYOK secret store; the wire **never returns values**. |
+| **providers** (`provider`) | — | `/v1/host/openwop-app/byok/secrets` | Manage BYOK credential **refs** (never values). |
+| **agents** (`agent`) | RFC 0070 | `/v1/agents` + `/v1/host/openwop-app/agents` | Manifest-agent inventory + dispatch; CRUD for user-defined agents. Exit codes `0`/`3`/`1`. |
+| **roster** | RFC 0086 | `/v1/host/openwop-app/roster` | Named standing agents + their workflow portfolio. |
+| **org-chart** (`orgchart`) | RFC 0087 | `/v1/host/openwop-app/org-chart` | Descriptive department/role/reporting structure. |
+| **kanban** (`boards`) | host-extension (composes RFC 0086 triggers) | `/v1/host/openwop-app/kanban` | Agent task boards; `watch` streams card events. |
+| **orgs** (`org`) | RFC 0049 | `/v1/host/openwop-app/orgs` | Orgs/teams/groups/roles/members RBAC; `effective` resolves a subject's access. |
+| **workspace** | RFC 0059 §C | `/v1/host/openwop-app/workspace` | Per-tenant agent workspace files (list/put/get). |
+| **byok** | — | `/v1/host/openwop-app/byok/secrets` | Host-side BYOK secret store; the wire **never returns values**. |
 | **config** | — | (local file) | Read/write `~/.openwop/config.json`. |
-| **webhooks** (`webhook`) | — | `/v1/host/sample/webhooks` | Manage HMAC-signed webhook subscriptions; `test` fires a signed delivery. |
-| **cron** | RFC 0052 | `/v1/host/sample/scheduler/jobs` | Scheduled jobs: list (--roster filter) / add / enable / disable / remove / trigger. |
-| **messaging** | host-extension | `/v1/host/sample/messaging` | Operate the demo relay-gateway: connectors, sessions, policy, routing, identity, logs. |
+| **webhooks** (`webhook`) | — | `/v1/host/openwop-app/webhooks` | Manage HMAC-signed webhook subscriptions; `test` fires a signed delivery. |
+| **cron** | RFC 0052 | `/v1/host/openwop-app/scheduler/jobs` | Scheduled jobs: list (--roster filter) / add / enable / disable / remove / trigger. |
+| **messaging** | host-extension | `/v1/host/openwop-app/messaging` | Operate the demo relay-gateway: connectors, sessions, policy, routing, identity, logs. |
 | **relay** | host-extension | (local bridge loop) | Local channel relay: register/activate + the inbound→workflow bridge across channel plugins. |
-| **notifications** (`notification`) | host-extension | `/v1/host/sample/notifications` | Notification inbox. |
-| **interrupts** (`interrupt`) | — | `/v1/host/sample/runs/:id/interrupts` | List a run's open interrupts; resolve one by token. |
-| **prompts** (`prompt`) | RFC 0029 | `/v1/host/sample/prompts` | Prompt-library list/get/render. |
-| **notify** | — | `/v1/host/sample/notify` | One-off email/SMS dispatch via the demo host. |
-| **account** | — | `/v1/host/sample/account` | Tenant self-service hard-delete. |
-| **admin** | — | `/v1/host/sample/admin` | Operator maintenance (ephemeral-secret cleanup). |
-| **governance** (`policy`) | ADR 0028 | `/v1/host/sample/governance` | Tenant policy (provider allowlist / per-action policy / retention) + audit read view. Renders the host's resolved view only — never evaluates policy locally; fails closed if the surface isn't advertised. |
-| **approvals** (`approval`) | — | `/v1/host/sample/approvals` | Approval inbox (agents propose, humans dispose): list/get + claim/reject. Renders the host's verdict; never decides locally. |
-| **consent** | ADR 0020 | `/v1/host/sample/consent/orgs/:orgId/*`, `/v1/host/sample/public-consent/:orgId` | Tenant-scoped consent: policy get/set, records list/get, GDPR erase + public (unauthed) read/record. Renders the host's resolved view; fails closed on the uniform 404 when the `consent` toggle is off. |
-| **mcp** | RFC 0020 | `/v1/host/sample/mcp` (JSON-RPC) | MCP client for the host's JSON-RPC server mount: `info`/`ping` + `tools`/`resources`/`prompts` list/call/read/get. Mount is host-env-gated (OFF by default) — commands fail closed legibly when it's not exposed. |
-| **connections** (`conn`) | ADR 0024 | `/v1/host/sample/connections` | Third-party connections: list/get/test + authorize-URL + oauth-clients list/get. Surfaces refs/status only — secrets stay host-side (recursive redactor); never completes OAuth. |
-| **profiles** | ADR 0005 | `/v1/host/sample/profiles`, `/profiles/{me,:userId}`, `/me/{skills,portfolio,pinned-agents,activity}`, `/:userId/skills/:skill/endorse` | Self-service persona: list/get, self-edit, skills, portfolio, pin/unpin agents, peer endorsements, activity feed. Reads visible to tenant members; writes self-only. Persona surface — NOT the user directory or RBAC. |
-| **toggles** | host-extension (ADR 0001 §3) | `/v1/host/sample/feature-toggles/assignments` | Render the caller's host-resolved feature-toggle assignments (`list`/`get`): status (on/off/beta), enabled, variant + bindings. Read-only — the host resolves; the CLI never computes/overrides a toggle decision, and doesn't author config. Fails closed if not served. |
-| **users** | ADR 0002 | `/v1/host/sample/users` | Tenant identity directory + account lifecycle: list/get/create/update, disable/enable, delete, and `me`. Mirrors the `source` enum + raw IdP `groups[]`. Directory + lifecycle only — not RBAC (`orgs`) or persona (`profiles`); fails closed (404 not served, 403 disabled). |
-| **workforces** (`fleet`) | — | `/v1/host/sample/workforces` | Governed Workforce: list/get + metrics/governance/migration/trace/shadow reads + status cutover + eval. Durable multi-agent orchestration; composes with kanban/roster, never re-models them. |
-| **auth** (`sso`) | RFC 0050 | `/v1/host/sample/auth/saml/{sso/metadata,sso/login,validate}`, `/auth/scim/provision` | Enterprise SSO/SAML/SCIM identity config: status (advertised profiles), SP metadata, IdP login URL, SAML-assertion validate seam, SCIM provisioning seam. Surfaces status/metadata only — certs/bearers/secrets stay host-side (recursive redactor); fails closed when a surface isn't configured. NOT users/orgs/byok. |
-| **analytics** (`usage`) | ADR 0018 | `/v1/host/sample/analytics/orgs/:orgId/{summary,events}`, `/public-analytics/:orgId/collect` | Org-scoped usage analytics: `summary`/`events` (host-aggregated, RBAC `workspace:read`) + public consent-gated `collect` beacon (unauthed; 202 = consent not granted). Renders the host's rollup, never computes locally. Usage/cost/observability — distinct from `governance audit`. |
-| **proposals** | RFC 0096 | `/v1/host/sample/proposals` | Reviewable-learning proposal lifecycle: list/get + revise (PATCH, never activates) / apply (host materializes the stored draft via its activation mode) / reject / archive. Renders the host's verdict; never activates locally. Exit `0` applied / `3` pending / `1` rejected\|error. |
-| **goals** | RFC 0097 | `/v1/host/sample/goals` | Standing goals with judge-based completion: list/get + create (judge/continuation/bounds; 422 if requiresBounds) / pause / resume / abandon. Completion is the host judge's verdict — no `satisfy` verb, CLI never sets satisfied. Exit `0` satisfied / `3` escalated\|open / `1` bound-exceeded\|abandoned\|error. |
-| **export** / **import** | RFC 0098 | `/v1/host/sample/{export,import}` | Agent-platform portability: `export [--kinds --out]` → refs-only bundle; `import <file> [--dry-run]` → no-write plan then idempotent apply (re-owned host-side). Secrets are refs, never values (host 422s literal credentials; CLI redacts all output). Import exits `0` applied / `2` plan-has-conflicts / `1` error. |
+| **notifications** (`notification`) | host-extension | `/v1/host/openwop-app/notifications` | Notification inbox. |
+| **interrupts** (`interrupt`) | — | `/v1/host/openwop-app/runs/:id/interrupts` | List a run's open interrupts; resolve one by token. |
+| **prompts** (`prompt`) | RFC 0029 | `/v1/host/openwop-app/prompts` | Prompt-library list/get/render. |
+| **notify** | — | `/v1/host/openwop-app/notify` | One-off email/SMS dispatch via the demo host. |
+| **account** | — | `/v1/host/openwop-app/account` | Tenant self-service hard-delete. |
+| **admin** | — | `/v1/host/openwop-app/admin` | Operator maintenance (ephemeral-secret cleanup). |
+| **governance** (`policy`) | ADR 0028 | `/v1/host/openwop-app/governance` | Tenant policy (provider allowlist / per-action policy / retention) + audit read view. Renders the host's resolved view only — never evaluates policy locally; fails closed if the surface isn't advertised. |
+| **approvals** (`approval`) | — | `/v1/host/openwop-app/approvals` | Approval inbox (agents propose, humans dispose): list/get + claim/reject. Renders the host's verdict; never decides locally. |
+| **consent** | ADR 0020 | `/v1/host/openwop-app/consent/orgs/:orgId/*`, `/v1/host/openwop-app/public-consent/:orgId` | Tenant-scoped consent: policy get/set, records list/get, GDPR erase + public (unauthed) read/record. Renders the host's resolved view; fails closed on the uniform 404 when the `consent` toggle is off. |
+| **mcp** | RFC 0020 | `/v1/host/openwop-app/mcp` (JSON-RPC) | MCP client for the host's JSON-RPC server mount: `info`/`ping` + `tools`/`resources`/`prompts` list/call/read/get. Mount is host-env-gated (OFF by default) — commands fail closed legibly when it's not exposed. |
+| **connections** (`conn`) | ADR 0024 | `/v1/host/openwop-app/connections` | Third-party connections: list/get/test + authorize-URL + oauth-clients list/get. Surfaces refs/status only — secrets stay host-side (recursive redactor); never completes OAuth. |
+| **profiles** | ADR 0005 | `/v1/host/openwop-app/profiles`, `/profiles/{me,:userId}`, `/me/{skills,portfolio,pinned-agents,activity}`, `/:userId/skills/:skill/endorse` | Self-service persona: list/get, self-edit, skills, portfolio, pin/unpin agents, peer endorsements, activity feed. Reads visible to tenant members; writes self-only. Persona surface — NOT the user directory or RBAC. |
+| **toggles** | host-extension (ADR 0001 §3) | `/v1/host/openwop-app/feature-toggles/assignments` | Render the caller's host-resolved feature-toggle assignments (`list`/`get`): status (on/off/beta), enabled, variant + bindings. Read-only — the host resolves; the CLI never computes/overrides a toggle decision, and doesn't author config. Fails closed if not served. |
+| **users** | ADR 0002 | `/v1/host/openwop-app/users` | Tenant identity directory + account lifecycle: list/get/create/update, disable/enable, delete, and `me`. Mirrors the `source` enum + raw IdP `groups[]`. Directory + lifecycle only — not RBAC (`orgs`) or persona (`profiles`); fails closed (404 not served, 403 disabled). |
+| **workforces** (`fleet`) | — | `/v1/host/openwop-app/workforces` | Governed Workforce: list/get + metrics/governance/migration/trace/shadow reads + status cutover + eval. Durable multi-agent orchestration; composes with kanban/roster, never re-models them. |
+| **auth** (`sso`) | RFC 0050 | `/v1/host/openwop-app/auth/saml/{sso/metadata,sso/login,validate}`, `/auth/scim/provision` | Enterprise SSO/SAML/SCIM identity config: status (advertised profiles), SP metadata, IdP login URL, SAML-assertion validate seam, SCIM provisioning seam. Surfaces status/metadata only — certs/bearers/secrets stay host-side (recursive redactor); fails closed when a surface isn't configured. NOT users/orgs/byok. |
+| **analytics** (`usage`) | ADR 0018 | `/v1/host/openwop-app/analytics/orgs/:orgId/{summary,events}`, `/public-analytics/:orgId/collect` | Org-scoped usage analytics: `summary`/`events` (host-aggregated, RBAC `workspace:read`) + public consent-gated `collect` beacon (unauthed; 202 = consent not granted). Renders the host's rollup, never computes locally. Usage/cost/observability — distinct from `governance audit`. |
+| **proposals** | RFC 0096 | `/v1/host/openwop-app/proposals` | Reviewable-learning proposal lifecycle: list/get + revise (PATCH, never activates) / apply (host materializes the stored draft via its activation mode) / reject / archive. Renders the host's verdict; never activates locally. Exit `0` applied / `3` pending / `1` rejected\|error. |
+| **goals** | RFC 0097 | `/v1/host/openwop-app/goals` | Standing goals with judge-based completion: list/get + create (judge/continuation/bounds; 422 if requiresBounds) / pause / resume / abandon. Completion is the host judge's verdict — no `satisfy` verb, CLI never sets satisfied. Exit `0` satisfied / `3` escalated\|open / `1` bound-exceeded\|abandoned\|error. |
+| **export** / **import** | RFC 0098 | `/v1/host/openwop-app/{export,import}` | Agent-platform portability: `export [--kinds --out]` → refs-only bundle; `import <file> [--dry-run]` → no-write plan then idempotent apply (re-owned host-side). Secrets are refs, never values (host 422s literal credentials; CLI redacts all output). Import exits `0` applied / `2` plan-has-conflicts / `1` error. |
 | **triggers** | RFC 0099 | `/v1/trigger-subscriptions` (normative) | External-event trigger subscriptions: `register --source <webhook\|email\|form> --workflow <id> [--dedup --verification]` / `list` / `get`. Binds a source→workflow; renders the created subscription + source binding (secret shown once, never persisted; re-reads show the fingerprint). Capability-gated on `triggerBridge` (+ `ingestion.externalSources` for register). Exit `0` active / `3` paused / `1` failed\|dead-lettered. |
-| **a2a** | RFC 0100 | `/v1/host/sample/a2a/tasks/{taskId}` | Async/durable A2A tasks: `a2a status` (advertised `capabilities.a2a`) + `a2a task <id>` reads the durable `A2ATaskState` (taskId === runId; content-free projection). Gated on `capabilities.a2a.durableTasks`. Exit `0` completed / `3` in-progress / `1` failed\|canceled\|rejected. |
+| **a2a** | RFC 0100 | `/v1/host/openwop-app/a2a/tasks/{taskId}` | Async/durable A2A tasks: `a2a status` (advertised `capabilities.a2a`) + `a2a task <id>` reads the durable `A2ATaskState` (taskId === runId; content-free projection). Gated on `capabilities.a2a.durableTasks`. Exit `0` completed / `3` in-progress / `1` failed\|canceled\|rejected. |
 
 > **Channel plugins** (used by `relay` + `messaging`): the inbound/outbound
 > normalizers for **Signal, iMessage, WhatsApp, and Discord** live in
@@ -220,7 +220,7 @@ from `0000-template.md`) and must reach at least `Accepted` *before/with* a CLI
 command that depends on it. Do **not** bake a command against an unsettled wire
 contract — surface that as a decision (the `/feature` skill's RFC gate). A command
 that rides an **already-Accepted** RFC needs no new RFC (e.g. `agents` implements
-RFC 0070). Host-extension surfaces under `/v1/host/sample/*` are non-normative and
+RFC 0070). Host-extension surfaces under `/v1/host/openwop-app/*` are non-normative and
 never touch the wire, so they never need an RFC.
 
 ---

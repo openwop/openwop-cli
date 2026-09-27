@@ -22,8 +22,8 @@ export const ORGS_HELP = `Usage:
 
 Organizations + RBAC (RFC 0049, authorization fail-closed). Orgs own teams,
 groups, roles, and members; an effective-access query resolves a subject's
-granted scopes. Drives the host-extension surface under /v1/host/sample/orgs,
-/v1/host/sample/roles, and /v1/host/sample/access/effective.
+granted scopes. Drives the host-extension surface under /v1/host/openwop-app/orgs,
+/v1/host/openwop-app/roles, and /v1/host/openwop-app/access/effective.
 
 Nested-entity flags:
   teams   create/update  --name <n> [--description <t>] [--color <c>]
@@ -67,7 +67,7 @@ export async function runOrgs(ctx: Ctx, argv: string[]) {
 async function orgsList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, ORGS_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/orgs');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/orgs');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const orgs = arrayOf(res.body, 'orgs');
   if (orgs.length === 0) { writeLine(ctx.io.stdout, 'No organizations. Create one with `openwop orgs create --name <name>`.'); return 0; }
@@ -80,7 +80,7 @@ async function orgsList(ctx: Ctx, argv: string[]) {
 async function orgsGet(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop orgs get <orgId> [--json]\n'); return options.help ? 0 : 2; }
-  const res = await requestJson(ctx, `/v1/host/sample/orgs/${encodeURIComponent(positionals[0])}`);
+  const res = await requestJson(ctx, `/v1/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`);
   writeJson(ctx.io.stdout, res.body);
   return 0;
 }
@@ -90,7 +90,7 @@ async function orgsCreate(ctx: Ctx, argv: string[]) {
   if (options.help || !options.name) { write(ctx.io.stdout, 'Usage: openwop orgs create --name <name> [--description <text>] [--json]\n'); return options.help ? 0 : 2; }
   const body: Record<string, any> = { name: options.name };
   if (options.description) body.description = options.description;
-  const res = await requestJson(ctx, '/v1/host/sample/orgs', { method: 'POST', body });
+  const res = await requestJson(ctx, '/v1/host/openwop-app/orgs', { method: 'POST', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Created org ${res.body?.orgId ?? res.body?.id} (${res.body?.name}).`);
   return 0;
@@ -103,7 +103,7 @@ async function orgsUpdate(ctx: Ctx, argv: string[]) {
   if (options.name) body.name = options.name;
   if (options.description) body.description = options.description;
   if (Object.keys(body).length === 0) throw new CliError('Nothing to update — pass --name and/or --description.', 2);
-  const res = await requestJson(ctx, `/v1/host/sample/orgs/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Updated org ${positionals[0]}.`);
   return 0;
@@ -113,7 +113,7 @@ async function orgsDelete(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop orgs delete <orgId> [--yes]\n'); return options.help ? 0 : 2; }
   if (!options.yes) { writeLine(ctx.io.stderr, `Refusing to delete org ${positionals[0]} without --yes (removes its teams, roles, and memberships).`); return 2; }
-  await requestJson(ctx, `/v1/host/sample/orgs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/v1/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted org ${positionals[0]}.`);
   return 0;
 }
@@ -122,7 +122,7 @@ async function orgsDelete(ctx: Ctx, argv: string[]) {
 async function roleCatalog(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, 'Usage: openwop orgs role-catalog [--json]\n'); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/roles');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/roles');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const roles = arrayOf(res.body, 'roles');
   writeLine(ctx.io.stdout, formatTable(roles.map((r: any) => ({
@@ -135,7 +135,7 @@ async function effectiveAccess(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'], value: ['--subject'] });
   if (options.help) { write(ctx.io.stdout, 'Usage: openwop orgs effective [--subject <id>] [--json]\n'); return 0; }
   const q = options.subject ? `?subject=${encodeURIComponent(options.subject)}` : '';
-  const res = await requestJson(ctx, `/v1/host/sample/access/effective${q}`);
+  const res = await requestJson(ctx, `/v1/host/openwop-app/access/effective${q}`);
   writeJson(ctx.io.stdout, res.body);
   return 0;
 }
@@ -149,7 +149,7 @@ async function runEntity(ctx: Ctx, entity: Entity, argv: string[]) {
     return orgId ? 0 : 2;
   }
   const rest = argv.slice(2);
-  const base = `/v1/host/sample/orgs/${encodeURIComponent(orgId)}/${entity}`;
+  const base = `/v1/host/openwop-app/orgs/${encodeURIComponent(orgId)}/${entity}`;
   switch (verb) {
     case 'list': {
       const res = await requestJson(ctx, base);

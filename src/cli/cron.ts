@@ -14,7 +14,7 @@ export const CRON_HELP = `Usage:
   openwop cron trigger <jobId> [--json]
 
 Manage scheduled (cron) jobs on the configured host via the RFC 0052 sample
-scheduler CRUD (/v1/host/sample/scheduler/jobs). This is a sample-extension
+scheduler CRUD (/v1/host/openwop-app/scheduler/jobs). This is a sample-extension
 surface — not part of the normative OpenWOP wire contract.
 
   list     Lists jobs (tenant-scoped). --roster <id> filters to the schedules
@@ -65,8 +65,8 @@ async function runCronList(ctx: Ctx, argv: string[]) {
   }
   // Optional ?rosterId= filter — schedules owned by one roster member.
   const path = options.roster !== undefined
-    ? `/v1/host/sample/scheduler/jobs?rosterId=${encodeURIComponent(options.roster)}`
-    : '/v1/host/sample/scheduler/jobs';
+    ? `/v1/host/openwop-app/scheduler/jobs?rosterId=${encodeURIComponent(options.roster)}`
+    : '/v1/host/openwop-app/scheduler/jobs';
   const res = await requestJson(ctx, path);
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
@@ -91,7 +91,7 @@ async function runCronList(ctx: Ctx, argv: string[]) {
   return 0;
 }
 
-// PATCH /v1/host/sample/scheduler/jobs/{jobId} {enabled} — toggle a schedule
+// PATCH /v1/host/openwop-app/scheduler/jobs/{jobId} {enabled} — toggle a schedule
 // active/inert (RFC 0052). A disabled job keeps its row but fires no triggers.
 async function runCronSetEnabled(ctx: Ctx, argv: string[], enabled: boolean) {
   const verb = enabled ? 'enable' : 'disable';
@@ -100,7 +100,7 @@ async function runCronSetEnabled(ctx: Ctx, argv: string[], enabled: boolean) {
     write(ctx.io.stdout, `Usage: openwop cron ${verb} <jobId> [--json]\n`);
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/sample/scheduler/jobs/${encodeURIComponent(positionals[0])}`, {
+  const res = await requestJson(ctx, `/v1/host/openwop-app/scheduler/jobs/${encodeURIComponent(positionals[0])}`, {
     method: 'PATCH',
     body: { enabled },
   });
@@ -127,7 +127,7 @@ async function runCronAdd(ctx: Ctx, argv: string[]) {
     ...(options.workflow ? { workflowId: options.workflow } : {}),
     ...(options.firstFireAtMs !== undefined ? { firstFireAtMs: Number(options.firstFireAtMs) } : {}),
   };
-  const res = await requestJson(ctx, '/v1/host/sample/scheduler/jobs', { method: 'POST', body });
+  const res = await requestJson(ctx, '/v1/host/openwop-app/scheduler/jobs', { method: 'POST', body });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -142,7 +142,7 @@ async function runCronRemove(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop cron remove <jobId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/sample/scheduler/jobs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/scheduler/jobs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `✓ Removed scheduled job ${positionals[0]}`);
   return 0;
@@ -154,7 +154,7 @@ async function runCronTrigger(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop cron trigger <jobId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/sample/scheduler/jobs/${encodeURIComponent(positionals[0])}/trigger`, { method: 'POST', body: {} });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/scheduler/jobs/${encodeURIComponent(positionals[0])}/trigger`, { method: 'POST', body: {} });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;

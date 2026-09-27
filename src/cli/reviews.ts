@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const BASE = '/v1/host/sample/reviews';
+const BASE = '/v1/host/openwop-app/reviews';
 
 export const REVIEWS_HELP = `Usage:
   openwop reviews list [--status <s>] [--json]

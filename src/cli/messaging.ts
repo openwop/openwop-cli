@@ -16,7 +16,7 @@ export const MESSAGING_HELP = `Usage:
   openwop messaging pairing    list|approve [--connector id] [--code c]
   openwop messaging allowlist  list|add|remove --connector id --channel ch --peer-id p
 
-Operate the demo host's messaging relay-gateway (/v1/host/sample/messaging) —
+Operate the demo host's messaging relay-gateway (/v1/host/openwop-app/messaging) —
 a host-extension surface, NOT part of the normative OpenWOP wire contract.
 
   connectors add --channel <signal|whatsapp|imessage> [--display-name n]

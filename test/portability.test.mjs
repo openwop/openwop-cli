@@ -43,7 +43,7 @@ describe('export', () => {
   it('renders a per-kind summary + secretsToRebind', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/export$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/export$/);
       return jsonResponse({ items: [{ kind: 'agent' }, { kind: 'agent' }, { kind: 'schedule' }], secretsToRebind: [{ provider: 'slack', ref: 'cred:slack' }] });
     });
     const code = await runCli(['export'], opts(fetchImpl, cap));

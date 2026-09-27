@@ -31,7 +31,7 @@ describe('users list/get', () => {
   it('lists users as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/users\/users$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/users\/users$/);
       return jsonResponse({ users: [USER] });
     };
     const code = await runCli(['users', 'list'], opts(fetchImpl, cap));

@@ -5,10 +5,10 @@ import type { Ctx } from '../context.js';
  * (RFC 0090) verdicts it satisfied or a BOUND (RFC 0058) stops it. This group
  * drives the host's goal surface (sample host-extension, non-normative;
  * promotable to the normative /v1/goals path at graduation):
- *   GET    /v1/host/sample/goals[?state=]                  — the goal list
- *   GET    /v1/host/sample/goals/{id}                      — one goal
- *   POST   /v1/host/sample/goals                           — create (422 if requiresBounds + no bounds)
- *   POST   /v1/host/sample/goals/{id}/{pause,resume,abandon}
+ *   GET    /v1/host/openwop-app/goals[?state=]                  — the goal list
+ *   GET    /v1/host/openwop-app/goals/{id}                      — one goal
+ *   POST   /v1/host/openwop-app/goals                           — create (422 if requiresBounds + no bounds)
+ *   POST   /v1/host/openwop-app/goals/{id}/{pause,resume,abandon}
  *
  * Completion is the host JUDGE's verdict — there is deliberately NO `complete`
  * or `satisfy` verb, and the CLI never sets `state: satisfied` (the host rejects
@@ -48,12 +48,12 @@ the host does not advertise the goal surface (/.well-known/openwop), the group
 fails closed rather than guessing.
 
 Endpoints:
-  list     GET    /v1/host/sample/goals[?state=]
-  get      GET    /v1/host/sample/goals/{id}
-  create   POST   /v1/host/sample/goals          (422 if the host requires bounds and none given)
-  pause    POST   /v1/host/sample/goals/{id}/pause
-  resume   POST   /v1/host/sample/goals/{id}/resume
-  abandon  POST   /v1/host/sample/goals/{id}/abandon
+  list     GET    /v1/host/openwop-app/goals[?state=]
+  get      GET    /v1/host/openwop-app/goals/{id}
+  create   POST   /v1/host/openwop-app/goals          (422 if the host requires bounds and none given)
+  pause    POST   /v1/host/openwop-app/goals/{id}/pause
+  resume   POST   /v1/host/openwop-app/goals/{id}/resume
+  abandon  POST   /v1/host/openwop-app/goals/{id}/abandon
 
   --state <s>            (list) Filter by state (e.g. active, satisfied, escalated, bound-exceeded, paused).
   --objective <text>     (create) The goal objective (required).
@@ -139,7 +139,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `goals: ${detail} (the host must mount /v1/host/sample/goals; the CLI renders the host's view, it never decides).`,
+      `goals: ${detail} (the host must mount /v1/host/openwop-app/goals; the CLI renders the host's view, it never decides).`,
       1,
     );
   }
@@ -153,7 +153,7 @@ async function runGoalsList(ctx: Ctx, argv: string[]): Promise<number> {
     return 0;
   }
   await ensureAdvertised(ctx);
-  const path = options.state !== undefined ? `/v1/host/sample/goals?state=${encodeURIComponent(options.state)}` : '/v1/host/sample/goals';
+  const path = options.state !== undefined ? `/v1/host/openwop-app/goals?state=${encodeURIComponent(options.state)}` : '/v1/host/openwop-app/goals';
   let res;
   try {
     res = await requestJson(ctx, path);
@@ -197,7 +197,7 @@ async function runGoalsGet(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/goals/${encodeURIComponent(positionals[0])}`);
+    res = await requestJson(ctx, `/v1/host/openwop-app/goals/${encodeURIComponent(positionals[0])}`);
   } catch (err) {
     gate404(err);
   }
@@ -277,7 +277,7 @@ async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/sample/goals', { method: 'POST', body });
+    res = await requestJson(ctx, '/v1/host/openwop-app/goals', { method: 'POST', body });
   } catch (err) {
     if (err instanceof HttpError && err.status === 422) {
       const detail = (err.body as { message?: string } | undefined)?.message
@@ -304,7 +304,7 @@ async function runGoalsTransition(ctx: Ctx, argv: string[], verb: 'pause' | 'res
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/goals/${encodeURIComponent(positionals[0])}/${verb}`, { method: 'POST' });
+    res = await requestJson(ctx, `/v1/host/openwop-app/goals/${encodeURIComponent(positionals[0])}/${verb}`, { method: 'POST' });
   } catch (err) {
     if (err instanceof HttpError && err.status === 409) {
       const status = (err.body as { state?: string } | undefined)?.state;
@@ -334,7 +334,7 @@ async function runGoalsAbandon(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/goals/${encodeURIComponent(positionals[0])}/abandon`, { method: 'POST' });
+    res = await requestJson(ctx, `/v1/host/openwop-app/goals/${encodeURIComponent(positionals[0])}/abandon`, { method: 'POST' });
   } catch (err) {
     gate404(err);
   }

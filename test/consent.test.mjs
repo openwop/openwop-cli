@@ -25,7 +25,7 @@ describe('consent command', () => {
   it('shows the tenant policy (human)', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/consent\/orgs\/org_1\/policy$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/consent\/orgs\/org_1\/policy$/);
       return jsonResponse({ policy: { tenantId: 't1', regulatedRegions: ['EU', 'UK'], defaultMode: 'opt-out' } });
     };
     const code = await runCli(['consent', 'policy', 'org_1'], opts(fetchImpl, cap));
