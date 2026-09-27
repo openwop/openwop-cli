@@ -70,7 +70,7 @@ describe('entities records',()=>{
   });
   it('403 → legible message + exit 4',async()=>{
     const {f}=recorder(json({error:'forbidden',message:'needs workspace:write'},403));const cap=capture();
-    assert.equal(await runCli(['entities','delete','recipe','e1','--yes'],ctx(cap,f)),4);assert.match(cap.stderr,/HTTP 403: needs workspace:write/);});
+    assert.equal(await runCli(['entities','delete','recipe','e1','--yes'],ctx(cap,f)),4);assert.match(cap.stderr,/HTTP 403( [a-z_]+)?: needs workspace:write/);});
 });
 
 describe('entities taxonomies/terms/relationships/locale',()=>{

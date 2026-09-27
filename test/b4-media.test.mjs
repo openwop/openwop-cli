@@ -116,7 +116,7 @@ describe('media library assets', () => {
     const r = recorder(() => json({ error: 'forbidden', message: 'workspace:read required' }, 403));
     const code = await runCli(['media', 'assets', 'list', '--org', 'o1'], ctx(cap, r.f));
     assert.equal(code, 4);
-    assert.match(cap.stderr, /HTTP 403: workspace:read required/);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: workspace:read required/);
   });
 
   it('requires --org', async () => {

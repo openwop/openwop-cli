@@ -69,7 +69,7 @@ describe('creative-briefs', () => {
     assert.equal(r.calls[0].path, `${CB}/briefs/b1/transition`); assert.deepEqual(r.calls[0].body, { status: 'review' });
     cap = capture(); r = recorder(() => json({ error: 'forbidden', message: 'Requires host:members:manage' }, 403));
     assert.equal(await runCli(['creative-briefs', 'transition', 'b1', '--org', 'o1', '--status', 'approved'], ctx(cap, r.f)), 4);
-    assert.match(cap.stderr, /HTTP 403: Requires host:members:manage/);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Requires host:members:manage/);
   });
   it('versions + diff hit the right paths with ?from&to', async () => {
     const cap = capture(); const r = recorder((c) => json(c.path.endsWith('/diff') ? { changes: [{ field: 'title', from: 'a', to: 'b' }] } : { versions: [] }));
@@ -193,6 +193,6 @@ describe('production', () => {
   it('403 exits 4', async () => {
     const cap = capture(); const r = recorder(() => json({ message: 'Not a member' }, 403));
     assert.equal(await runCli(['production', 'vendors', 'list', '--org', 'o1'], ctx(cap, r.f)), 4);
-    assert.match(cap.stderr, /HTTP 403: Not a member/);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Not a member/);
   });
 });

@@ -45,7 +45,7 @@ describe('tutorials', () => {
   });
   it('progress set as anonymous → 403 exit 4 with the host message', async () => {
     const r = await run(['tutorials', 'progress', 'set', 't1', '--steps', 'a'], () => json({ error: 'forbidden', message: 'Sign in to save tutorial progress.' }, 403));
-    assert.equal(r.code, 4); assert.match(r.cap.stderr, /HTTP 403: Sign in to save/);
+    assert.equal(r.code, 4); assert.match(r.cap.stderr, /HTTP 403( [a-z_]+)?: Sign in to save/);
   });
 });
 

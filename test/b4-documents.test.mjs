@@ -55,7 +55,7 @@ describe('documents (b4)',()=>{
   it('--json prints the raw body',async()=>{const cap=capture();const r=recorder({templates:[{templateId:'t1'}]});
     await runCli(['--json','documents','templates','list','--org','o1'],base(cap,r.f));assert.deepEqual(JSON.parse(cap.stdout),{templates:[{templateId:'t1'}]});});
   it('403 → exit 4 with a legible message',async()=>{const cap=capture();const r=recorder(()=>json({error:'forbidden',message:'workspace:write required'},403));
-    const code=await runCli(['documents','delete','d1','--org','o1','--yes'],base(cap,r.f));assert.equal(code,4);assert.match(cap.stderr,/HTTP 403: workspace:write required/);});
+    const code=await runCli(['documents','delete','d1','--org','o1','--yes'],base(cap,r.f));assert.equal(code,4);assert.match(cap.stderr,/HTTP 403( [a-z_]+)?: workspace:write required/);});
 });
 describe('docs (b4)',()=>{
   it('backfill POSTs /docs/orgs/{org}/backfill',async()=>{const cap=capture();const r=recorder({ingested:2});
