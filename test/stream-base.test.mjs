@@ -186,3 +186,32 @@ describe('idle watchdog — failure paths never hold the process open', () => {
     assert.ok(h.seen.some((r) => /\/events\/poll$/.test(r.path)), 'fell back to the poll endpoint');
   });
 });
+
+describe('the stream origin is never silent (1.2.0 release review)', () => {
+  const doctorRow = async (extraArgv, env, extensions) => {
+    const h = host({ connections: [], extensions });
+    const cap = capture();
+    await runCli(['--base-url', 'https://front.example/api', '--api-key', 'k', ...extraArgv, 'doctor'], { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', repoRoot: null, env: { OPENWOP_PROTOCOL_MAJOR: undefined, ...env } });
+    return cap.stdout.split('\n').find((l) => l.includes('stream origin')) ?? '';
+  };
+  it('doctor names --base-url when nothing moves the stream', async () => {
+    assert.match(await doctorRow([], {}), /event streams use --base-url \(https:\/\/front\.example\/api\)/);
+  });
+  it("doctor names the host's advertised origin and the opt-out", async () => {
+    const row = await doctorRow([], {}, { 'openwop-app.host': { streamBase: 'https://svc.run.app' } });
+    assert.match(row, /https:\/\/svc\.run\.app — the host's advertised streamBase; set --stream-base-url to your --base-url/);
+  });
+  it('doctor names the user setting', async () => {
+    assert.match(await doctorRow(['--stream-base-url', 'https://mine.example'], {}), /https:\/\/mine\.example — your --stream-base-url/);
+  });
+  it('--verbose says where the stream is read from when it is not --base-url', async () => {
+    const h = host({ connections: [oneShot], extensions: { 'openwop-app.host': { streamBase: 'https://svc.run.app' } } });
+    const cap = capture();
+    await streamRunEvents({ ...ctxFor(h), verbose: true, io: cap.io }, 'r', {});
+    assert.match(cap.stderr, /reading the event stream from https:\/\/svc\.run\.app \(the host's advertised streamBase\)/);
+    const h2 = host({ connections: [oneShot] });
+    const cap2 = capture();
+    await streamRunEvents({ ...ctxFor(h2), verbose: true, io: cap2.io }, 'r', {});
+    assert.doesNotMatch(cap2.stderr, /reading the event stream/);
+  });
+});

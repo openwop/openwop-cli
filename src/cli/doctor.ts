@@ -1,3 +1,4 @@
+import { streamOrigin, STREAM_SOURCE_LABEL } from '../protocol.js';
 import type { Ctx } from '../context.js';
 /** `openwop doctor` — check local prerequisites + demo reachability. */
 import { spawnSync } from 'node:child_process';
@@ -161,5 +162,11 @@ async function protocolChecks(ctx: Ctx): Promise<CheckResult[]> {
   } else if (floor.required !== undefined) {
     rows.push(warn('min client', `host minClientVersion ${floor.required} is not a <major>.<minor> version`));
   }
+  // openwop-app ADR 0761 — streams (and the bearer) may be read from a different
+  // origin than --base-url; make that visible, with the opt-out.
+  const stream = streamOrigin(ctx);
+  rows.push(stream.source === 'base'
+    ? ok('stream origin', `event streams use --base-url (${stream.origin})`)
+    : ok('stream origin', `event streams use ${stream.origin} — ${STREAM_SOURCE_LABEL[stream.source]}; set --stream-base-url to your --base-url to keep them there`));
   return rows;
 }
