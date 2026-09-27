@@ -213,6 +213,7 @@ export { V1_TO_V2_EVENT_TYPES, canonicalEventType, isTerminalRunEvent } from './
 export { projectTenantBoundId, projectRunIdsInPath } from './ids.js';
 export { errorEnvelope, describeHttpError, HttpError, isNoCredentialChallenge } from './errors.js';
 export { requestNormativeOrHost } from './cli/requestHelpers.js';
+export { redactSecrets, BASE_SECRET_KEY } from './redact.js';
 export { checkMinClientVersion, idempotencyHeaders, CLI_PROTOCOL_VERSION_BY_MAJOR } from './wire.js';
 export { formatTable };
 export { extractGlobalOptions };

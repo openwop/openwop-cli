@@ -1,3 +1,4 @@
+import { redactSecrets } from '../redact.js';
 import type { Ctx } from '../context.js';
 /** `openwop connections ...` — inspect host connections + their OAuth client config.
  *
@@ -103,16 +104,8 @@ const SECRET_KEY = /secret|token|password|private[-_]?key|client[-_]?secret|api[
 /** Recursively replace any secret-looking field's value with `[redacted]`. A
  *  belt-and-suspenders guard so the CLI cannot emit a secret even if a host
  *  returns one by mistake. Returns a fresh structure; never mutates input. */
-function redact(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redact);
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = SECRET_KEY.test(k) ? '[redacted]' : redact(v);
-    }
-    return out;
-  }
-  return value;
+function redact<T>(value: T): T {
+  return redactSecrets(value, { secret: SECRET_KEY });
 }
 
 const TOP = ['list', 'get', 'test', 'authorize', 'oauth-clients', 'oauth-client'];
@@ -199,7 +192,7 @@ async function runList(ctx: Ctx, argv: string[]): Promise<number> {
     return 0;
   }
   await ensureAdvertised(ctx);
-  const connections = (await fetchConnections(ctx)).map(redact) as any[];
+  const connections = (await fetchConnections(ctx)).map(redact);
   if (ctx.json) {
     writeJson(ctx.io.stdout, { connections });
     return 0;
@@ -234,7 +227,7 @@ async function runGet(ctx: Ctx, argv: string[]): Promise<number> {
   if (!c) {
     throw new CliError(`connections: no connection found with id ${positionals[0]}.`, 1);
   }
-  const safe = redact(c) as any;
+  const safe = redact(c);
   if (ctx.json) {
     writeJson(ctx.io.stdout, safe);
     return 0;
@@ -264,7 +257,7 @@ async function runTest(ctx: Ctx, argv: string[]): Promise<number> {
   } catch (err) {
     gate404(err);
   }
-  const result = redact(res!.body ?? {}) as any;
+  const result = redact(res!.body ?? {});
   if (ctx.json) {
     writeJson(ctx.io.stdout, result);
     return result.ok === true ? 0 : 1;
@@ -303,7 +296,7 @@ async function runAuthorize(ctx: Ctx, argv: string[]): Promise<number> {
     }
     gate404(err);
   }
-  const out = redact(res!.body ?? {}) as any;
+  const out = redact(res!.body ?? {});
   if (ctx.json) {
     writeJson(ctx.io.stdout, out);
     return 0;
@@ -339,7 +332,8 @@ async function runOAuthClients(ctx: Ctx, argv: string[]): Promise<number> {
   } catch (err) {
     gate404(err);
   }
-  const clients = (Array.isArray(res!.body?.clients) ? res!.body.clients : []).map(redact) as any[];
+  const rawClients: Array<Record<string, any>> = Array.isArray(res!.body?.clients) ? res!.body.clients : [];
+  const clients = rawClients.map(redact);
 
   if (action === 'get') {
     if (positionals.length !== 1) {

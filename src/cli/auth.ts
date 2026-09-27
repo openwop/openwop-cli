@@ -1,3 +1,4 @@
+import { redactSecrets } from '../redact.js';
 import type { Ctx } from '../context.js';
 /** `openwop auth ...` (alias `sso`) — enterprise SSO/SAML/SCIM identity config (RFC 0050). */
 import { CliError, HttpError } from '../errors.js';
@@ -74,16 +75,8 @@ const BASE = '/v1/host/openwop-app/auth';
 // SAML certs and assertions are sensitive. SP metadata XML is printed raw (public).
 const SECRET_KEY = /secret|token|password|private[-_]?key|client[-_]?secret|api[-_]?key|credential|bearer|assertion|certificate|cert|pem/i;
 
-function redact(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redact);
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = SECRET_KEY.test(k) ? '[redacted]' : redact(v);
-    }
-    return out;
-  }
-  return value;
+function redact<T>(value: T): T {
+  return redactSecrets(value, { secret: SECRET_KEY });
 }
 
 /** Map the host's "not configured" 404 onto a legible fail-closed error. */
@@ -214,7 +207,7 @@ async function runSamlValidate(ctx: Ctx, argv: string[]) {
     }
     throw err;
   }
-  const safe = redact(res.body ?? {}) as any;
+  const safe = redact(res.body ?? {});
   if (ctx.json) { writeJson(ctx.io.stdout, safe); return 0; }
   writeLine(ctx.io.stdout, `authenticated: ${safe.authenticated === true ? 'yes' : 'no'}`);
   if (safe.principal !== undefined) writeLine(ctx.io.stdout, `principal: ${typeof safe.principal === 'string' ? safe.principal : JSON.stringify(safe.principal)}`);
@@ -240,7 +233,7 @@ async function runScimProvision(ctx: Ctx, argv: string[]) {
   const body: Record<string, unknown> = { op: options.op, user };
   if (options.group !== undefined) body.group = options.group;
   const res = await authRequest(ctx, `${BASE}/scim/provision`, { method: 'POST', body }, 'SCIM provisioning seam not configured on this host (set OPENWOP_TEST_SCIM_URL).');
-  const safe = redact(res.body ?? {}) as any;
+  const safe = redact(res.body ?? {});
   if (ctx.json) { writeJson(ctx.io.stdout, safe); return 0; }
   writeLine(ctx.io.stdout, `op: ${safe.op ?? options.op}`);
   if (safe.principal) {

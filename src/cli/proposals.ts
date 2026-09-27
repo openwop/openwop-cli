@@ -128,7 +128,7 @@ function exitForState(state: unknown): number {
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return; // can't prove absence — let the real request decide
-  const body = wk.body && typeof wk.body === 'object' ? (wk.body as any) : {};
+  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
   const advertised = !!(body.capabilities?.agents?.proposals ?? body.agents?.proposals);
   if (!advertised) {
     throw new CliError(
