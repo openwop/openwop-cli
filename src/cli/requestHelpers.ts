@@ -15,7 +15,7 @@ import type { Ctx } from '../context.js';
 import { CliError, HttpError, errorEnvelope, isNoCredentialChallenge } from '../errors.js';
 import { writeLine } from '../io.js';
 import { requestJson, type RequestOptions } from '../api.js';
-import { negotiateMajor } from '../protocol.js';
+import { negotiateMajor, resolveRequest } from '../protocol.js';
 import { projectTenantBoundId } from '../ids.js';
 
 /** Statuses that mean "this host does not serve that operation" (not "that record is absent"). */
@@ -88,7 +88,9 @@ export async function requestNormativeOrHost(
     throw err;
   }
   if (anonymousRetryOf) {
-    writeLine(ctx.io.stderr, `openwop: not signed in — showing this host's anonymous demo view (${hostPath}). Sign in or pass --api-key to read your workspace.`);
+    // Name the path the request actually went to (under v2 the host root, not the /v1 twin).
+    const sent = (await resolveRequest(ctx, hostPath, {})).path;
+    writeLine(ctx.io.stderr, `openwop: not signed in — showing this host's anonymous demo view (${sent}). Sign in or pass --api-key to read your workspace.`);
   } else if (ctx.verbose) {
     writeLine(ctx.io.stderr, `openwop: served by the host-extension path ${hostPath}`);
   }

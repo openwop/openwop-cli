@@ -1,7 +1,7 @@
 // Run via `npm test` (builds dist/ first) — imports the esbuild bundle at ../dist/cli.js.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { runCli } from '../dist/cli.js';
+import { runCli, requestNormativeOrHost, isNoCredentialChallenge, HttpError } from '../dist/cli.js';
 
 function capture() {
   let stdout = '';
@@ -56,7 +56,7 @@ describe('normative-first reads — the RFC 0200 §B.1 no-credential fallback', 
     const r = await run(['roster', 'list'], (m, p) => (p === '/agents/roster' ? unauth(NO_CRED) : json({ roster: [{ rosterId: 'r1', name: 'Ops' }] })), {}, V2);
     assert.equal(r.code, 0, r.stderr);
     assert.deepEqual(r.calls.map((c) => c.path), ['/agents/roster', '/host/openwop-app/roster']);
-    assert.match(r.stderr, /not signed in — showing this host's anonymous demo view/);
+    assert.match(r.stderr, /not signed in — showing this host's anonymous demo view \(\/host\/openwop-app\/roster\)/, 'names the path actually sent under v2');
   });
 
   it('--json keeps the notice on stderr and stdout parseable', async () => {
@@ -96,5 +96,49 @@ describe('normative-first reads — the RFC 0200 §B.1 no-credential fallback', 
     assert.equal(r.calls.length, 2);
     assert.match(r.stderr, /HTTP 401 unauthenticated/);
     assert.doesNotMatch(r.stderr, /404/);
+  });
+});
+
+describe('requestNormativeOrHost — what counts as a presented credential', () => {
+  function ctxFor(handler, { apiKey } = {}) {
+    const cap = capture();
+    const calls = [];
+    const fetchImpl = async (url, init = {}) => {
+      const u = new URL(url);
+      if (u.pathname === '/.well-known/openwop') return json(V2);
+      calls.push({ path: u.pathname, headers: init.headers ?? {} });
+      return handler(u.pathname);
+    };
+    return { ctx: { io: cap.io, fetchImpl, baseUrl: 'https://h.example', env: {}, apiKey }, calls, cap };
+  }
+  const handler = (p) => (p === '/agents/roster' ? unauth(NO_CRED) : json({ roster: [] }));
+
+  it('a caller-supplied cookie header is a presented credential — no anonymous retry', async () => {
+    const { ctx, calls } = ctxFor(handler);
+    await assert.rejects(() => requestNormativeOrHost(ctx, '/v1/agents/roster', '/v1/host/openwop-app/roster', { headers: { Cookie: '__session=x' } }), (e) => e instanceof HttpError && e.status === 401);
+    assert.equal(calls.length, 1);
+  });
+
+  it('a caller-supplied authorization header is a presented credential — no anonymous retry', async () => {
+    const { ctx, calls } = ctxFor(handler);
+    await assert.rejects(() => requestNormativeOrHost(ctx, '/v1/agents/roster', '/v1/host/openwop-app/roster', { headers: { authorization: 'Bearer t' } }), (e) => e instanceof HttpError && e.status === 401);
+    assert.equal(calls.length, 1);
+  });
+
+  it('auth:false sends no bearer even with --api-key set, so the no-credential fallback applies', async () => {
+    const { ctx, calls } = ctxFor(handler, { apiKey: 'k' });
+    const res = await requestNormativeOrHost(ctx, '/v1/agents/roster', '/v1/host/openwop-app/roster', { auth: false });
+    assert.equal(res.via, 'host');
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].headers.authorization, undefined);
+  });
+
+  it('isNoCredentialChallenge: Bearer without error= only', () => {
+    const mk = (h) => new HttpError('x', 401, {}, new Headers(h ? { 'www-authenticate': h } : {}));
+    assert.equal(isNoCredentialChallenge(mk(NO_CRED)), true);
+    assert.equal(isNoCredentialChallenge(mk(INVALID)), false);
+    assert.equal(isNoCredentialChallenge(mk('Basic realm="x"')), false);
+    assert.equal(isNoCredentialChallenge(mk(undefined)), false);
+    assert.equal(isNoCredentialChallenge(new HttpError('x', 403, {}, new Headers({ 'www-authenticate': NO_CRED }))), false);
   });
 });
