@@ -66,6 +66,11 @@ honouring the server's \`retry:\` field), and no event is printed twice.
                       debug, or a comma list of updates/messages/debug
                       (\`values\` never combines). A host that does not serve
                       the mode answers 400 unsupported_stream_mode.
+  --idle-timeout-ms N a connection that delivers no bytes for N ms (default
+                      45000; 0 disables) is treated as dropped and resumed.
+Streams are read from the stream origin: --stream-base-url (global), else the
+host's advertised \`streamBase\` (https only), else --base-url — some front
+doors buffer event streams entirely (e.g. a CDN rewrite).
 Exit 0 when the run completes, 1 when it fails or is cancelled. \`runs list\` pages with --cursor: pass the
 \`nextCursor\` the previous page printed.
 
@@ -303,7 +308,7 @@ async function runRunsBulkCancel(ctx: Ctx, argv: string[]) {
 }
 
 async function runRunsEvents(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--follow', '--no-stream'], value: ['--since', '--limit', '--last-event-id', '--stream-mode', '--timeout-ms'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--follow', '--no-stream'], value: ['--since', '--limit', '--last-event-id', '--stream-mode', '--timeout-ms', '--idle-timeout-ms'] });
   if (options.help || positionals.length !== 1) {
     write(ctx.io.stdout, 'Usage: openwop runs events <runId> [--since <sequence>] [--limit <n>] [--json]\n       openwop runs events <runId> --follow [--since <sequence> | --last-event-id <id>] [--stream-mode <mode>] [--no-stream] [--json]\n');
     return options.help ? 0 : 2;
@@ -337,6 +342,7 @@ async function followRunEvents(ctx: Ctx, runId: string, options: Record<string, 
     ...start,
     useStream: !options.noStream,
     timeoutMs,
+    ...(options.idleTimeoutMs !== undefined ? { idleTimeoutMs: nonNegativeInt(options.idleTimeoutMs, '--idle-timeout-ms') } : {}),
     onEvent: (ev: any) => {
       if (isTerminalRunEvent(ev)) terminalType = canonicalEventType(ev.type);
       if (ctx.json) { writeLine(ctx.io.stdout, JSON.stringify(ev)); return; }
@@ -566,4 +572,10 @@ async function runRunsRedrive(ctx: Ctx, argv: string[]) {
     error: r.error ?? '',
   })), ['runId', 'redriveRunId', 'error']));
   return anyFailed ? 1 : 0;
+}
+
+function nonNegativeInt(value: unknown, flag: string): number {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0) throw new CliError(`${flag} must be a non-negative integer (got ${String(value)})`);
+  return n;
 }

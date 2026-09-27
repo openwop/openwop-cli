@@ -12,7 +12,7 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, parseJsonResponse } from '../api.js';
-import { resolveRequest } from '../protocol.js';
+import { resolveStreamRequest } from '../protocol.js';
 import { consumeSse } from '../sse.js';
 import { enc, renderDone } from './contentHelpers.js';
 
@@ -86,8 +86,8 @@ async function followEvents(ctx: Ctx, requestedPath: string, options: Record<str
   const max = options.max !== undefined ? Number(options.max) : Infinity;
   const timeoutMs = options.timeout !== undefined ? Number(options.timeout) * 1000 : Infinity;
   if (Number.isNaN(max) || Number.isNaN(timeoutMs)) throw new CliError('--max and --timeout must be numbers.');
-  const { path, headers } = await resolveRequest(ctx, requestedPath, { accept: 'text/event-stream' });
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
+  // Via the one stream seam — which also attaches the bearer this call used to omit.
+  const { url, headers } = await resolveStreamRequest(ctx, requestedPath, {});
   const controller = new AbortController();
   const timer = Number.isFinite(timeoutMs) ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
   let seen = 0;

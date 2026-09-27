@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline';
 import { requestJson } from './api.js';
 import { CliError, HttpError, httpErrorLine } from './errors.js';
 import { TERMINAL_STATUSES } from './constants.js';
-import { negotiateMajor, resolveRequest } from './protocol.js';
+import { negotiateMajor, resolveStreamRequest } from './protocol.js';
 import { sleep } from './util.js';
 import { canonicalEventType, isTerminalRunEvent } from './eventTypes.js';
 import { idempotencyHeaders } from './wire.js';
@@ -90,6 +90,8 @@ export interface StreamRunEventsOptions {
   maxReconnects?: number;
   /** Reconnection delay before any `retry:` field is seen (default 1000 ms; WHATWG leaves it implementation-defined). */
   retryMs?: number;
+  /** Abort + resume a connection that delivers no bytes for this long (default 45000; 0 disables). */
+  idleTimeoutMs?: number;
   /** Called once per reconnect, before the request (for `--verbose` / tests). */
   onReconnect?: (info: { attempt: number; lastEventId: string | undefined; delayMs: number }) => void;
 }
@@ -186,15 +188,24 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
   for (;;) {
     let progressed = false;
     let dropError: unknown;
+    // Armed before fetch (so a front door that never sends headers is also
+    // abandoned), and stopped on EVERY exit of this attempt — an armed timer
+    // would hold the process open for up to its full span after a failure.
+    let idle: ReturnType<typeof idleWatchdog> | undefined;
     try {
       // Same negotiation as requestJson (src/protocol.ts): under major 2 this is
       // `/runs/{runId}/events` + `OpenWOP-Version: 2.0`. Joined relative to the
       // base for the same reason api.ts does — a base with a path prefix survives.
-      const { path, headers } = await resolveRequest(ctx, `/v1/runs/${encodeURIComponent(runId)}/events${query}`, { accept: 'text/event-stream' });
-      const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
-      if (ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
+      // Built by the one stream seam (src/protocol.ts resolveStreamRequest):
+      // same negotiation as requestJson, joined to the stream origin.
+      const { url, headers } = await resolveStreamRequest(ctx, `/v1/runs/${encodeURIComponent(runId)}/events${query}`, {});
       if (lastEventId !== undefined && lastEventId !== '') headers['last-event-id'] = lastEventId;
-      const res = await ctx.fetchImpl(url, { method: 'GET', headers });
+      // Idle watchdog: a half-open connection (no FIN, no bytes) would block
+      // the reader forever and resume would never fire. ANY bytes — keep-alive
+      // comments included — reset it; on expiry the request is aborted and the
+      // drop is resumed with Last-Event-ID like any other.
+      idle = idleWatchdog(opts.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS);
+      const res = await ctx.fetchImpl(url, { method: 'GET', headers, signal: idle.signal });
       if (!res.ok) {
         const text = await res.text().catch(() => '');
         let body: unknown = null;
@@ -209,7 +220,7 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
         throw new HttpError('resumed events stream is not text/event-stream', res.status, null, res.headers);
       }
       opened = true;
-      await consumeSse(res.body, (frame: any) => {
+      await consumeSse(idle.watch(res.body), (frame: any) => {
         if (frame.retry !== undefined) retryMs = frame.retry;
         if (frame.id !== undefined) lastEventId = frame.id;
         if (frame.data === undefined) return;
@@ -235,6 +246,8 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
       // A refusal on a resume (other than rate limiting / unavailability) is final.
       if (err instanceof HttpError && err.status !== 429 && err.status < 500) throw new SseResumeExhausted(err.message, err);
       dropError = err;
+    } finally {
+      idle?.stop();
     }
     if (terminal) return true;
     if (lastEventId === undefined && deliver.highest() >= 0) lastEventId = String(deliver.highest());
@@ -472,4 +485,57 @@ export function defaultReadTurn(ctx: Ctx): (prompt: string) => Promise<string | 
     rl.once('line', onLine);
     rl.once('close', onClose);
   });
+}
+
+/**
+ * ~3× the reference host's measured 15 s keep-alive interval: long enough never
+ * to fire on a healthy idle run, short enough that a stalled connection resumes.
+ */
+export const DEFAULT_IDLE_TIMEOUT_MS = 45000;
+
+/**
+ * An abort signal that fires after `ms` without bytes, and `watch(body)`: the
+ * body re-wrapped so that every chunk re-arms the timer and expiry ERRORS the
+ * wrapped stream (cancelling the source). Aborting the fetch signal alone is not
+ * enough — a read already pending on a returned body is not guaranteed to
+ * settle — so the watchdog fails the reader itself.
+ */
+function idleWatchdog(ms: number) {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onExpire: (() => void) | undefined;
+  const expire = () => { controller.abort(new Error(`no bytes for ${ms}ms`)); onExpire?.(); };
+  const arm = () => {
+    if (!(ms > 0)) return;
+    if (timer !== undefined) clearTimeout(timer);
+    timer = setTimeout(expire, ms);
+  };
+  arm();
+  return {
+    signal: controller.signal,
+    watch(body: any) {
+      if (!(ms > 0) || typeof body?.getReader !== 'function') return body;
+      const source = body.getReader();
+      return new ReadableStream({
+        start(out) {
+          onExpire = () => {
+            out.error(new Error(`events stream idle for ${ms}ms`));
+            source.cancel().catch(() => {});
+          };
+        },
+        async pull(out) {
+          try {
+            const { value, done } = await source.read();
+            if (done) { out.close(); return; }
+            arm();
+            out.enqueue(value);
+          } catch (err) {
+            out.error(err);
+          }
+        },
+        cancel(reason) { return source.cancel(reason); },
+      });
+    },
+    stop() { if (timer !== undefined) clearTimeout(timer); timer = undefined; onExpire = undefined; },
+  };
 }
