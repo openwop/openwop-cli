@@ -151,6 +151,17 @@ import { runDealers, DEALERS_HELP } from './cli/dealers.js';
 import { runCommissions, COMMISSIONS_HELP } from './cli/commissions.js';
 import { runTerritories, TERRITORIES_HELP } from './cli/territories.js';
 import { runSalesMaps, SALES_MAPS_HELP } from './cli/salesMaps.js';
+import { runBrandKits, BRAND_KITS_HELP } from './cli/brandKits.js';
+import { runCampaignBrief, CAMPAIGN_BRIEF_HELP } from './cli/campaignBrief.js';
+import { runCampaignConnectors, CAMPAIGN_CONNECTORS_HELP } from './cli/campaignConnectors.js';
+import { runCampaignIntel, CAMPAIGN_INTEL_HELP } from './cli/campaignIntel.js';
+import { runCampaignJourneys, CAMPAIGN_JOURNEYS_HELP } from './cli/campaignJourneys.js';
+import { runCdp, CDP_HELP } from './cli/cdp.js';
+import { runDestinationSync, DESTINATION_SYNC_HELP } from './cli/destinationSync.js';
+import { runDiscovery, DISCOVERY_HELP } from './cli/discovery.js';
+import { runFunnels, FUNNELS_HELP } from './cli/funnels.js';
+import { runWebinars, WEBINARS_HELP } from './cli/webinars.js';
+import { runPublic, PUBLIC_HELP } from './cli/publicSite.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -443,6 +454,28 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runTerritories(ctx, commandArgs);
       case 'sales-maps':
         return await runSalesMaps(ctx, commandArgs);
+      case 'brand-kits':
+        return await runBrandKits(ctx, commandArgs);
+      case 'campaign-brief':
+        return await runCampaignBrief(ctx, commandArgs);
+      case 'campaign-connectors':
+        return await runCampaignConnectors(ctx, commandArgs);
+      case 'campaign-intel':
+        return await runCampaignIntel(ctx, commandArgs);
+      case 'campaign-journeys':
+        return await runCampaignJourneys(ctx, commandArgs);
+      case 'cdp':
+        return await runCdp(ctx, commandArgs);
+      case 'destination-sync':
+        return await runDestinationSync(ctx, commandArgs);
+      case 'discovery':
+        return await runDiscovery(ctx, commandArgs);
+      case 'funnels':
+        return await runFunnels(ctx, commandArgs);
+      case 'webinars':
+        return await runWebinars(ctx, commandArgs);
+      case 'public':
+        return await runPublic(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -588,6 +621,17 @@ const HELP_MAP: Record<string, string> = {
     commissions: COMMISSIONS_HELP,
     territories: TERRITORIES_HELP,
     'sales-maps': SALES_MAPS_HELP,
+    'brand-kits': BRAND_KITS_HELP,
+    'campaign-brief': CAMPAIGN_BRIEF_HELP,
+    'campaign-connectors': CAMPAIGN_CONNECTORS_HELP,
+    'campaign-intel': CAMPAIGN_INTEL_HELP,
+    'campaign-journeys': CAMPAIGN_JOURNEYS_HELP,
+    'cdp': CDP_HELP,
+    'destination-sync': DESTINATION_SYNC_HELP,
+    'discovery': DISCOVERY_HELP,
+    'funnels': FUNNELS_HELP,
+    'webinars': WEBINARS_HELP,
+    'public': PUBLIC_HELP,
 };
 
 /** All top-level command names + aliases — the single drift-free source for the
@@ -1021,6 +1065,17 @@ Commands:
   commissions plans   Sales-commission plans + statements (compute / approve / pay)
   territories models  Sales territory models, rules, quotas, attainment, reassignment
   sales-maps geocode  Geocode addresses for the sales map
+  brand-kits list     Marketing brand kits: voice, guardrails, fonts, audit (vs the app-wide 'brand')
+  campaign-brief      Campaign briefs + personas (VoC, angles, targeting, hooks, versions)
+  campaign-connectors Ad-platform metrics sync, CSV import, KPIs, pixels + conversions (+public)
+  campaign-intel      Budget optimizer/planner, pacing, attribution, anomalies, forecasts (--org)
+  campaign-journeys   Journey enrollment ledger (list; reset to allow re-enrollment)
+  cdp resolve         Customer data platform: identity, event schemas, collect/import, audit chain
+  destination-sync    Reverse-ETL destination syncs (list/create/dry-run/prepare/advance)
+  discovery search    Product discovery: collections, merch rules, search, embeddings (+public search)
+  funnels list        Multi-step funnels: lifecycle, stats, step experiments (--org; +public view)
+  webinars list       Webinar events: register, bind a form, sync, push registrants (--org)
+  public pages        Anonymous published surfaces: pages, blog, feeds, podcasts, pricing
 
 Examples:
   openwop onboard

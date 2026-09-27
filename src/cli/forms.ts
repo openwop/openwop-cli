@@ -5,6 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
+import { APP, enc, dispatchTable, detail, done, assign, jsonObject, type Cmd } from './marketingShared.js';
 
 const base = (org: string) => `/v1/host/openwop-app/forms/orgs/${encodeURIComponent(org)}/forms`;
 
@@ -20,6 +21,18 @@ export const FORMS_HELP = `Usage:
 Form builder + intake (host-extension, org-scoped). Every command needs --org.
 A form has a title + fields[]; \`status\` publishes/closes it; \`submissions\` reads
 the collected responses. The host is the authority; the CLI mirrors + relays.
+
+Public intake legs (UNAUTHENTICATED — what an embedded form calls; no --org):
+  openwop forms public get <formId> [--json]
+      GET /v1/host/openwop-app/public-forms/{formId} — the published form's title,
+      fields and honeypot field name (404 unless the form is published).
+  openwop forms public submit <formId> --values-json '{...}' [--referrer <url>]
+      [--session-key <k>] [--utm-json '{...}'] [--context-json '{...}'] [--client-key <k>] [--json]
+      POST /v1/host/openwop-app/public-forms/{formId}/submit — records a REAL
+      submission (it lands in 'submissions' and any bound workflow/webinar).
+      --client-key makes a retry idempotent.
+Exit codes: 0 ok; 2 usage error or host 4xx (400 = a field failed validation);
+4 auth/permission denied; 1 server error.
 `;
 
 function parseFields(raw: unknown): unknown {
@@ -30,6 +43,7 @@ function parseFields(raw: unknown): unknown {
 export async function runForms(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, FORMS_HELP); return 0; }
+  if (sub === 'public') return dispatchTable(ctx, 'forms public', FORMS_HELP, FORMS_PUBLIC, argv.slice(1), '--help');
   const args = argv.slice(['list', 'get', 'create', 'update', 'status', 'delete', 'submissions'].includes(sub) ? 1 : 0);
   switch (sub) {
     case 'list': return formsList(ctx, args);
@@ -125,3 +139,29 @@ async function formsSubmissions(ctx: Ctx, argv: string[]) {
   if (subs.length) writeJson(ctx.io.stdout, subs);
   return 0;
 }
+
+// ── public intake legs (/v1/host/openwop-app/public-forms/*) ─────────────────
+const PUB_FORMS = `${APP}/public-forms`;
+
+const FORMS_PUBLIC: Record<string, Cmd> = {
+  get: {
+    usage: 'get <formId> [--json]', args: 1,
+    run: async (ctx, a) => detail(ctx, (await requestJson(ctx, `${PUB_FORMS}/${enc(a.positionals[0])}`, { auth: false })).body),
+  },
+  submit: {
+    usage: "submit <formId> --values-json '{...}' [--referrer <url>] [--session-key <k>] [--utm-json '{...}'] [--context-json '{...}'] [--client-key <k>] [--json]",
+    args: 1, value: ['--values-json', '--referrer', '--session-key', '--utm-json', '--context-json', '--client-key'], requires: ['valuesJson'],
+    run: async (ctx, a) => {
+      const o = a.options;
+      const body = assign({}, {
+        values: jsonObject(String(o.valuesJson), '--values-json'),
+        referrer: o.referrer, sessionKey: o.sessionKey,
+        utm: o.utmJson !== undefined ? jsonObject(String(o.utmJson), '--utm-json') : undefined,
+        context: o.contextJson !== undefined ? jsonObject(String(o.contextJson), '--context-json') : undefined,
+        clientKey: o.clientKey,
+      });
+      const res = (await requestJson(ctx, `${PUB_FORMS}/${enc(a.positionals[0])}/submit`, { method: 'POST', body, auth: false })).body;
+      return done(ctx, res, `Submitted (submission ${res?.submissionId ?? '?'})${res?.message ? ` — ${res.message}` : ''}.`);
+    },
+  },
+};
