@@ -188,6 +188,10 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
   for (;;) {
     let progressed = false;
     let dropError: unknown;
+    // Armed before fetch (so a front door that never sends headers is also
+    // abandoned), and stopped on EVERY exit of this attempt — an armed timer
+    // would hold the process open for up to its full span after a failure.
+    let idle: ReturnType<typeof idleWatchdog> | undefined;
     try {
       // Same negotiation as requestJson (src/protocol.ts): under major 2 this is
       // `/runs/{runId}/events` + `OpenWOP-Version: 2.0`. Joined relative to the
@@ -200,7 +204,7 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
       // the reader forever and resume would never fire. ANY bytes — keep-alive
       // comments included — reset it; on expiry the request is aborted and the
       // drop is resumed with Last-Event-ID like any other.
-      const idle = idleWatchdog(opts.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS);
+      idle = idleWatchdog(opts.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS);
       const res = await ctx.fetchImpl(url, { method: 'GET', headers, signal: idle.signal });
       if (!res.ok) {
         const text = await res.text().catch(() => '');
@@ -236,12 +240,14 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
       }, (control: { id?: string; retry?: number }) => {
         if (control.retry !== undefined) retryMs = control.retry;
         if (control.id !== undefined) lastEventId = control.id;
-      }).finally(() => idle.stop());
+      });
     } catch (err) {
       if (!opened) throw err;
       // A refusal on a resume (other than rate limiting / unavailability) is final.
       if (err instanceof HttpError && err.status !== 429 && err.status < 500) throw new SseResumeExhausted(err.message, err);
       dropError = err;
+    } finally {
+      idle?.stop();
     }
     if (terminal) return true;
     if (lastEventId === undefined && deliver.highest() >= 0) lastEventId = String(deliver.highest());

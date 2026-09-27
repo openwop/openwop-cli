@@ -169,3 +169,20 @@ describe('idle watchdog — a half-open stream is resumed, not waited on forever
     assert.equal(h.connections, 1, 'never reconnected');
   });
 });
+
+describe('idle watchdog — failure paths never hold the process open', () => {
+  it('a front door that never sends headers is abandoned after idleTimeoutMs and the poll fallback runs', async () => {
+    const h = host({ connections: [() => new Promise(() => {})] });
+    // The fetch stub ignores the abort signal; emulate a real fetch that honours it.
+    const realish = async (url, init = {}) => {
+      if (/\/events$/.test(new URL(String(url)).pathname)) {
+        return new Promise((_, reject) => init.signal?.addEventListener('abort', () => reject(init.signal.reason ?? new Error('aborted'))));
+      }
+      return h.fetchImpl(url, init);
+    };
+    const t0 = Date.now();
+    await streamRunEvents({ ...ctxFor(h), fetchImpl: realish }, 'r', { idleTimeoutMs: 150, timeoutMs: 2000 });
+    assert.ok(Date.now() - t0 < 1500, 'did not wait for the stream');
+    assert.ok(h.seen.some((r) => /\/events\/poll$/.test(r.path)), 'fell back to the poll endpoint');
+  });
+});
