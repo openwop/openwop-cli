@@ -4,11 +4,23 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { writeFileSync } from 'node:fs';
 
 export const CATALOG_HELP = `Usage:
   openwop catalog nodes [--search text] [--limit n] [--json]
-  openwop catalog packs [--json]
+  openwop catalog packs [list] [--json]
+  openwop catalog packs search [query] [--json]
+  openwop catalog packs get <packName> [--json]
+  openwop catalog packs export [--out <file>] [--json]
   openwop catalog tools [<toolId>] [--json]
+
+\`packs\` reads the packs INSTALLED ON THE HOST (--base-url), not the pack
+registry (\`openwop packs\` operates packs.openwop.dev):
+  list    GET /v1/packs              — installed packs, their node types and agents
+  search  GET /v1/packs/-/search?q=  — node type ids containing <query>
+  get     GET /v1/packs/{packName}   — one pack's node types (reverse-DNS name)
+  export  GET /v1/packs/export       — the installed agent manifests (RFC 0003
+          round-trip), re-installable elsewhere; --out writes them to a file.
 
 \`tools\` reads the portable tool catalog (RFC 0078 §B) — GET /v1/tools, or
 GET /v1/tools/<toolId> for one descriptor. This is the tools an agent/workflow
@@ -82,7 +94,9 @@ async function runCatalogNodes(ctx: Ctx, argv: string[]) {
 }
 
 async function runCatalogPacks(ctx: Ctx, argv: string[] = []) {
-  const { options } = parseOptions(argv, { bool: ['--help'] });
+  const verb = argv[0];
+  if (verb === 'search' || verb === 'get' || verb === 'export') return runCatalogPacksVerb(ctx, verb, argv.slice(1));
+  const { options } = parseOptions(verb === 'list' ? argv.slice(1) : argv, { bool: ['--help'] });
   if (options.help) {
     write(ctx.io.stdout, CATALOG_HELP);
     return 0;
@@ -94,5 +108,45 @@ async function runCatalogPacks(ctx: Ctx, argv: string[] = []) {
   }
   const rows = (res.body.packs ?? []).map((p: any) => ({ name: p.name, nodes: Array.isArray(p.nodes) ? p.nodes.length : 0 }));
   writeLine(ctx.io.stdout, formatTable(rows, ['name', 'nodes']));
+  return 0;
+}
+
+/** GET /v1/packs/-/search · /v1/packs/{name} · /v1/packs/export — the host's installed-pack reads. */
+async function runCatalogPacksVerb(ctx: Ctx, verb: 'search' | 'get' | 'export', argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--out'] });
+  if (options.help) { write(ctx.io.stdout, CATALOG_HELP); return 0; }
+  if (verb === 'search') {
+    const q = positionals[0] ?? '';
+    const res = await requestJson(ctx, `/v1/packs/-/search${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+    if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+    const results = Array.isArray(res.body?.results) ? res.body.results : [];
+    if (results.length === 0) { writeLine(ctx.io.stdout, q ? `No installed node types match "${q}".` : 'No installed node types.'); return 0; }
+    writeLine(ctx.io.stdout, formatTable(results.map((r: any) => ({ typeId: r.typeId ?? '', version: r.version ?? '' })), ['typeId', 'version']));
+    writeLine(ctx.io.stdout, `${res.body?.total ?? results.length} match(es).`);
+    return 0;
+  }
+  if (verb === 'get') {
+    if (positionals.length !== 1) throw new CliError('Usage: openwop catalog packs get <packName> [--json]', 2);
+    const res = await requestJson(ctx, `/v1/packs/${encodeURIComponent(positionals[0])}`);
+    if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+    const nodes = Array.isArray(res.body?.nodes) ? res.body.nodes : [];
+    writeLine(ctx.io.stdout, `pack: ${res.body?.name ?? positionals[0]}`);
+    writeLine(ctx.io.stdout, `nodes (${nodes.length}):`);
+    for (const n of nodes) writeLine(ctx.io.stdout, `  ${n}`);
+    return 0;
+  }
+  const res = await requestJson(ctx, '/v1/packs/export');
+  if (options.out) {
+    writeFileSync(String(options.out), `${JSON.stringify(res.body, null, 2)}\n`);
+    if (!ctx.json) writeLine(ctx.io.stdout, `Wrote ${res.body?.total ?? 0} agent manifest(s) to ${options.out}.`);
+    else writeJson(ctx.io.stdout, { out: options.out, total: res.body?.total ?? 0 });
+    return 0;
+  }
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  const manifests = Array.isArray(res.body?.manifests) ? res.body.manifests : [];
+  if (manifests.length === 0) { writeLine(ctx.io.stdout, 'No pack-installed agents to export.'); return 0; }
+  writeLine(ctx.io.stdout, formatTable(manifests.map((m: any) => ({
+    agentId: m.agentId ?? m.sourceManifestId ?? '', pack: m.packName ?? '', version: m.packVersion ?? '',
+  })), ['agentId', 'pack', 'version']));
   return 0;
 }

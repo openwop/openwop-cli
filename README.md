@@ -25,6 +25,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Marketing** | `brand-kits` · `campaign-brief` · `campaign-connectors` · `campaign-intel` · `campaign-journeys` · `cdp` · `destination-sync` · `discovery` · `funnels` · `webinars` · `public` |
 | **Operator administration** | `vault` · `developer-keys` · `billing` · `environments` · `custom-domains` · `site-config` · `runtime-posture` · `maintenance` · `menu-config` |
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
+| **Protocol + run operations** | `content` (RFC 0103) · `dispatch` (RFC 0118) · `openapi` · `agent-knowledge` · `compat-endpoints` (RFC 0108) · `host-events` · `client-support` (+ `runs` / `interrupts` / `workflows` / `approvals` / `reviews` / `webhooks` / `prompts` / `catalog` extensions) |
 
 > **`0.18.x`:** the catalog now covers the full app feature surface — the agent
 > platform (`agent-profile`, `agent-packs`, `agent-allowlists`, `agent-ops`,
@@ -47,6 +48,26 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 > openwop media assets create ./logo.png --org org_1 --tags brand
 > openwop entities types list --json
 > openwop documents render doc_1 --org org_1 --format docx
+> ```
+
+> **Protocol + run operations:** `agents list|info`, `roster list` and
+> `org-chart get|dept` now read the NORMATIVE `/v1/agents`, `/v1/agents/roster`
+> and `/v1/agents/org-chart[/{departmentId}]`, falling back to the host-extension
+> path only when the host does not serve the normative read (`--host` forces it,
+> `--verbose` names the path that answered). New: `content` (RFC 0103
+> `/v1/content/*`), `runs effects|revision|pin|unpin|redrive`, `interrupts
+> inspect|respond`, `webhooks rotate-secret|dead-letters`, `catalog packs
+> search|get|export`, `workflows archive|promote|revisions|rollback|stats|estimate|pins|debug-run|eval-set…`,
+> `approvals sla-policy|email-pref|delegations`, `prompts library …`,
+> `agent-knowledge`, `compat-endpoints`, `host-events`, `client-support`,
+> `dispatch fanout`, `openapi`. Example:
+>
+> ```bash
+> openwop content page pricing --locale es
+> openwop runs effects run_123 --json
+> openwop interrupts respond run_123 approve-gate --data-json '{"action":"approve"}'
+> openwop workflows promote wf_123 && openwop workflows revisions wf_123
+> openwop webhooks rotate-secret sub_1 --generate
 > ```
 
 ## Protocol version support (v2 and v1)

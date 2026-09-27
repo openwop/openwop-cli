@@ -1741,7 +1741,8 @@ describe('agents command (RFC 0070 manifest agents)', () => {
   it('lists installed manifest agents as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.equal(new URL(url).pathname, '/v1/host/openwop-app/agents');
+      // Normative inventory first (RFC 0072 §A).
+      assert.equal(new URL(url).pathname, '/v1/agents');
       return new Response(JSON.stringify(inventory), { status: 200 });
     };
     const code = await runCli(['agents', 'list', '--base-url', 'http://mock.local'], {
@@ -1755,7 +1756,7 @@ describe('agents command (RFC 0070 manifest agents)', () => {
   it('info renders one agent manifest and supports --json', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.equal(new URL(url).pathname, '/v1/host/openwop-app/agents/core.openwop.agents.code-reviewer.default');
+      assert.equal(new URL(url).pathname, '/v1/agents/core.openwop.agents.code-reviewer.default');
       return new Response(JSON.stringify(inventory.agents[1]), { status: 200 });
     };
     const code = await runCli(['--json', 'agents', 'info', 'core.openwop.agents.code-reviewer.default', '--base-url', 'http://mock.local'], {

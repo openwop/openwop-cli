@@ -4,9 +4,10 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requestNormativeOrHost } from './requestHelpers.js';
 
 export const ROSTER_HELP = `Usage:
-  openwop roster list [--json]
+  openwop roster list [--host] [--json]
   openwop roster get <rosterId> [--json]
   openwop roster create --persona <name> --agent-ref <agentId> [--agent-version <v> | --agent-channel <c>] [--workflow <id>]... [--label <text>] [--description <text>] [--disabled] [--avatar-url <url>] [--json]
   openwop roster update <rosterId> [--persona <name>] [--workflow <id>]... [--label <text>] [--description <text>] [--enabled|--disabled] [--avatar-url <url>] [--json]
@@ -15,8 +16,17 @@ export const ROSTER_HELP = `Usage:
 Agent roster (RFC 0086). A roster entry is a named, tenant-scoped standing
 agent that owns a portfolio of workflows[]; its triggers compose RFC 0052
 (schedules) + RFC 0083 (the durable trigger bridge), and a run it initiates
-emits the content-free roster.run.initiated attribution event. Drives the
-host-extension surface POST/GET/PATCH/DELETE /v1/host/openwop-app/roster.
+emits the content-free roster.run.initiated attribution event.
+
+'list' reads the NORMATIVE roster (RFC 0086 / agent-roster.md §B):
+GET /v1/agents/roster. The normative view carries only protocol-shaped entries
+(the host may omit host-only entries such as advisors); when the host does not
+serve it (404/405/501), or with --host, 'list' reads the host-extension
+GET /v1/host/openwop-app/roster instead (--verbose names the path that answered).
+'get'/'create'/'update'/'delete' drive the host-extension surface
+GET/POST/PATCH/DELETE /v1/host/openwop-app/roster[/{rosterId}].
+
+  --host             (list) Read the full host-extension roster instead of the normative view.
 
   --persona <name>   The agent's display persona (required on create).
   --agent-ref <id>   The agentId this entry binds to (RFC 0002 AgentRef; required on create).
@@ -59,9 +69,9 @@ export async function runRoster(ctx: Ctx, argv: string[]) {
 }
 
 async function rosterList(ctx: Ctx, argv: string[]) {
-  const { options } = parseOptions(argv, { bool: ['--help'] });
+  const { options } = parseOptions(argv, { bool: ['--help', '--host'] });
   if (options.help) { write(ctx.io.stdout, ROSTER_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/roster');
+  const res = await requestNormativeOrHost(ctx, '/v1/agents/roster', '/v1/host/openwop-app/roster', { forceHost: options.host });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const roster = Array.isArray(res.body?.roster) ? res.body.roster : [];
   if (roster.length === 0) {

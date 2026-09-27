@@ -5,20 +5,28 @@ import { readFile } from 'node:fs/promises';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requestNormativeOrHost } from './requestHelpers.js';
 
 export const ORG_CHART_HELP = `Usage:
-  openwop org-chart get [--json]
-  openwop org-chart dept <departmentId> [--no-recursive] [--json]
+  openwop org-chart get [--host] [--json]
+  openwop org-chart dept <departmentId> [--no-recursive] [--host] [--json]
   openwop org-chart set --file <chart.json> [--json]
   openwop org-chart clear [--yes]
 
 Org chart (RFC 0087). A purely DESCRIPTIVE map of departments, roles, and
 reportsTo edges — it confers no authority (the org-position-no-authority-
 escalation invariant: the schema carries no permissions/scopes/canDispatch
-field). Drives the host-extension surface GET/PUT/DELETE
+field).
+
+'get'/'dept' read the NORMATIVE pair (RFC 0087 §D): GET /v1/agents/org-chart and
+GET /v1/agents/org-chart/{departmentId}. When the host does not serve it
+(404/405/501 on 'get'), or with --host, they read the host-extension
+GET /v1/host/openwop-app/org-chart[/{departmentId}] (--verbose names the path
+that answered). 'set'/'clear' drive the host-extension PUT/DELETE
 /v1/host/openwop-app/org-chart. 'set' replaces the whole chart from a JSON file
 with { "departments": [...], "members": [...] }.
 
+  --host           (get/dept) Read the host-extension path instead of the normative one.
   --no-recursive   (dept) Show only the named department, not its sub-tree.
   --file <path>    (set) JSON document with departments[] + members[] arrays.
 
@@ -48,9 +56,9 @@ export async function runOrgChart(ctx: Ctx, argv: string[]) {
 }
 
 async function orgChartGet(ctx: Ctx, argv: string[]) {
-  const { options } = parseOptions(argv, { bool: ['--help'] });
+  const { options } = parseOptions(argv, { bool: ['--help', '--host'] });
   if (options.help) { write(ctx.io.stdout, ORG_CHART_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/org-chart');
+  const res = await requestNormativeOrHost(ctx, '/v1/agents/org-chart', '/v1/host/openwop-app/org-chart', { forceHost: options.host });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const chart = res.body ?? {};
   const departments = Array.isArray(chart.departments) ? chart.departments : [];
@@ -80,13 +88,19 @@ async function orgChartGet(ctx: Ctx, argv: string[]) {
 }
 
 async function orgChartDept(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--no-recursive'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--no-recursive', '--host'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, 'Usage: openwop org-chart dept <departmentId> [--no-recursive] [--json]\n');
+    write(ctx.io.stdout, 'Usage: openwop org-chart dept <departmentId> [--no-recursive] [--host] [--json]\n');
     return options.help ? 0 : 2;
   }
   const recursive = options.noRecursive ? 'false' : 'true';
-  const res = await requestJson(ctx, `/v1/host/openwop-app/org-chart/${encodeURIComponent(positionals[0])}?recursive=${recursive}`);
+  const dept = encodeURIComponent(positionals[0]);
+  const res = await requestNormativeOrHost(
+    ctx,
+    `/v1/agents/org-chart/${dept}?recursive=${recursive}`,
+    `/v1/host/openwop-app/org-chart/${dept}?recursive=${recursive}`,
+    { forceHost: options.host },
+  );
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeJson(ctx.io.stdout, res.body);
   return 0;

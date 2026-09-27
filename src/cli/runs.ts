@@ -10,6 +10,7 @@ import { TERMINAL_STATUSES } from '../constants.js';
 import { buildInputs } from './shared.js';
 import { pollCursorParam, pollIsTerminal } from '../sse.js';
 import { idempotencyHeaders, isIdempotentReplay } from '../wire.js';
+import { hostRunSegment } from './requestHelpers.js';
 
 export const RUNS_HELP = `Usage:
   openwop runs list [--status status] [--workflow-id id] [--limit n] [--cursor c] [--tenant-id id] [--json]
@@ -25,6 +26,23 @@ export const RUNS_HELP = `Usage:
   openwop runs diff <runId> --against <otherRunId> [--json]
   openwop runs delete <runId> [--yes]
   openwop runs bulk-cancel <runId...> [--reason text] [--json]
+  openwop runs effects <runId> [--json]
+  openwop runs revision <runId> [--json]
+  openwop runs pin <runId> [--json]
+  openwop runs unpin <runId> [--json]
+  openwop runs redrive <runId...> [--json]
+
+\`runs effects\` reads the run's side-effect ledger (GET /v1/runs/{runId}/effects;
+idempotency.md §Layer 2): one row per effect attempt, with a stable effectId,
+nodeId, attempt, state (claimed | completed) and time.
+
+Host-extension run tools (non-normative, /v1/host/openwop-app/…):
+  revision  GET  …/runs/{runId}/revision — which workflow revision the run pinned,
+            whether the head has moved since, and its launch/debug/redrive provenance.
+  pin/unpin POST …/runs/{runId}/pin { pinned } — keep a run from retention cleanup.
+  redrive   POST …/runs/redrive { runIds } — re-run failed runs (1–25 ids) on their
+            pinned revision; each id reports a new redriveRunId or an error code.
+            Exits 1 when any id failed to redrive.
 
 \`runs events\` polls GET /v1/runs/{runId}/events/poll (JSON, not SSE); --since N
 returns events with sequence > N (sent as \`afterSequence\` to a v2 host,
@@ -58,7 +76,7 @@ Input parsing for \`runs create\`:
 
 export async function runRuns(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
-  const args = argv.slice(['list', 'create', 'get', 'cancel', 'ancestry', 'events', 'annotations', 'annotate', 'debug-bundle', 'fork', 'diff', 'delete', 'bulk-cancel'].includes(sub) ? 1 : 0);
+  const args = argv.slice(['list', 'create', 'get', 'cancel', 'ancestry', 'events', 'annotations', 'annotate', 'debug-bundle', 'fork', 'diff', 'delete', 'bulk-cancel', 'effects', 'revision', 'pin', 'unpin', 'redrive'].includes(sub) ? 1 : 0);
   if (sub === '--help' || sub === '-h') {
     write(ctx.io.stdout, RUNS_HELP);
     return 0;
@@ -90,6 +108,15 @@ export async function runRuns(ctx: Ctx, argv: string[]) {
       return runRunsDelete(ctx, args);
     case 'bulk-cancel':
       return runRunsBulkCancel(ctx, args);
+    case 'effects':
+      return runRunsEffects(ctx, args);
+    case 'revision':
+      return runRunsRevision(ctx, args);
+    case 'pin':
+    case 'unpin':
+      return runRunsPin(ctx, args, sub === 'pin');
+    case 'redrive':
+      return runRunsRedrive(ctx, args);
     default:
       throw new CliError(`Unknown runs command: ${sub}`);
   }
@@ -420,4 +447,78 @@ async function waitForRun(ctx: Ctx, runId: any, timeoutMs: any) {
     await sleep(250);
   }
   throw new CliError(`Timed out waiting for run ${runId} after ${timeoutMs}ms`, 1);
+}
+
+/** GET /v1/runs/{runId}/effects — the run's effect ledger (idempotency.md §Layer 2). */
+async function runRunsEffects(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help || positionals.length !== 1) {
+    write(ctx.io.stdout, 'Usage: openwop runs effects <runId> [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/effects`);
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  const effects = Array.isArray(res.body?.effects) ? res.body.effects : [];
+  if (effects.length === 0) { writeLine(ctx.io.stdout, `No recorded effects for run ${positionals[0]}.`); return 0; }
+  writeLine(ctx.io.stdout, formatTable(effects.map((e: any) => ({
+    effectId: e.effectId ?? '',
+    nodeId: e.nodeId ?? '',
+    attempt: e.attempt === undefined ? '' : String(e.attempt),
+    state: e.state ?? '',
+    at: e.at ?? '',
+  })), ['effectId', 'nodeId', 'attempt', 'state', 'at']));
+  return 0;
+}
+
+/** GET /v1/host/openwop-app/runs/{runId}/revision — pinned revision + provenance (ADR 0474/0475). */
+async function runRunsRevision(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help || positionals.length !== 1) {
+    write(ctx.io.stdout, 'Usage: openwop runs revision <runId> [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  const res = await requestJson(ctx, `/v1/host/openwop-app/runs/${await hostRunSegment(ctx, positionals[0])}/revision`);
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  const r = res.body ?? {};
+  writeLine(ctx.io.stdout, `runId: ${r.runId ?? positionals[0]}`);
+  writeLine(ctx.io.stdout, `workflowId: ${r.workflowId ?? ''}`);
+  writeLine(ctx.io.stdout, `definitionRevision: ${r.definitionRevision ?? '(not pinned)'}`);
+  if (r.definitionResolvedFrom) writeLine(ctx.io.stdout, `resolvedFrom: ${r.definitionResolvedFrom}`);
+  if (r.headMoved !== undefined) writeLine(ctx.io.stdout, `headMoved: ${r.headMoved ? 'yes' : 'no'}`);
+  if (r.launch) writeLine(ctx.io.stdout, `launch: ${r.launch}${r.launchResolved ? ` (${r.launchResolved})` : ''}`);
+  if (r.debug) writeLine(ctx.io.stdout, `debug: ${JSON.stringify(r.debug)}`);
+  if (r.redriveOf) writeLine(ctx.io.stdout, `redriveOf: ${r.redriveOf}`);
+  return 0;
+}
+
+/** POST /v1/host/openwop-app/runs/{runId}/pin — { pinned } (default true). */
+async function runRunsPin(ctx: Ctx, argv: string[], pinned: boolean) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help || positionals.length !== 1) {
+    write(ctx.io.stdout, `Usage: openwop runs ${pinned ? 'pin' : 'unpin'} <runId> [--json]\n`);
+    return options.help ? 0 : 2;
+  }
+  const res = await requestJson(ctx, `/v1/host/openwop-app/runs/${await hostRunSegment(ctx, positionals[0])}/pin`, { method: 'POST', body: { pinned } });
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, `${res.body?.pinned === false ? 'Unpinned' : 'Pinned'} run ${res.body?.runId ?? positionals[0]}.`);
+  return 0;
+}
+
+/** POST /v1/host/openwop-app/runs/redrive — { runIds } (1–25). Exit 1 when any id failed. */
+async function runRunsRedrive(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help || positionals.length === 0) {
+    write(ctx.io.stdout, 'Usage: openwop runs redrive <runId...> [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  const res = await requestJson(ctx, '/v1/host/openwop-app/runs/redrive', { method: 'POST', body: { runIds: positionals } });
+  const results = Array.isArray(res.body?.results) ? res.body.results : [];
+  const anyFailed = results.some((r: any) => !r.redriveRunId);
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return anyFailed ? 1 : 0; }
+  writeLine(ctx.io.stdout, formatTable(results.map((r: any) => ({
+    runId: r.runId ?? '',
+    redriveRunId: r.redriveRunId ?? '',
+    error: r.error ?? '',
+  })), ['runId', 'redriveRunId', 'error']));
+  return anyFailed ? 1 : 0;
 }

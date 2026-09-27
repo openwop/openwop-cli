@@ -171,6 +171,13 @@ import { runSiteConfig, SITE_CONFIG_HELP } from './cli/siteConfig.js';
 import { runRuntimePosture, RUNTIME_POSTURE_HELP } from './cli/runtimePosture.js';
 import { runMaintenance, MAINTENANCE_HELP } from './cli/maintenance.js';
 import { runMenuConfig, MENU_CONFIG_HELP } from './cli/menuConfig.js';
+import { runContent, CONTENT_HELP } from './cli/content.js';
+import { runAgentKnowledge, AGENT_KNOWLEDGE_HELP } from './cli/agentKnowledge.js';
+import { runCompatEndpoints, COMPAT_ENDPOINTS_HELP } from './cli/compatEndpoints.js';
+import { runHostEvents, HOST_EVENTS_HELP } from './cli/hostEvents.js';
+import { runClientSupport, CLIENT_SUPPORT_HELP } from './cli/clientSupport.js';
+import { runDispatch, DISPATCH_HELP } from './cli/dispatch.js';
+import { runOpenapi, OPENAPI_HELP } from './cli/openapi.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -503,6 +510,20 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runMaintenance(ctx, commandArgs);
       case 'menu-config':
         return await runMenuConfig(ctx, commandArgs);
+      case 'content':
+        return await runContent(ctx, commandArgs);
+      case 'agent-knowledge':
+        return await runAgentKnowledge(ctx, commandArgs);
+      case 'compat-endpoints':
+        return await runCompatEndpoints(ctx, commandArgs);
+      case 'host-events':
+        return await runHostEvents(ctx, commandArgs);
+      case 'client-support':
+        return await runClientSupport(ctx, commandArgs);
+      case 'dispatch':
+        return await runDispatch(ctx, commandArgs);
+      case 'openapi':
+        return await runOpenapi(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -668,6 +689,13 @@ const HELP_MAP: Record<string, string> = {
     'runtime-posture': RUNTIME_POSTURE_HELP,
     'maintenance': MAINTENANCE_HELP,
     'menu-config': MENU_CONFIG_HELP,
+    content: CONTENT_HELP,
+    'agent-knowledge': AGENT_KNOWLEDGE_HELP,
+    'compat-endpoints': COMPAT_ENDPOINTS_HELP,
+    'host-events': HOST_EVENTS_HELP,
+    'client-support': CLIENT_SUPPORT_HELP,
+    dispatch: DISPATCH_HELP,
+    openapi: OPENAPI_HELP,
 };
 
 /** All top-level command names + aliases — the single drift-free source for the
@@ -1127,6 +1155,13 @@ Commands:
   admin run-retention  Run-retention posture + legal holds (admin token)
   byok active-config  The workspace chat binding (provider/model/credential ref)
   auth break-glass    Emergency operator login with the single-use break-glass token
+  content page|pages  Localized content (RFC 0103, normative /v1/content/*): deliver, list, create, section, settings
+  agent-knowledge     Per-agent knowledge + memory curation: bind/ingest/retrieve/notes/memory-writable
+  compat-endpoints    Self-hosted / OpenAI-compatible model endpoints for an org (RFC 0108)
+  host-events list    Bind host-extension events (host.*) to workflows; enable/disable/unbind
+  client-support      Ask whether a client build is still supported (min-build handshake)
+  dispatch fanout     Parallel fan-out join witness (RFC 0118): run the host's coordinator + join fold
+  openapi [paths]     Fetch the host's served OpenAPI document (/v1/openapi.json); list its operations
 
 Examples:
   openwop onboard
