@@ -5,6 +5,9 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
+import { writeFileSync } from 'node:fs';
+import { resolve as resolvePath } from 'node:path';
+import { APP, dispatchTable, detail, qs, requestRaw, writeText, type Cmd } from './marketingShared.js';
 
 const base = (org: string) => `/v1/host/openwop-app/chat-widget/orgs/${encodeURIComponent(org)}/widgets`;
 
@@ -18,12 +21,27 @@ export const CHAT_WIDGET_HELP = `Usage:
 
 Embeddable chat widgets (host-extension, org-scoped). Each widget carries an embed
 token; \`rotate-token\` invalidates the old one. Every command needs --org.
+
+Public visitor legs (UNAUTHENTICATED — exactly what the embedded widget calls; no --org):
+  openwop chat-widget public config --token <t> --origin <https://site> [--json]
+      GET /v1/host/openwop-app/public/widget/config?token=… — the public projection
+      (widgetId, agentId, caps, businessName, privacyUrl).
+  openwop chat-widget public message --token <t> --origin <https://site> --message <text> [--session <id>] [--json]
+      POST /v1/host/openwop-app/public/widget/message — one visitor turn; prints the reply.
+      Counts against the widget's per-session/day caps (429 when exhausted).
+  openwop chat-widget public embed [--out <file>]
+      GET /v1/host/openwop-app/public/widget/embed.js — the served embed script.
+--origin is sent as the Origin header and must be on the widget's allowed-domain
+list (403 otherwise); the token is the embed token from 'create'/'rotate-token'.
+Exit codes: 0 ok; 2 usage error or host 4xx (404 = unknown token, 429 = cap hit);
+4 = origin not allowed (403); 1 server error.
 `;
 
 
 export async function runChatWidget(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, CHAT_WIDGET_HELP); return 0; }
+  if (sub === 'public') return dispatchTable(ctx, 'chat-widget public', CHAT_WIDGET_HELP, WIDGET_PUBLIC, argv.slice(1), '--help');
   const args = argv.slice(['list', 'get', 'create', 'update', 'delete', 'rotate-token'].includes(sub) ? 1 : 0);
   const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--org', '--name'] });
   if (options.help) { write(ctx.io.stdout, CHAT_WIDGET_HELP); return 0; }
@@ -71,3 +89,40 @@ export async function runChatWidget(ctx: Ctx, argv: string[]) {
     default: throw new CliError(`Unknown chat-widget command: ${sub}\nRun \`openwop chat-widget --help\` for usage.`);
   }
 }
+
+// ── public visitor legs (/v1/host/openwop-app/public/widget/*) ───────────────
+const PUB_WIDGET = `${APP}/public/widget`;
+
+const WIDGET_PUBLIC: Record<string, Cmd> = {
+  config: {
+    usage: 'config --token <t> --origin <https://site> [--json]', args: 0, value: ['--token', '--origin'], requires: ['token', 'origin'],
+    run: async (ctx, a) => detail(ctx, (await requestJson(ctx, `${PUB_WIDGET}/config${qs({ token: a.options.token })}`, { auth: false, headers: { origin: String(a.options.origin) } })).body),
+  },
+  message: {
+    usage: 'message --token <t> --origin <https://site> --message <text> [--session <id>] [--json]',
+    args: 0, value: ['--token', '--origin', '--message', '--session'], requires: ['token', 'origin', 'message'],
+    run: async (ctx, a) => {
+      const o = a.options;
+      const body: Record<string, unknown> = { token: String(o.token), message: String(o.message), hp: '' };
+      if (o.session !== undefined) body.sessionId = String(o.session);
+      const res = (await requestJson(ctx, `${PUB_WIDGET}/message`, { method: 'POST', body, auth: false, headers: { origin: String(o.origin) } })).body;
+      if (ctx.json) { writeJson(ctx.io.stdout, res); return 0; }
+      writeLine(ctx.io.stdout, String(res?.reply ?? ''));
+      return 0;
+    },
+  },
+  embed: {
+    usage: 'embed [--out <file>]', args: 0, value: ['--out'],
+    run: async (ctx, a) => {
+      const res = await requestRaw(ctx, `${PUB_WIDGET}/embed.js`, { auth: false });
+      if (a.options.out) {
+        const file = resolvePath(ctx.cwd, String(a.options.out));
+        writeFileSync(file, res.bytes);
+        writeLine(ctx.io.stdout, `Saved the embed script (${res.bytes.length} bytes) to ${file}.`);
+        return 0;
+      }
+      writeText(ctx, res.text());
+      return 0;
+    },
+  },
+};

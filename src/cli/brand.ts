@@ -33,6 +33,9 @@ radius flags feed the ADR 0171 theme generator, which derives a full, accessible
 dark theme from the seed (the accent is kept exact; text shades are solved for WCAG-AA).
 --identity-json REPLACES the whole identity facet (advanced — mirrors the editor's JSON tier).
 
+Looking for per-org MARKETING brand kits (voice, guardrails, custom fonts)? Those
+live at /v1/host/openwop-app/brand/* and are driven by 'openwop brand-kits'.
+
   --name <n>          The brand's internal name.
   --product-name <n>  The app's product name (shown in the wordmark / document title).
   --accent <color>    Brand accent seed — any CSS color (oklch / #hex / rgb). Generates the ramp.

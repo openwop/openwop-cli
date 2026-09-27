@@ -22,6 +22,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` · `docs` · `knowledge-sync` · `entities` · `creative-briefs` · `creative-video` · `production` · `tutorials` · `walkthroughs` · `widgets` · `ui-state` · `ui-plugin` · `canvas-collab` · `workflow-collab` · `canvas-packs` · `present` |
 | **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` |
 | **Commerce & sales** | `commerce` · `commerce-connect` · `promotions` · `recommendations` · `dealers` · `commissions` · `territories` · `sales-maps` (+ `crm` extensions) |
+| **Marketing** | `brand-kits` · `campaign-brief` · `campaign-connectors` · `campaign-intel` · `campaign-journeys` · `cdp` · `destination-sync` · `discovery` · `funnels` · `webinars` · `public` |
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 
 > **`0.18.x`:** the catalog now covers the full app feature surface — the agent
@@ -505,6 +506,34 @@ openwop commissions statements pay st_1 --org org_1
 Destructive commands (deletes, refunds, cancels, voids) refuse without `--yes`.
 Exit codes: `0` ok · `2` usage error / request rejected · `4` not signed in or not permitted · `1` server error.
 
+## Marketing surfaces
+
+Marketing features on the reference host's `/v1/host/openwop-app/*` extension
+(each is feature-toggled and org-scoped host-side; the CLI renders the host's decision):
+
+```bash
+openwop brand-kits list --org org_1                 # marketing brand kits (NOT `openwop brand`, the app-wide identity)
+openwop campaign-brief briefs create --org org_1 --name "Q4 launch" --objective "Pipeline"
+openwop campaign-connectors kpi --org org_1 --json  # ad-platform performance roll-up
+openwop campaign-intel plan-budget --org org_1 --total-budget-minor 500000 --target-conversions 200 --horizon-days 30
+openwop cdp resolve --type email --value a@example.com
+openwop destination-sync dry-run sync_1 --sample-json '{"email":"a@example.com"}'
+openwop funnels publish fn_1 --org org_1
+openwop webinars list --org org_1
+
+# Anonymous visitor surfaces (no bearer sent) — test what your visitors see:
+openwop public pages org_1
+openwop public sitemap org_1
+openwop public pricing --json
+openwop funnels public view org_1 webinar
+openwop forms public get form_1
+openwop email public click <token>                   # prints the redirect target, does not follow it
+```
+
+Destructive commands (`delete`, a live `campaign-intel apply`, an email
+unsubscribe/preference change) refuse without `--yes`.
+
+## Config
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
 
