@@ -1,3 +1,4 @@
+import { redactSecrets } from '../redact.js';
 import type { Ctx } from '../context.js';
 /** `openwop export` / `openwop import` — agent-platform portability (RFC 0098).
  *
@@ -84,22 +85,14 @@ const REF_ONLY_KEY = /^secretsToRebind$/;
 
 /** Defense-in-depth: the bundle is refs-only by host contract, but never let a
  *  secret-named value reach stdout or disk through this surface. */
-function redact(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redact);
-  if (value && typeof value === 'object') {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-      out[k] = SECRET_KEY.test(k) && !REF_ONLY_KEY.test(k) ? '[redacted]' : redact(v);
-    }
-    return out;
-  }
-  return value;
+function redact<T>(value: T): T {
+  return redactSecrets(value, { secret: SECRET_KEY, keep: REF_ONLY_KEY });
 }
 
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return; // can't prove absence — let the real request decide
-  const body = wk.body && typeof wk.body === 'object' ? (wk.body as any) : {};
+  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
   const advertised = !!(body.capabilities?.portability ?? body.portability);
   if (!advertised) {
     throw new CliError(
@@ -136,7 +129,7 @@ export async function runExport(ctx: Ctx, argv: string[]): Promise<number> {
   } catch (err) {
     gate404(err, 'export');
   }
-  const bundle = redact(res!.body ?? {}) as any;
+  const bundle = redact(res!.body ?? {});
   if (options.out !== undefined) {
     const dest = resolve(ctx.cwd, options.out);
     writeFileSync(dest, `${JSON.stringify(bundle, null, 2)}\n`);
@@ -199,7 +192,7 @@ export async function runImport(ctx: Ctx, argv: string[]): Promise<number> {
     }
     gate404(err, 'import');
   }
-  const out = redact(res!.body ?? {}) as any;
+  const out = redact(res!.body ?? {});
   if (ctx.json) {
     writeJson(ctx.io.stdout, out);
     return exitForImport(out);

@@ -137,7 +137,7 @@ function exitForState(state: unknown): number {
 async function triggerBridgeCaps(ctx: Ctx): Promise<any | undefined> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return undefined; // inconclusive — let the live call decide
-  const body = wk.body && typeof wk.body === 'object' ? (wk.body as any) : {};
+  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
   return body.capabilities?.triggerBridge ?? body.triggerBridge ?? null;
 }
 

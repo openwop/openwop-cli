@@ -109,7 +109,7 @@ function exitForState(state: unknown): number {
 async function a2aCaps(ctx: Ctx): Promise<any | undefined> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return undefined; // inconclusive — defer to the live call
-  const body = wk.body && typeof wk.body === 'object' ? (wk.body as any) : {};
+  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
   return body.capabilities?.a2a ?? body.a2a ?? null;
 }
 
