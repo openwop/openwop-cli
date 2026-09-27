@@ -26,6 +26,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Operator administration** | `vault` · `developer-keys` · `billing` · `environments` · `custom-domains` · `site-config` · `runtime-posture` · `maintenance` · `menu-config` |
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 | **Protocol + run operations** | `content` (RFC 0103) · `dispatch` (RFC 0118) · `openapi` · `agent-knowledge` · `compat-endpoints` (RFC 0108) · `host-events` · `client-support` (+ `runs` / `interrupts` / `workflows` / `approvals` / `reviews` / `webhooks` / `prompts` / `catalog` extensions) |
+| **Conversations & messaging** | `chat` (sessions/messages/search/export/tools) · `assistant` · `channels` · `scheduled-chats` · `voice` · `ai` · `computer-use` · `whatsapp` · `agent-author` · `workflow-author` · `workflow-proposals` (+ `a2a`, `notifications` extensions) |
 
 > **`0.18.x`:** the catalog now covers the full app feature surface — the agent
 > platform (`agent-profile`, `agent-packs`, `agent-allowlists`, `agent-ops`,
@@ -171,6 +172,35 @@ openwop chat sample.chat.turn --no-stream --json
 - **Quitting** — `/exit`, `/quit`, or Ctrl-D (EOF).
 - **`--json`** — emits raw event records (one JSON object per event) instead of the pretty `assistant>` rendering.
 - Extra per-turn inputs (`--input k=v`, `--inputs-json`) ride along on every run, so you can pin a `credentialRef`, model, or other configurable input.
+
+### Conversations, channels & voice
+
+`chat` is the ONE chat group: besides the REPL it drives the host's persistent
+conversations (`/v1/host/openwop-app/chat/*`) — sessions, messages, reactions,
+participants, feedback, search, export/import, and per-conversation tool scope.
+Team channels, scheduled agent chats, the executive assistant, voice, and the AI
+authoring surfaces each have their own group; every `--help` names the exact path.
+
+```bash
+openwop chat sessions create --title "Launch plan" --type group --participant agent:core.openwop.agents.planner.default
+openwop chat messages send <sessionId> --content "Summarize the thread"
+openwop chat search "pricing" --limit 5 --json
+openwop chat export <sessionId> --format md --output thread.md
+openwop chat tools set <sessionId> --mode restricted --enable openwop:fs.read
+openwop channels post <channelId> --content "@planner draft the agenda"
+openwop channels stream <channelId> --max-events 5
+openwop scheduled-chats create --org org_1 --conversation <id> --agent <agentId> --prompt "Weekly status" --cron "0 9 * * 1"
+openwop assistant pending approve <actionId> --content-hash <hash-from-the-card>
+openwop voice session audio <sessionId> --file hello.webm && openwop voice session commit <sessionId>
+openwop workflow-author draft --intent "Every Monday, summarize open tickets and email me" --follow
+openwop notifications stream --max-events 3
+```
+
+Streams (`channels stream|presence`, `notifications stream`, `voice realtime
+transcript`) stop after `--max-events` or `--timeout-ms` (default 30 s). Secrets
+stay server-side: the realtime voice token is redacted unless `--reveal-token`,
+and `ai bind-credential` reads the credential from a file or env var and prints
+only the returned reference.
 ## Packs (signed node-pack registry)
 
 ```bash

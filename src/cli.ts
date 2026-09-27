@@ -178,6 +178,16 @@ import { runHostEvents, HOST_EVENTS_HELP } from './cli/hostEvents.js';
 import { runClientSupport, CLIENT_SUPPORT_HELP } from './cli/clientSupport.js';
 import { runDispatch, DISPATCH_HELP } from './cli/dispatch.js';
 import { runOpenapi, OPENAPI_HELP } from './cli/openapi.js';
+import { runAssistant, ASSISTANT_HELP } from './cli/assistant.js';
+import { runChannels, CHANNELS_HELP } from './cli/channels.js';
+import { runScheduledChats, SCHEDULED_CHATS_HELP } from './cli/scheduledChats.js';
+import { runVoice, VOICE_HELP } from './cli/voice.js';
+import { runAi, AI_HELP } from './cli/ai.js';
+import { runComputerUse, COMPUTER_USE_HELP } from './cli/computerUse.js';
+import { runWhatsapp, WHATSAPP_HELP } from './cli/whatsapp.js';
+import { runAgentAuthor, AGENT_AUTHOR_HELP } from './cli/agentAuthor.js';
+import { runWorkflowAuthor, WORKFLOW_AUTHOR_HELP } from './cli/workflowAuthor.js';
+import { runWorkflowProposals, WORKFLOW_PROPOSALS_HELP } from './cli/workflowProposals.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -524,6 +534,26 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runDispatch(ctx, commandArgs);
       case 'openapi':
         return await runOpenapi(ctx, commandArgs);
+      case 'assistant':
+        return await runAssistant(ctx, commandArgs);
+      case 'channels':
+        return await runChannels(ctx, commandArgs);
+      case 'scheduled-chats':
+        return await runScheduledChats(ctx, commandArgs);
+      case 'voice':
+        return await runVoice(ctx, commandArgs);
+      case 'ai':
+        return await runAi(ctx, commandArgs);
+      case 'computer-use':
+        return await runComputerUse(ctx, commandArgs);
+      case 'whatsapp':
+        return await runWhatsapp(ctx, commandArgs);
+      case 'agent-author':
+        return await runAgentAuthor(ctx, commandArgs);
+      case 'workflow-author':
+        return await runWorkflowAuthor(ctx, commandArgs);
+      case 'workflow-proposals':
+        return await runWorkflowProposals(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -696,6 +726,16 @@ const HELP_MAP: Record<string, string> = {
     'client-support': CLIENT_SUPPORT_HELP,
     dispatch: DISPATCH_HELP,
     openapi: OPENAPI_HELP,
+    assistant: ASSISTANT_HELP,
+    channels: CHANNELS_HELP,
+    'scheduled-chats': SCHEDULED_CHATS_HELP,
+    voice: VOICE_HELP,
+    ai: AI_HELP,
+    'computer-use': COMPUTER_USE_HELP,
+    whatsapp: WHATSAPP_HELP,
+    'agent-author': AGENT_AUTHOR_HELP,
+    'workflow-author': WORKFLOW_AUTHOR_HELP,
+    'workflow-proposals': WORKFLOW_PROPOSALS_HELP,
 };
 
 /** All top-level command names + aliases — the single drift-free source for the
@@ -989,6 +1029,7 @@ Commands:
   runs annotations    List a run's annotations
   runs debug-bundle   Export a run's event bundle (--out to save)
   chat                Interactive streaming chat REPL over a workflow
+  chat sessions       Persistent conversations: sessions/messages/participants/feedback/search/export/import/tools
   memory list         List demo MemoryAdapter entries (tenant-scoped)
   memory search       Search memory entries by text or tag
   memory get          Show one memory entry
@@ -1073,6 +1114,7 @@ Commands:
   relay status        Probe the relay device token against the host
   notifications list  List notification inbox entries (tenant-scoped)
   notifications read  Mark a notification read/unread/archived
+  notifications push  Web-push config + subscriptions; notifications stream (live)
   interrupts list     List a run's open (HITL) interrupts
   interrupts resolve  Resolve an interrupt by token
   prompts list        Browse the host prompt library
@@ -1162,6 +1204,17 @@ Commands:
   client-support      Ask whether a client build is still supported (min-build handshake)
   dispatch fanout     Parallel fan-out join witness (RFC 0118): run the host's coordinator + join fold
   openapi [paths]     Fetch the host's served OpenAPI document (/v1/openapi.json); list its operations
+  a2a task            Async/durable A2A tasks (RFC 0100): read a durable task's live state (+ status/rpc/start/push-config/invoke)
+  assistant           Executive assistant work graph: projects/commitments/decisions/meetings/pending approvals/loops
+  channels            Team channels: list/create/post/messages/stream/members/agents/catch-up/presence
+  scheduled-chats     Scheduled agent chats (org or channel scope): list/get/create/pause/resume/delete
+  voice               Voice mode: walkie-talkie sessions (audio/commit/speak/barge-in) + realtime bridge/config
+  ai                  AI-provider seams: call (modality gate), speech, transcribe, bind-credential (user scope)
+  computer-use        Browser-agent (computer-use) sessions for an org (read-only)
+  whatsapp            WhatsApp Business connection health + no-training attestation
+  agent-author        The agent draft the AI Agent Architect stashed for you (read/clear)
+  workflow-author     AI workflow authoring: node catalog + draft a workflow from an intent (--follow)
+  workflow-proposals  Operator auto-approval policies for agent-proposed workflows
 
 Examples:
   openwop onboard
