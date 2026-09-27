@@ -90,13 +90,15 @@ What else the CLI does as a v2 client (audited against `spec/v2/core/*` at corpu
 | Tenant-bound ids (`identity.md` §5) | A `<tenantId>/<id>` run id is sent in the projected wire form (`acme~2Fr1`) on every `/runs/{runId}…` path under major 2 — never `%2F`, which a decoding front door turns into a 404. Pass ids as the host prints them. |
 | Error envelope (`errors.md`) | Errors print as `HTTP <status> <code>: <message>`; `426`/`406`/`429` add an actionable hint (`Retry-After` for 429). |
 | Poll cursor (`events.md` §Poll) | `afterSequence` under major 2, `lastSequence` under major 1; `isTerminal` / `isComplete`. |
+| SSE resume (`events.md` §Resuming with `Last-Event-ID`; v1 `stream-modes.md` §Resumption) | Every run stream (`runs events --follow` / `runs watch`, `chat`, `workflow-author`) remembers the last `id:` and, when the connection drops or closes before the terminal event, reconnects with `Last-Event-ID` after the server's `retry:` delay (doubling per attempt without progress, cap 30 s, 5 attempts). A close is first checked against the run's status, so a mode that never carries the terminal event (`messages`) ends cleanly. Events are deduped by `sequence`, so nothing prints twice even from a host that re-emits the resumption point. `--since N` / `--last-event-id ID` start mid-log: both majors send the `Last-Event-ID` header (neither defines a `since` stream parameter); v2 requires an integer id, v1's is sent verbatim. |
+| Stream modes (`events.md` §Stream modes; v1 `stream-modes.md`) | `--stream-mode` `updates`, `values`, `messages`, `debug` or a comma list of `updates`/`messages`/`debug` → `?streamMode=`, validated against the spec pattern before any request (`values` never combines). A host `400 unsupported_stream_mode` is reported with its `details.supported`, never silently replaced by the (mode-less) poll fallback. `state.snapshot` and `ai.message.chunk` frames are rendered by their frame name; `event: batch` arrays are unpacked. |
 | Event names (`events.md` §Types) | v1 and v2 names (`run.resuming` / `run.resume-started`, `agent.toolCalled` / `agent.tool-called`, …) render identically; the table is pinned to `spec/v2/event-codemap.json`. |
 | `Idempotency-Key` (`idempotency.md`) | Sent on run create/fork, chat turns, interrupt resolve, and webhook / trigger / prompt creation; `--idempotency-key` on `runs create|fork` and `interrupts resolve`. |
 | Interrupt resolve (`interrupt.md`) | Body is the closed `{ "resumeValue": … }`. |
 | Discovery (`capabilities.md`) | `openwop capabilities` renders the v2 root (records by status, `minClientVersion`, `eventLogSchemaVersion`, `extensions`) from the negotiation read. |
 | Run list (`runs.md` §List) | `runs list --cursor` / `--workflow-id`; the `nextCursor` hint is printed. |
 
-When the host's `minClientVersion` is above the CLI, every command prints one warning (from the discovery read it already made); refusing is left to the host (`426`). Not yet: SSE resume via `Last-Event-ID` and `streamMode` selection are not exposed; the v2 run-scoped interrupt resolve (`POST /runs/{runId}/interrupts/{nodeId}`) and token inspect (`GET /interrupts/{token}`) have no subcommand yet.
+When the host's `minClientVersion` is above the CLI, every command prints one warning (from the discovery read it already made); refusing is left to the host (`426`). Not exposed: the `bufferMs` batching hint (batched frames from a host that batches anyway are consumed).
 
 The pre-1.0 `0.18.x` line was frozen v1-only; that decision was reversed with 1.0.0 (CHANGELOG). The frozen line stays on branch `cli-v1-frozen` for anyone who needs a client that never sends `OpenWOP-Version`.
 
@@ -268,9 +270,10 @@ openwop runs annotate <runId> --rating 5 [--note "great"] # attach a rating/labe
 openwop runs annotate <runId> --label triage --event-id <id>
 openwop runs debug-bundle <runId> [--max-events n] [--out bundle.json]
 openwop runs ancestry <runId>                             # RFC 0040 cross-host parent chain
+openwop runs watch <runId> [--since N] [--stream-mode updates,messages]   # SSE follow, auto-resumes on a drop
 ```
 
-`runs events --since N` maps to the spec-canonical `lastSequence` query param (events with `sequence > N`). `runs annotate` posts exactly one signal kind (`--rating 1-5` | `--label` | `--correction` | `--flag`), validated client-side. `runs debug-bundle --out <file>` saves the full event bundle to disk.
+`runs events --since N` polls with the poll cursor (`afterSequence` under v2, `lastSequence` under v1; events with `sequence > N`). `runs events --follow` / `runs watch` stream over SSE instead, where `--since N` becomes the `Last-Event-ID` header (see §Protocol version support). `runs annotate` posts exactly one signal kind (`--rating 1-5` | `--label` | `--correction` | `--flag`), validated client-side. `runs debug-bundle --out <file>` saves the full event bundle to disk.
 
 ## Operator surfaces
 

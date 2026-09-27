@@ -8,7 +8,8 @@ import { requestJson } from '../api.js';
 import { sleep } from '../util.js';
 import { TERMINAL_STATUSES } from '../constants.js';
 import { buildInputs } from './shared.js';
-import { pollCursorParam, pollIsTerminal } from '../sse.js';
+import { pollCursorParam, pollIsTerminal, streamRunEvents, renderEvent, parseStreamStart } from '../sse.js';
+import { canonicalEventType, isTerminalRunEvent } from '../eventTypes.js';
 import { idempotencyHeaders, isIdempotentReplay } from '../wire.js';
 import { hostRunSegment } from './requestHelpers.js';
 
@@ -19,6 +20,8 @@ export const RUNS_HELP = `Usage:
   openwop runs cancel <runId> [--reason text] [--json]
   openwop runs ancestry <runId> [--json]
   openwop runs events <runId> [--since <sequence>] [--limit n] [--json]
+  openwop runs events <runId> --follow [--since <sequence> | --last-event-id <id>] [--stream-mode mode] [--no-stream] [--json]
+  openwop runs watch <runId> [same flags as events --follow]
   openwop runs annotations <runId> [--json]
   openwop runs annotate <runId> (--rating 1-5 | --label t | --correction t | --flag) [--note t] [--event-id id] [--node-id id]
   openwop runs debug-bundle <runId> [--max-events n] [--out file] [--json]
@@ -46,7 +49,24 @@ Host-extension run tools (non-normative, /v1/host/openwop-app/…):
 
 \`runs events\` polls GET /v1/runs/{runId}/events/poll (JSON, not SSE); --since N
 returns events with sequence > N (sent as \`afterSequence\` to a v2 host,
-\`lastSequence\` to a v1 host). \`runs list\` pages with --cursor: pass the
+\`lastSequence\` to a v1 host).
+
+\`runs events --follow\` (alias \`runs watch\`) streams GET /v1/runs/{runId}/events
+as SSE until the run's terminal event, falling back to the poll endpoint when
+the host does not serve SSE (--no-stream forces the poll). A dropped stream is
+resumed automatically with the \`Last-Event-ID\` header (bounded retries,
+honouring the server's \`retry:\` field), and no event is printed twice.
+  --since N           start after sequence N — sent as \`Last-Event-ID: N\` on
+                      SSE (both majors: the header is the only SSE cursor;
+                      \`since\` is not a query parameter) and as the poll cursor
+                      on the fallback.
+  --last-event-id ID  start after this SSE id, sent verbatim. Under v2 an id is
+                      a sequence, so it must be a non-negative integer.
+  --stream-mode M     \`?streamMode=\`: updates (default) | values | messages |
+                      debug, or a comma list of updates/messages/debug
+                      (\`values\` never combines). A host that does not serve
+                      the mode answers 400 unsupported_stream_mode.
+Exit 0 when the run completes, 1 when it fails or is cancelled. \`runs list\` pages with --cursor: pass the
 \`nextCursor\` the previous page printed.
 
 Run ids: under protocol v2 a run id is tenant-bound (\`<tenantId>/<id>\`); pass it
@@ -76,7 +96,7 @@ Input parsing for \`runs create\`:
 
 export async function runRuns(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
-  const args = argv.slice(['list', 'create', 'get', 'cancel', 'ancestry', 'events', 'annotations', 'annotate', 'debug-bundle', 'fork', 'diff', 'delete', 'bulk-cancel', 'effects', 'revision', 'pin', 'unpin', 'redrive'].includes(sub) ? 1 : 0);
+  const args = argv.slice(['list', 'create', 'get', 'cancel', 'ancestry', 'events', 'watch', 'annotations', 'annotate', 'debug-bundle', 'fork', 'diff', 'delete', 'bulk-cancel', 'effects', 'revision', 'pin', 'unpin', 'redrive'].includes(sub) ? 1 : 0);
   if (sub === '--help' || sub === '-h') {
     write(ctx.io.stdout, RUNS_HELP);
     return 0;
@@ -94,6 +114,8 @@ export async function runRuns(ctx: Ctx, argv: string[]) {
       return runRunsAncestry(ctx, args);
     case 'events':
       return runRunsEvents(ctx, args);
+    case 'watch':
+      return runRunsEvents(ctx, ['--follow', ...args]);
     case 'annotations':
       return runRunsAnnotations(ctx, args);
     case 'annotate':
@@ -281,10 +303,14 @@ async function runRunsBulkCancel(ctx: Ctx, argv: string[]) {
 }
 
 async function runRunsEvents(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--since', '--limit'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--follow', '--no-stream'], value: ['--since', '--limit', '--last-event-id', '--stream-mode', '--timeout-ms'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, 'Usage: openwop runs events <runId> [--since <sequence>] [--limit <n>] [--json]\n');
+    write(ctx.io.stdout, 'Usage: openwop runs events <runId> [--since <sequence>] [--limit <n>] [--json]\n       openwop runs events <runId> --follow [--since <sequence> | --last-event-id <id>] [--stream-mode <mode>] [--no-stream] [--json]\n');
     return options.help ? 0 : 2;
+  }
+  if (options.follow) return followRunEvents(ctx, positionals[0], options);
+  if (options.lastEventId !== undefined || options.streamMode !== undefined) {
+    throw new CliError('--last-event-id and --stream-mode apply to the SSE stream: add --follow');
   }
   const query = new URLSearchParams();
   if (options.since !== undefined) query.set(await pollCursorParam(ctx), String(options.since));
@@ -300,6 +326,25 @@ async function runRunsEvents(ctx: Ctx, argv: string[]) {
   ));
   if (pollIsTerminal(res.body)) writeLine(ctx.io.stdout, '(run complete)');
   return 0;
+}
+
+/** `runs events --follow` / `runs watch` — SSE with Last-Event-ID resume, poll fallback. */
+async function followRunEvents(ctx: Ctx, runId: string, options: Record<string, any>) {
+  const start = await parseStreamStart(ctx, options);
+  let terminalType: string | undefined;
+  const timeoutMs = options.timeoutMs !== undefined ? Number(options.timeoutMs) : 30 * 60 * 1000;
+  await streamRunEvents(ctx, runId, {
+    ...start,
+    useStream: !options.noStream,
+    timeoutMs,
+    onEvent: (ev: any) => {
+      if (isTerminalRunEvent(ev)) terminalType = canonicalEventType(ev.type);
+      if (ctx.json) { writeLine(ctx.io.stdout, JSON.stringify(ev)); return; }
+      const line = renderEvent(ev);
+      if (line) writeLine(ctx.io.stdout, typeof ev.sequence === 'number' ? `[${ev.sequence}] ${line}` : line);
+    },
+  });
+  return terminalType === 'run.failed' || terminalType === 'run.cancelled' ? 1 : 0;
 }
 
 async function runRunsAnnotations(ctx: Ctx, argv: string[]) {

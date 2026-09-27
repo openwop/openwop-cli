@@ -3,7 +3,8 @@ import type { Ctx } from './context.js';
 
 import { createInterface } from 'node:readline';
 import { requestJson } from './api.js';
-import { CliError, HttpError } from './errors.js';
+import { CliError, HttpError, httpErrorLine } from './errors.js';
+import { TERMINAL_STATUSES } from './constants.js';
 import { negotiateMajor, resolveRequest } from './protocol.js';
 import { sleep } from './util.js';
 import { canonicalEventType, isTerminalRunEvent } from './eventTypes.js';
@@ -27,62 +28,254 @@ export async function submitTurn(ctx: Ctx, { workflowId, inputs, tenantId, scope
 }
 
 /**
- * Stream a run's events. Prefers SSE; on any SSE failure (non-streamable
- * body, non-2xx, or transport error) falls back to the JSON poll endpoint.
- * Calls `onEvent(eventRecord)` once per event in sequence order and resolves
- * when a terminal event is seen or the poll endpoint reports completion.
+ * `streamMode` (v2 events.md §Stream modes; v1 stream-modes.md §Mode selection
+ * + §Mixed mode): `values` alone, or a comma-separated combination of
+ * `updates` / `messages` / `debug`. v2 states this as the query parameter's
+ * pattern; v1's openapi pattern is looser but its prose forbids `values` in a
+ * combination, so the one pattern serves both majors.
  */
-export async function streamRunEvents(ctx: Ctx, runId: string, { onEvent, useStream = true, timeoutMs = 120000 }: { onEvent?: (e: any) => void; useStream?: boolean; timeoutMs?: number } = {}) {
+export const STREAM_MODE_PATTERN = /^(values|(updates|messages|debug)(,(updates|messages|debug))*)$/;
+export const STREAM_MODES = ['updates', 'values', 'messages', 'debug'] as const;
+
+/** Frame names that are not run-event types (v2 events.md §SSE frames): their `data:` is not a RunEventDoc. */
+const NON_EVENT_FRAMES = new Set(['state.snapshot', 'ai.message.chunk']);
+
+/**
+ * Validate the `--since` / `--last-event-id` / `--stream-mode` flags of a
+ * streaming run command into StreamRunEventsOptions. Both majors resume SSE
+ * with the `Last-Event-ID` header (v2 events.md §Resuming, headers.md; v1
+ * stream-modes.md §Resumption, rest-endpoints.md §SSE) — neither defines a
+ * `since` query parameter on the stream. v2 makes the id a sequence (a
+ * non-integer SHOULD be refused `400 validation_error`), so it is checked
+ * here; a v1 id is opaque and sent verbatim.
+ */
+export async function parseStreamStart(ctx: Ctx, options: { since?: unknown; lastEventId?: unknown; streamMode?: unknown }): Promise<Pick<StreamRunEventsOptions, 'afterSequence' | 'lastEventId' | 'streamMode'>> {
+  const out: Pick<StreamRunEventsOptions, 'afterSequence' | 'lastEventId' | 'streamMode'> = {};
+  if (options.since !== undefined && options.lastEventId !== undefined) throw new CliError('--since and --last-event-id are the same cursor; pass one');
+  if (options.since !== undefined) {
+    const v = String(options.since);
+    if (!/^\d+$/.test(v)) throw new CliError(`--since must be a non-negative integer sequence (got '${v}')`);
+    out.afterSequence = Number(v);
+  }
+  if (options.lastEventId !== undefined) {
+    const v = String(options.lastEventId);
+    if (v === '') throw new CliError('--last-event-id must not be empty');
+    if ((await negotiateMajor(ctx)) === 2 && !/^\d+$/.test(v)) {
+      throw new CliError(`--last-event-id must be a non-negative integer under protocol v2 (an SSE id is the event's sequence; got '${v}')`);
+    }
+    out.lastEventId = v;
+  }
+  if (options.streamMode !== undefined) {
+    const v = String(options.streamMode);
+    if (!STREAM_MODE_PATTERN.test(v)) {
+      throw new CliError(`--stream-mode must be one of ${STREAM_MODES.join(' | ')}, or a comma list of updates/messages/debug ('values' never combines); got '${v}'`);
+    }
+    out.streamMode = v;
+  }
+  return out;
+}
+
+export interface StreamRunEventsOptions {
+  onEvent?: (e: any) => void;
+  useStream?: boolean;
+  /** Poll-fallback budget (ms). */
+  timeoutMs?: number;
+  /** Start after this sequence (exclusive) — sent as `Last-Event-ID` on SSE, the poll cursor on the fallback. */
+  afterSequence?: number;
+  /** Start after this raw SSE id (sent verbatim as `Last-Event-ID`). */
+  lastEventId?: string;
+  /** `?streamMode=` (validated against STREAM_MODE_PATTERN by the caller). */
+  streamMode?: string;
+  /** Reconnect attempts after a drop without progress (default 5). */
+  maxReconnects?: number;
+  /** Reconnection delay before any `retry:` field is seen (default 1000 ms; WHATWG leaves it implementation-defined). */
+  retryMs?: number;
+  /** Called once per reconnect, before the request (for `--verbose` / tests). */
+  onReconnect?: (info: { attempt: number; lastEventId: string | undefined; delayMs: number }) => void;
+}
+
+/**
+ * Stream a run's events. Prefers SSE; on any failure to OPEN the SSE stream
+ * (non-streamable body, non-2xx, or transport error) falls back to the JSON
+ * poll endpoint. Once the stream has opened, a drop is resumed on SSE with
+ * `Last-Event-ID` (see `streamViaSse`). Calls `onEvent(eventRecord)` once per
+ * event in sequence order — never twice for one sequence — and resolves when
+ * a terminal event is seen or the host reports the run terminal.
+ */
+export async function streamRunEvents(ctx: Ctx, runId: string, opts: StreamRunEventsOptions = {}) {
+  const { useStream = true, timeoutMs = 120000 } = opts;
+  const deliver = dedupingSink(opts.onEvent ?? (() => {}), startSequence(opts));
   if (useStream) {
     try {
-      const handled = await streamViaSse(ctx, runId, onEvent);
+      const handled = await streamViaSse(ctx, runId, deliver, opts);
       if (handled) return;
-    } catch {
+    } catch (err) {
+      // A 4xx the caller asked for (an unsupported streamMode, a refused
+      // Last-Event-ID) is an answer, not a transport gap: polling would
+      // silently drop the mode, so surface it.
+      if (err instanceof HttpError && err.status >= 400 && err.status < 500 && (opts.streamMode || opts.lastEventId !== undefined || opts.afterSequence !== undefined)) throw err;
+      if (err instanceof SseResumeExhausted) throw err.reason instanceof HttpError ? err.reason : err;
       // Fall through to polling.
     }
   }
-  await streamViaPoll(ctx, runId, onEvent, timeoutMs);
+  if (opts.streamMode && opts.streamMode !== 'updates' && !ctx.quiet) {
+    ctx.io.stderr.write(`openwop: warning: SSE unavailable; the poll fallback has no streamMode, so '${opts.streamMode}' is not applied\n`);
+  }
+  await streamViaPoll(ctx, runId, deliver, timeoutMs, deliver.highest());
 }
 
-async function streamViaSse(ctx: Ctx, runId: string, onEvent: any) {
-  // Same negotiation as requestJson (src/protocol.ts): under major 2 this is
-  // `/runs/{runId}/events` + `OpenWOP-Version: 2.0`. Joined relative to the
-  // base for the same reason api.ts does — a base with a path prefix survives.
-  const { path, headers } = await resolveRequest(ctx, `/v1/runs/${encodeURIComponent(runId)}/events`, { accept: 'text/event-stream' });
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
-  if (ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
-  const res = await ctx.fetchImpl(url, { method: 'GET', headers });
-  if (!res.ok) throw new HttpError(`HTTP ${res.status}`, res.status, null);
-  const ct = res.headers?.get?.('content-type') ?? '';
-  if (!ct.includes('text/event-stream') || !res.body || typeof res.body.getReader !== 'function') {
-    // Server answered with JSON (or a non-streamable body) — let the
-    // caller fall back to polling rather than mis-parsing.
+/** The stream could not be resumed (exit 1); `cause` is the last HTTP refusal, when there was one. */
+class SseResumeExhausted extends CliError {
+  readonly reason: unknown;
+  constructor(message: string, reason?: unknown) { super(message, 1); this.reason = reason; }
+}
+
+function startSequence(opts: StreamRunEventsOptions): number {
+  if (typeof opts.afterSequence === 'number') return opts.afterSequence;
+  if (opts.lastEventId !== undefined && /^\d+$/.test(opts.lastEventId)) return Number(opts.lastEventId);
+  return -1;
+}
+
+/**
+ * Wrap onEvent so a sequence is delivered at most once, in increasing order.
+ * A resumed stream (or the poll fallback after a partial stream) can repeat
+ * the resumption point on a host that treats `Last-Event-ID` inclusively; the
+ * spec forbids that (events.md §Resuming — "MUST NOT re-emit `N`"), but the
+ * client does not rely on it. Records without a numeric `sequence` (a
+ * `state.snapshot`, which `values` resumption MUST re-emit first) pass through.
+ */
+function dedupingSink(onEvent: (e: any) => void, start: number) {
+  let highest = start;
+  const sink = (ev: any) => {
+    const seq = typeof ev?.sequence === 'number' ? ev.sequence : undefined;
+    if (seq !== undefined) {
+      if (seq <= highest) return false;
+      highest = seq;
+    }
+    onEvent(ev);
+    return true;
+  };
+  sink.highest = () => highest;
+  return sink as typeof sink & { highest: () => number };
+}
+
+/**
+ * SSE with resume. The first request failing (non-2xx, non-SSE body, throw)
+ * propagates so the caller can fall back to polling. After the stream opens:
+ *
+ *  - every frame's `id:` is remembered (WHATWG "last event ID buffer"), and a
+ *    `retry:` field sets the reconnection delay;
+ *  - when the connection drops or closes before a terminal run event, the CLI
+ *    reconnects with `Last-Event-ID: <last id>` (events.md §Resuming; v1
+ *    stream-modes.md §Resumption) after `retry` ms, doubling per consecutive
+ *    attempt without progress (cap 30 s), at most `maxReconnects` times;
+ *  - a close without a terminal event is checked against the run's status
+ *    first: the host MUST close after the terminal event (events.md §SSE
+ *    frames) and a mode such as `messages` never carries it, so a terminal
+ *    status ends the stream instead of reconnecting.
+ */
+async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof dedupingSink>, opts: StreamRunEventsOptions) {
+  const maxReconnects = opts.maxReconnects ?? 5;
+  let retryMs = opts.retryMs ?? 1000;
+  let lastEventId: string | undefined = opts.lastEventId ?? (typeof opts.afterSequence === 'number' ? String(opts.afterSequence) : undefined);
+  let terminal = false;
+  let failures = 0;
+  let opened = false;
+  const query = opts.streamMode ? `?streamMode=${encodeURIComponent(opts.streamMode)}` : '';
+
+  for (;;) {
+    let progressed = false;
+    let dropError: unknown;
+    try {
+      // Same negotiation as requestJson (src/protocol.ts): under major 2 this is
+      // `/runs/{runId}/events` + `OpenWOP-Version: 2.0`. Joined relative to the
+      // base for the same reason api.ts does — a base with a path prefix survives.
+      const { path, headers } = await resolveRequest(ctx, `/v1/runs/${encodeURIComponent(runId)}/events${query}`, { accept: 'text/event-stream' });
+      const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
+      if (ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
+      if (lastEventId !== undefined && lastEventId !== '') headers['last-event-id'] = lastEventId;
+      const res = await ctx.fetchImpl(url, { method: 'GET', headers });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        let body: unknown = null;
+        try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+        throw new HttpError(httpErrorLine(res.status, body), res.status, body, res.headers);
+      }
+      const ct = res.headers?.get?.('content-type') ?? '';
+      if (!ct.includes('text/event-stream') || !res.body || typeof res.body.getReader !== 'function') {
+        // Server answered with JSON (or a non-streamable body) — let the
+        // caller fall back to polling rather than mis-parsing.
+        if (!opened) return false;
+        throw new HttpError('resumed events stream is not text/event-stream', res.status, null, res.headers);
+      }
+      opened = true;
+      await consumeSse(res.body, (frame: any) => {
+        if (frame.retry !== undefined) retryMs = frame.retry;
+        if (frame.id !== undefined) lastEventId = frame.id;
+        if (frame.data === undefined) return;
+        const ev = safeParseJson(frame.data);
+        const frameSeq = frame.id !== undefined && /^\d+$/.test(frame.id) ? Number(frame.id) : undefined;
+        const records: any[] = frame.event === 'batch' && Array.isArray(ev) ? ev
+          : frame.event !== undefined && NON_EVENT_FRAMES.has(frame.event)
+            // `ai.message.chunk` data is the outputChunk payload (sequenced by
+            // the frame id); `state.snapshot` data is a RunSnapshot (not a log
+            // event — no sequence, never deduped).
+            ? [{ type: frame.event, ...(frame.event === 'ai.message.chunk' && frameSeq !== undefined ? { sequence: frameSeq } : {}), payload: ev }]
+            : ev && typeof ev === 'object' ? [ev] : [];
+        for (const one of records) {
+          if (deliver(one)) progressed = true;
+          if (isTerminalRunEvent(one)) terminal = true;
+        }
+      }, (control: { id?: string; retry?: number }) => {
+        if (control.retry !== undefined) retryMs = control.retry;
+        if (control.id !== undefined) lastEventId = control.id;
+      });
+    } catch (err) {
+      if (!opened) throw err;
+      // A refusal on a resume (other than rate limiting / unavailability) is final.
+      if (err instanceof HttpError && err.status !== 429 && err.status < 500) throw new SseResumeExhausted(err.message, err);
+      dropError = err;
+    }
+    if (terminal) return true;
+    if (lastEventId === undefined && deliver.highest() >= 0) lastEventId = String(deliver.highest());
+    if (await runIsTerminal(ctx, runId)) return true;
+    failures = progressed ? 1 : failures + 1;
+    if (failures > maxReconnects) {
+      throw new SseResumeExhausted(`events stream for ${runId} dropped ${failures} times without progress${dropError instanceof Error ? `: ${dropError.message}` : ''}`, dropError);
+    }
+    const delayMs = Math.min(retryMs * 2 ** (failures - 1), 30000);
+    opts.onReconnect?.({ attempt: failures, lastEventId, delayMs });
+    if (ctx.verbose) ctx.io.stderr.write(`openwop: events stream dropped; reconnecting in ${delayMs}ms with Last-Event-ID ${lastEventId ?? '(none)'}\n`);
+    await sleep(delayMs);
+  }
+}
+
+/** Whether the run's status is terminal; false when the status cannot be read (keep resuming). */
+async function runIsTerminal(ctx: Ctx, runId: string): Promise<boolean> {
+  try {
+    const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(runId)}`);
+    const status = res.body?.status ?? res.body?.run?.status;
+    return typeof status === 'string' && TERMINAL_STATUSES.has(status);
+  } catch {
     return false;
   }
-  await consumeSse(res.body, (frame: any) => {
-    if (frame.data === undefined) return;
-    const ev = safeParseJson(frame.data);
-    if (frame.event === 'batch' && Array.isArray(ev)) {
-      for (const one of ev) onEvent(one);
-    } else if (ev && typeof ev === 'object') {
-      onEvent(ev);
-    }
-  });
-  return true;
 }
 
 /**
  * Decode a web ReadableStream of SSE bytes into frames. Exported for tests so
  * the line-buffering / multi-line `data:` accumulation can be exercised
- * without a live socket. `onFrame` receives `{ event, data, id }`.
+ * without a live socket. `onFrame` receives `{ event, data, id, retry }` for a
+ * block carrying `data:` or `event:`; a block carrying only `id:` / `retry:`
+ * (no event dispatched, per the WHATWG event-stream interpretation) goes to
+ * the optional `onControl`. Comment lines (`:keepalive`) are skipped.
  */
-export async function consumeSse(stream: any, onFrame: any) {
+export async function consumeSse(stream: any, onFrame: any, onControl?: (c: { id?: string; retry?: number }) => void) {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   const flushFrame = (block: string) => {
     if (!block.trim()) return;
-    const frame: Record<string, string> = {};
+    const frame: { event?: string; data?: string; id?: string; retry?: number } = {};
     const dataLines: string[] = [];
     for (const rawLine of block.split('\n')) {
       const line = rawLine.replace(/\r$/, '');
@@ -92,10 +285,12 @@ export async function consumeSse(stream: any, onFrame: any) {
       const value = idx === -1 ? '' : line.slice(idx + 1).replace(/^ /, '');
       if (field === 'data') dataLines.push(value);
       else if (field === 'event') frame.event = value;
-      else if (field === 'id') frame.id = value;
+      else if (field === 'id') { if (!value.includes('\0')) frame.id = value; }
+      else if (field === 'retry') { if (/^\d+$/.test(value)) frame.retry = Number(value); }
     }
     if (dataLines.length > 0) frame.data = dataLines.join('\n');
     if (frame.data !== undefined || frame.event !== undefined) onFrame(frame);
+    else if ((frame.id !== undefined || frame.retry !== undefined) && onControl) onControl(frame);
   };
   while (true) {
     const { value, done } = await reader.read();
@@ -106,16 +301,16 @@ export async function consumeSse(stream: any, onFrame: any) {
       buffer = buffer.slice(sep + 2);
     }
     if (done) {
-      flushFrame(buffer);
+      // WHATWG: an incomplete final block (no terminating blank line) is discarded.
       break;
     }
   }
 }
 
-async function streamViaPoll(ctx: Ctx, runId: string, onEvent: any, timeoutMs: number) {
+async function streamViaPoll(ctx: Ctx, runId: string, onEvent: any, timeoutMs: number, after = -1) {
   const started = Date.now();
   const cursorParam = await pollCursorParam(ctx);
-  let lastSequence = -1;
+  let lastSequence = after;
   while (Date.now() - started < timeoutMs) {
     const query = lastSequence >= 0 ? `?${cursorParam}=${lastSequence}` : '';
     const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(runId)}/events/poll${query}`);
