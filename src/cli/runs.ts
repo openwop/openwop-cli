@@ -8,10 +8,12 @@ import { requestJson } from '../api.js';
 import { sleep } from '../util.js';
 import { TERMINAL_STATUSES } from '../constants.js';
 import { buildInputs } from './shared.js';
+import { pollCursorParam, pollIsTerminal } from '../sse.js';
+import { idempotencyHeaders, isIdempotentReplay } from '../wire.js';
 
 export const RUNS_HELP = `Usage:
-  openwop runs list [--status status] [--limit n] [--tenant-id id] [--json]
-  openwop runs create <workflowId> [--input k=v] [--inputs-json JSON] [--tenant-id id] [--wait] [--json]
+  openwop runs list [--status status] [--workflow-id id] [--limit n] [--cursor c] [--tenant-id id] [--json]
+  openwop runs create <workflowId> [--input k=v] [--inputs-json JSON] [--tenant-id id] [--idempotency-key k] [--wait] [--json]
   openwop runs get <runId> [--json]
   openwop runs cancel <runId> [--reason text] [--json]
   openwop runs ancestry <runId> [--json]
@@ -19,13 +21,21 @@ export const RUNS_HELP = `Usage:
   openwop runs annotations <runId> [--json]
   openwop runs annotate <runId> (--rating 1-5 | --label t | --correction t | --flag) [--note t] [--event-id id] [--node-id id]
   openwop runs debug-bundle <runId> [--max-events n] [--out file] [--json]
-  openwop runs fork <runId> [--mode replay|branch] [--from-sequence n] [--json]
+  openwop runs fork <runId> [--mode replay|branch] [--from-sequence n] [--idempotency-key k] [--json]
   openwop runs diff <runId> --against <otherRunId> [--json]
   openwop runs delete <runId> [--yes]
   openwop runs bulk-cancel <runId...> [--reason text] [--json]
 
 \`runs events\` polls GET /v1/runs/{runId}/events/poll (JSON, not SSE); --since N
-returns events with sequence > N. \`runs annotate\` posts a review signal
+returns events with sequence > N (sent as \`afterSequence\` to a v2 host,
+\`lastSequence\` to a v1 host). \`runs list\` pages with --cursor: pass the
+\`nextCursor\` the previous page printed.
+
+Run ids: under protocol v2 a run id is tenant-bound (\`<tenantId>/<id>\`); pass it
+as printed — the CLI sends it in the projected wire form (\`~2F\`). \`runs create\`
+and \`runs fork\` send an Idempotency-Key (a fresh UUID unless
+--idempotency-key is given, so re-running the same command after a timeout
+cannot start a second run). \`runs annotate\` posts a review signal
 (rating/label/correction/flag) and \`runs annotations\` lists them. \`runs
 debug-bundle\` exports a run's full event bundle — pass --out to save it to a file.
 
@@ -88,7 +98,7 @@ export async function runRuns(ctx: Ctx, argv: string[]) {
 async function runRunsList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, {
     bool: ['--help'],
-    value: ['--status', '--limit', '--tenant-id'],
+    value: ['--status', '--limit', '--tenant-id', '--cursor', '--workflow-id'],
   });
   if (options.help) {
     write(ctx.io.stdout, RUNS_HELP);
@@ -98,6 +108,8 @@ async function runRunsList(ctx: Ctx, argv: string[]) {
   if (options.status) query.set('status', options.status);
   if (options.limit) query.set('limit', options.limit);
   if (options.tenantId) query.set('tenantId', options.tenantId);
+  if (options.workflowId) query.set('workflowId', options.workflowId);
+  if (options.cursor) query.set('cursor', options.cursor);
   const path = `/v1/runs${query.size ? `?${query.toString()}` : ''}`;
   const res = await requestJson(ctx, path);
   if (ctx.json) {
@@ -108,16 +120,20 @@ async function runRunsList(ctx: Ctx, argv: string[]) {
     runId: r.runId,
     workflowId: r.workflowId,
     status: r.status,
-    createdAt: r.createdAt ?? '',
+    createdAt: r.createdAt ?? r.startedAt ?? '',
   }));
   writeLine(ctx.io.stdout, rows.length ? formatTable(rows, ['runId', 'workflowId', 'status', 'createdAt']) : 'No runs found.');
+  // v2 listRuns pages with an opaque cursor (runs.md §List).
+  if (typeof res.body?.nextCursor === 'string' && res.body.nextCursor.length > 0) {
+    writeLine(ctx.io.stdout, `More runs: openwop runs list --cursor ${res.body.nextCursor}`);
+  }
   return 0;
 }
 
 async function runRunsCreate(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, {
     bool: ['--help', '--wait'],
-    value: ['--tenant-id', '--scope-id', '--inputs-json', '--timeout-ms'],
+    value: ['--tenant-id', '--scope-id', '--inputs-json', '--timeout-ms', '--idempotency-key'],
     multi: ['--input'],
   });
   if (options.help || positionals.length !== 1) {
@@ -130,18 +146,19 @@ async function runRunsCreate(ctx: Ctx, argv: string[]) {
     ...(options.scopeId ? { scopeId: options.scopeId } : {}),
     inputs: buildInputs(options),
   };
-  const res = await requestJson(ctx, '/v1/runs', { method: 'POST', body });
+  const res = await requestJson(ctx, '/v1/runs', { method: 'POST', body, headers: idempotencyHeaders(options.idempotencyKey) });
+  const replayed = isIdempotentReplay(res.headers) ? ' — replayed from the idempotency cache, no new run started' : '';
   if (options.wait) {
     const snap = await waitForRun(ctx, res.body.runId, Number(options.timeoutMs ?? 30000));
     if (ctx.json) writeJson(ctx.io.stdout, { created: res.body, final: snap });
     else {
-      writeLine(ctx.io.stdout, `Created run ${res.body.runId}`);
+      writeLine(ctx.io.stdout, `Created run ${res.body.runId}${replayed}`);
       writeLine(ctx.io.stdout, `Final status: ${snap.status}`);
     }
     return snap.status === 'completed' ? 0 : 1;
   }
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
-  else writeLine(ctx.io.stdout, `Created run ${res.body.runId} (${res.body.status})`);
+  else writeLine(ctx.io.stdout, `Created run ${res.body.runId} (${res.body.status})${replayed}`);
   return 0;
 }
 
@@ -179,15 +196,15 @@ async function runRunsCancel(ctx: Ctx, argv: string[]) {
 
 /** POST /v1/runs/{id}:fork — replay/branch a run from a sequence (RFC 0054). */
 async function runRunsFork(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--mode', '--from-sequence'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--mode', '--from-sequence', '--idempotency-key'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, 'Usage: openwop runs fork <runId> [--mode replay|branch] [--from-sequence n] [--json]\n');
+    write(ctx.io.stdout, 'Usage: openwop runs fork <runId> [--mode replay|branch] [--from-sequence n] [--idempotency-key k] [--json]\n');
     return options.help ? 0 : 2;
   }
   const body: Record<string, unknown> = {};
   if (options.mode) body.mode = String(options.mode);
   if (options.fromSequence !== undefined) body.fromSeq = Number(options.fromSequence);
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}:fork`, { method: 'POST', body });
+  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}:fork`, { method: 'POST', body, headers: idempotencyHeaders(options.idempotencyKey) });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Forked ${positionals[0]} → ${res.body?.runId ?? '(see --json)'}`);
   return 0;
@@ -243,7 +260,7 @@ async function runRunsEvents(ctx: Ctx, argv: string[]) {
     return options.help ? 0 : 2;
   }
   const query = new URLSearchParams();
-  if (options.since !== undefined) query.set('lastSequence', String(options.since));
+  if (options.since !== undefined) query.set(await pollCursorParam(ctx), String(options.since));
   if (options.limit !== undefined) query.set('limit', String(options.limit));
   const qs = query.toString();
   const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/events/poll${qs ? `?${qs}` : ''}`);
@@ -254,7 +271,7 @@ async function runRunsEvents(ctx: Ctx, argv: string[]) {
     events.map((e: any) => ({ seq: String(e.sequence), type: e.type, nodeId: e.nodeId ?? '', timestamp: e.timestamp ?? '' })),
     ['seq', 'type', 'nodeId', 'timestamp'],
   ));
-  if (res.body?.isComplete) writeLine(ctx.io.stdout, '(run complete)');
+  if (pollIsTerminal(res.body)) writeLine(ctx.io.stdout, '(run complete)');
   return 0;
 }
 

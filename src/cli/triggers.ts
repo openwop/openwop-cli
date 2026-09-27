@@ -22,6 +22,7 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, safeRequest } from '../api.js';
+import { idempotencyHeaders } from '../wire.js';
 
 export const TRIGGERS_HELP = `Usage:
   openwop triggers register --source <webhook|email|form> --workflow <id> [--dedup] [--verification <mode>] [--json]
@@ -207,7 +208,7 @@ async function runRegister(ctx: Ctx, argv: string[]): Promise<number> {
   if (options.verification !== undefined) body.verification = { mode: options.verification };
   let res;
   try {
-    res = await requestJson(ctx, '/v1/trigger-subscriptions', { method: 'POST', body });
+    res = await requestJson(ctx, '/v1/trigger-subscriptions', { method: 'POST', body, headers: idempotencyHeaders() });
   } catch (err) {
     if (err instanceof HttpError && err.status === 403) {
       throw new CliError(`triggers: the host refused the registration (403) — you cannot bind workflow ${options.workflow} (you must be able to start it; the host is the authority).`, 1);

@@ -39,7 +39,22 @@ The CLI speaks the **OpenWOP wire directly** — no SDK dependency — and negot
 - Under major 1 nothing changes: `/v1/…` paths, header-less, the v1 default the overlap guarantees.
 - `OPENWOP_PROTOCOL_MAJOR=1` or `=2` pins the major without probing discovery.
 
-`openwop doctor`'s `protocol` row reports `protocolVersions`, `preferredVersion`, and the major this process selected; it fails only when the host advertises neither major the CLI implements.
+`openwop doctor`'s `protocol` row reports `protocolVersions`, `preferredVersion`, and the major this process selected; it fails when the host advertises neither major the CLI implements. Its `response version` row reports the `OpenWOP-Version` the host answered with and fails on a silent downgrade (`versioning.md` §1.4); its `min client` row fails when the host's `minClientVersion` is above the version the CLI speaks (2.0 / 1.1) — the host MAY then refuse requests with `426 client_version_unsupported` (§1.5).
+
+What else the CLI does as a v2 client (audited against `spec/v2/core/*` at corpus `v2.42.6`):
+
+| Obligation | Behaviour |
+|---|---|
+| Tenant-bound ids (`identity.md` §5) | A `<tenantId>/<id>` run id is sent in the projected wire form (`acme~2Fr1`) on every `/runs/{runId}…` path under major 2 — never `%2F`, which a decoding front door turns into a 404. Pass ids as the host prints them. |
+| Error envelope (`errors.md`) | Errors print as `HTTP <status> <code>: <message>`; `426`/`406`/`429` add an actionable hint (`Retry-After` for 429). |
+| Poll cursor (`events.md` §Poll) | `afterSequence` under major 2, `lastSequence` under major 1; `isTerminal` / `isComplete`. |
+| Event names (`events.md` §Types) | v1 and v2 names (`run.resuming` / `run.resume-started`, `agent.toolCalled` / `agent.tool-called`, …) render identically; the table is pinned to `spec/v2/event-codemap.json`. |
+| `Idempotency-Key` (`idempotency.md`) | Sent on run create/fork, chat turns, interrupt resolve, and webhook / trigger / prompt creation; `--idempotency-key` on `runs create|fork` and `interrupts resolve`. |
+| Interrupt resolve (`interrupt.md`) | Body is the closed `{ "resumeValue": … }`. |
+| Discovery (`capabilities.md`) | `openwop capabilities` renders the v2 root (records by status, `minClientVersion`, `eventLogSchemaVersion`, `extensions`) from the negotiation read. |
+| Run list (`runs.md` §List) | `runs list --cursor` / `--workflow-id`; the `nextCursor` hint is printed. |
+
+When the host's `minClientVersion` is above the CLI, every command prints one warning (from the discovery read it already made); refusing is left to the host (`426`). Not yet: SSE resume via `Last-Event-ID` and `streamMode` selection are not exposed; the v2 run-scoped interrupt resolve (`POST /runs/{runId}/interrupts/{nodeId}`) and token inspect (`GET /interrupts/{token}`) have no subcommand yet.
 
 The pre-1.0 `0.18.x` line was frozen v1-only; that decision was reversed with 1.0.0 (CHANGELOG). The frozen line stays on branch `cli-v1-frozen` for anyone who needs a client that never sends `OpenWOP-Version`.
 

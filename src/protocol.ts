@@ -1,4 +1,5 @@
 import type { Ctx } from './context.js';
+import { projectRunIdsInPath } from './ids.js';
 /**
  * Protocol-major negotiation — the one place the CLI decides which wire it speaks.
  *
@@ -178,6 +179,9 @@ export async function negotiateMajor(ctx: Ctx): Promise<ProtocolMajor> {
       details?: { protocolVersions?: unknown };
     } | null;
     if (res.ok) {
+      // Kept for the readers that render discovery (capabilities, doctor) so
+      // they reuse this one fetch instead of issuing a second.
+      ctx.discovery = { doc, servedVersion: res.headers?.get?.('openwop-version') ?? undefined };
       major = selectMajor(doc?.protocolVersions);
       if (major === 2) roots = hostRootsFrom(doc?.extensions);
     } else if (res.status === 406) {
@@ -208,7 +212,8 @@ export async function resolveRequest(
   const major = await negotiateMajor(ctx);
   if (major !== 2) return { path, headers };
   const twin = v2Twin(path);
-  if (twin !== null) return { path: twin, headers: { ...headers, 'openwop-version': '2.0' } };
+  // Tenant-bound `{runId}` params travel projected (`~2F`, not `%2F`) — src/ids.ts.
+  if (twin !== null) return { path: projectRunIdsInPath(twin), headers: { ...headers, 'openwop-version': '2.0' } };
   const rooted = hostRootFor(path, ctx.hostRoots ?? {});
   if (rooted !== null) return { path: rooted, headers };
   return { path, headers };

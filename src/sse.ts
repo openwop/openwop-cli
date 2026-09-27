@@ -4,10 +4,10 @@ import type { Ctx } from './context.js';
 import { createInterface } from 'node:readline';
 import { requestJson } from './api.js';
 import { CliError, HttpError } from './errors.js';
-import { resolveRequest } from './protocol.js';
+import { negotiateMajor, resolveRequest } from './protocol.js';
 import { sleep } from './util.js';
-
-const CHAT_TERMINAL_EVENT_TYPES = new Set(['run.completed', 'run.failed', 'run.cancelled']);
+import { canonicalEventType, isTerminalRunEvent } from './eventTypes.js';
+import { idempotencyHeaders } from './wire.js';
 
 /** Create a run and return its runId (throws if the response omits one). */
 export async function submitTurn(ctx: Ctx, { workflowId, inputs, tenantId, scopeId }: any): Promise<string> {
@@ -17,7 +17,9 @@ export async function submitTurn(ctx: Ctx, { workflowId, inputs, tenantId, scope
     ...(scopeId ? { scopeId } : {}),
     inputs: inputs ?? {},
   };
-  const res = await requestJson(ctx, '/v1/runs', { method: 'POST', body });
+  // A fresh Idempotency-Key per turn (runs.md §Create — RECOMMENDED): a
+  // transport-level retry of this POST can never start the turn twice.
+  const res = await requestJson(ctx, '/v1/runs', { method: 'POST', body, headers: idempotencyHeaders() });
   if (!res.body || typeof res.body.runId !== 'string') {
     throw new CliError('Run create response did not include a runId');
   }
@@ -112,20 +114,36 @@ export async function consumeSse(stream: any, onFrame: any) {
 
 async function streamViaPoll(ctx: Ctx, runId: string, onEvent: any, timeoutMs: number) {
   const started = Date.now();
+  const cursorParam = await pollCursorParam(ctx);
   let lastSequence = -1;
   while (Date.now() - started < timeoutMs) {
-    const query = lastSequence >= 0 ? `?lastSequence=${lastSequence}` : '';
+    const query = lastSequence >= 0 ? `?${cursorParam}=${lastSequence}` : '';
     const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(runId)}/events/poll${query}`);
     const events = Array.isArray(res.body?.events) ? res.body.events : [];
     for (const ev of events) {
       onEvent(ev);
       if (typeof ev.sequence === 'number' && ev.sequence > lastSequence) lastSequence = ev.sequence;
     }
-    const sawTerminal = events.some((ev: any) => CHAT_TERMINAL_EVENT_TYPES.has(ev.type));
-    if (res.body?.isComplete === true || sawTerminal) return;
+    if (pollIsTerminal(res.body) || events.some(isTerminalRunEvent)) return;
     await sleep(250);
   }
   throw new CliError(`Timed out streaming run ${runId} after ${timeoutMs}ms`, 1);
+}
+
+/**
+ * The poll cursor's query-parameter name for the negotiated major. v2
+ * `pollRunEvents` takes `afterSequence` ("`lastSequence` and `since` are not
+ * parameters" — events.md §Poll); v1 takes `lastSequence`. Both are exclusive
+ * (`sequence > N`). A v2 host ignores the v1 name and replays from 0, which is
+ * why sending the wrong one is silent rather than an error.
+ */
+export async function pollCursorParam(ctx: Ctx): Promise<'afterSequence' | 'lastSequence'> {
+  return (await negotiateMajor(ctx)) === 2 ? 'afterSequence' : 'lastSequence';
+}
+
+/** Terminal flag of a poll response: v2 `isTerminal` (events.md §Poll), v1 `isComplete`. */
+export function pollIsTerminal(body: any): boolean {
+  return body?.isTerminal === true || body?.isComplete === true;
 }
 
 /**
@@ -134,8 +152,11 @@ async function streamViaPoll(ctx: Ctx, runId: string, onEvent: any, timeoutMs: n
  */
 export function renderEvent(ev: any): string | null {
   if (!ev || typeof ev !== 'object') return null;
-  const type = String(ev.type ?? 'event');
+  // Fold v1 names onto their v2 twins (src/eventTypes.ts) so one switch serves
+  // both majors and an era-2 log read under v2.
+  const type = canonicalEventType(ev.type ?? 'event');
   const node = ev.nodeId ? ` ${ev.nodeId}` : '';
+  const payload = ev.payload && typeof ev.payload === 'object' ? ev.payload : {};
   switch (type) {
     case 'run.started':
       return '· run started';
@@ -156,6 +177,22 @@ export function renderEvent(ev: any): string | null {
     }
     case 'run.cancelled':
       return '· run cancelled';
+    case 'run.paused':
+      return '· run paused';
+    case 'run.resume-started':
+      return '· run resuming';
+    case 'run.resumed':
+      return '· run resumed';
+    case 'run.dead-lettered':
+      return '! run dead-lettered';
+    case 'interrupt.requested':
+      return `?${node} waiting${typeof payload.kind === 'string' ? ` for ${payload.kind}` : ''}`;
+    case 'interrupt.resolved':
+      return `·${node} interrupt resolved`;
+    case 'agent.tool-called':
+      return `·${node} tool ${typeof payload.toolName === 'string' ? payload.toolName : '?'} called`;
+    case 'agent.tool-returned':
+      return `·${node} tool ${typeof payload.toolName === 'string' ? payload.toolName : '?'} returned${payload.status === 'error' || payload.error ? ' (error)' : ''}`;
     default:
       return `· ${type}`;
   }

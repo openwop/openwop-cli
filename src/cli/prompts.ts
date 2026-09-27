@@ -5,6 +5,7 @@ import { requestJson } from '../api.js';
 import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
+import { idempotencyHeaders } from '../wire.js';
 
 export const PROMPTS_HELP = `Usage:
   openwop prompts list [--kind k] [--tag t] [--limit n] [--json]
@@ -65,7 +66,7 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
         return 2;
       }
       const body = { templateId: String(options.templateId), version: String(options.version), kind: String(options.kind), text: String(options.text) };
-      const res = await requestJson(ctx, '/v1/prompts', { method: 'POST', body });
+      const res = await requestJson(ctx, '/v1/prompts', { method: 'POST', body, headers: idempotencyHeaders() });
       if (ctx.json) writeJson(ctx.io.stdout, res.body);
       else writeLine(ctx.io.stdout, `Created prompt ${body.templateId}@${body.version}`);
       return 0;
