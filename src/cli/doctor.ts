@@ -5,7 +5,9 @@ import { existsSync } from 'node:fs';
 import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { probeEndpoint, safeRequest } from '../api.js';
-import { negotiateMajor } from '../protocol.js';
+import { readDiscovery } from './capabilities.js';
+import { checkMinClientVersion } from '../wire.js';
+import { errText } from '../errors.js';
 import { readDaemonRecord, processAlive } from '../daemon.js';
 import { demoProjects } from '../repo.js';
 import { ok, warn, fail, formatCheckTable, parseNodeVersion, npmCommand, type CheckResult } from './shared.js';
@@ -60,19 +62,13 @@ export async function runDoctor(ctx: Ctx, argv: string[]) {
   if (health.ok) checks.push(ok('demo health', `${ctx.baseUrl}/health responded`));
   else checks.push(warn('demo health', `demo is not reachable at ${ctx.baseUrl} (${health.message})`));
 
-  // Protocol-version row — the CLI negotiates the major once per process
-  // (src/protocol.ts; versioning.md §1.5). Report what the host advertises and
-  // what this process selected; fail only when the two share no major.
-  const discovery = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
-  const versions: unknown = discovery?.ok ? discovery.body?.protocolVersions : undefined;
-  if (Array.isArray(versions) && versions.length > 0) {
-    const advertised = versions.filter((v): v is string => typeof v === 'string');
-    const preferred = typeof discovery.body?.preferredVersion === 'string' ? discovery.body.preferredVersion : '?';
-    const selected = await negotiateMajor(ctx);
-    const detail = `protocolVersions ${advertised.join(', ')}; preferredVersion ${preferred}; CLI speaks major ${selected}`;
-    if (advertised.some((v) => v.startsWith(`${selected}.`))) checks.push(ok('protocol', detail));
-    else checks.push(fail('protocol', `${detail} — host advertises neither major this CLI implements; see README §"Protocol version support"`));
-  }
+  // Protocol rows — the CLI negotiates the major once per process
+  // (src/protocol.ts; versioning.md §1.5) and reuses that discovery read here
+  // (no second fetch). Report what the host advertises and what this process
+  // selected; fail when the two share no major, when the host names a client
+  // floor above this CLI (§1.5 minClientVersion), or when the response header
+  // names a different major than the one asked for (§1.4 — a silent downgrade).
+  checks.push(...(await protocolChecks(ctx)));
 
   // Daemon-status row — prefer the live D-1 route; fall back to the PID file.
   const daemon = await safeRequest(ctx, '/v1/host/openwop-app/daemon-status');
@@ -125,4 +121,45 @@ export async function runDoctor(ctx: Ctx, argv: string[]) {
     writeLine(ctx.io.stdout, formatCheckTable(checks));
   }
   return checks.some((c) => c.status === 'fail') ? 1 : 0;
+}
+
+/** The protocol / min-client / response-version rows (exported for tests via the doctor command). */
+async function protocolChecks(ctx: Ctx): Promise<CheckResult[]> {
+  let discovery: Awaited<ReturnType<typeof readDiscovery>>;
+  try {
+    discovery = await readDiscovery(ctx);
+  } catch (err) {
+    return [warn('protocol', `could not read /.well-known/openwop (${errText(err)})`)];
+  }
+  const { doc, servedVersion, major } = discovery;
+  const rows: CheckResult[] = [];
+  const versions: unknown = doc?.protocolVersions;
+  if (Array.isArray(versions) && versions.length > 0) {
+    const advertised = versions.filter((v): v is string => typeof v === 'string');
+    const preferred = typeof doc?.preferredVersion === 'string' ? doc.preferredVersion : '?';
+    const detail = `protocolVersions ${advertised.join(', ')}; preferredVersion ${preferred}; CLI speaks major ${major}`;
+    if (advertised.some((v) => v.startsWith(`${major}.`))) rows.push(ok('protocol', detail));
+    else rows.push(fail('protocol', `${detail} — host advertises neither major this CLI implements; see README §"Protocol version support"`));
+  }
+  // versioning.md §1.4: every protocol response MUST carry OpenWOP-Version
+  // naming the contract that produced it. A pre-overlap v1 host never sent it.
+  if (servedVersion === undefined) {
+    rows.push(major === 2
+      ? warn('response version', 'discovery answered without an OpenWOP-Version header (versioning.md §1.4 requires one on every protocol response)')
+      : ok('response version', 'discovery answered without an OpenWOP-Version header (a v1-only host)'));
+  } else if (servedVersion.startsWith(`${major}.`)) {
+    rows.push(ok('response version', `host answered OpenWOP-Version ${servedVersion}`));
+  } else {
+    rows.push(fail('response version', `asked for major ${major}, host answered OpenWOP-Version ${servedVersion} — a silent downgrade (versioning.md §1.4); pin OPENWOP_PROTOCOL_MAJOR to the major it serves`));
+  }
+  // versioning.md §1.5 / axis 15 — only the v2 representation carries it.
+  const floor = checkMinClientVersion(doc?.minClientVersion, major);
+  if (floor.status === 'below') {
+    rows.push(fail('min client', `host requires minClientVersion ${floor.required}; this CLI speaks ${floor.client} — run \`openwop upgrade\` (the host MAY refuse it with 426 client_version_unsupported)`));
+  } else if (floor.status === 'ok') {
+    rows.push(ok('min client', `host minClientVersion ${floor.required}; this CLI speaks ${floor.client}`));
+  } else if (floor.required !== undefined) {
+    rows.push(warn('min client', `host minClientVersion ${floor.required} is not a <major>.<minor> version`));
+  }
+  return rows;
 }

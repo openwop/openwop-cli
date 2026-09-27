@@ -19,7 +19,7 @@ export { parseSignalEnvelope, parseImessageRow, parseWhatsappMessage, parseDisco
 export { getChannelPlugin } from './channels/registry.js';
 
 // ── Foundational layer (extracted from the former monolith) ──
-import { CliError, HttpError, errText } from './errors.js';
+import { CliError, HttpError, errText, describeHttpError } from './errors.js';
 import {
   VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, DEFAULT_API_KEY,
   TERMINAL_STATUSES, PROVIDER_CATALOG, HOST_PRESETS,
@@ -132,6 +132,10 @@ import { runA2a, A2A_HELP } from './cli/a2a.js';
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
 export { summarizeCapabilities };
+export { V1_TO_V2_EVENT_TYPES, canonicalEventType, isTerminalRunEvent } from './eventTypes.js';
+export { projectTenantBoundId, projectRunIdsInPath } from './ids.js';
+export { errorEnvelope, describeHttpError, HttpError } from './errors.js';
+export { checkMinClientVersion, idempotencyHeaders, CLI_PROTOCOL_VERSION_BY_MAJOR } from './wire.js';
 export { formatTable };
 export { extractGlobalOptions };
 export { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, hostRootsFrom, hostRootFor } from './protocol.js';
@@ -379,10 +383,7 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
       return err.code;
     }
     if (err instanceof HttpError) {
-      const bodyMessage = err.body && typeof err.body === 'object' && typeof (err.body as { message?: string }).message === 'string'
-        ? `: ${(err.body as { message?: string }).message}`
-        : '';
-      writeLine(io.stderr, `openwop: HTTP ${err.status}${bodyMessage}`);
+      writeLine(io.stderr, `openwop: ${describeHttpError(err)}`);
       if (options.debugErrors) writeLine(io.stderr, String(err.stack ?? err));
       // Exit-code convention: 4 = auth/permission denied. A group that wants a
       // finer-grained code (fail-closed 1, legible 2, a specific hint) catches the

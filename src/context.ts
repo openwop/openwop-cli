@@ -16,6 +16,12 @@ export interface Ctx {
   apiKey?: string | undefined;
   /** Protocol major negotiated for this process (memoized by `negotiateMajor`; see src/protocol.ts). */
   protocolMajor?: 1 | 2;
+  /**
+   * The discovery document `negotiateMajor` read (requested with
+   * `OpenWOP-Version: 2`) and the `OpenWOP-Version` the host answered with.
+   * Absent under an `OPENWOP_PROTOCOL_MAJOR` pin or when discovery failed.
+   */
+  discovery?: { doc: unknown; servedVersion: string | undefined };
   /** Host-proprietary roots from discovery, `{ "/v1/host/<org>/": "/host/<org>/" }` (memoized by `negotiateMajor`). */
   hostRoots?: Readonly<Record<string, string>>;
   /** Active config profile (`--profile` / OPENWOP_PROFILE); undefined = the default profile. */

@@ -74,7 +74,10 @@ describe('interrupts command', () => {
     const fetchImpl = async (url, init) => {
       assert.equal(init.method, 'POST');
       assert.match(new URL(url).pathname, /\/v1\/interrupts\/tok123$/);
-      assert.deepEqual(JSON.parse(init.body), { approved: true });
+      // Both majors' resolve body is the closed `{ resumeValue }` (api/openapi.yaml,
+      // api/v2/openapi.yaml); the raw payload used to be sent bare.
+      assert.deepEqual(JSON.parse(init.body), { resumeValue: { approved: true } });
+      assert.match(init.headers['idempotency-key'], /^[A-Za-z0-9._~-]{22,128}$/);
       return jsonResponse({ runId: 'r1', nodeId: 'approve', status: 'running' });
     };
     const code = await runCli(['interrupts', 'resolve', 'tok123', '--data-json', '{"approved":true}'], opts(fetchImpl, cap));

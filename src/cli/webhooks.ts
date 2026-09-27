@@ -4,6 +4,7 @@ import { requestJson } from '../api.js';
 import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
+import { idempotencyHeaders } from '../wire.js';
 
 export const WEBHOOKS_HELP = `Usage:
   openwop webhooks list [--json]
@@ -92,7 +93,7 @@ async function runWebhooksAdd(ctx: Ctx, argv: string[]) {
     ...(options.tag ? { tags: options.tag } : {}),
     ...(options.secret ? { secret: options.secret } : {}),
   };
-  const res = await requestJson(ctx, '/v1/webhooks', { method: 'POST', body });
+  const res = await requestJson(ctx, '/v1/webhooks', { method: 'POST', body, headers: idempotencyHeaders() });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;

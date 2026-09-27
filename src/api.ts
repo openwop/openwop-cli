@@ -1,8 +1,27 @@
 import type { Ctx } from './context.js';
 /** Host HTTP client — typed-ish wrapper over ctx.fetchImpl with bearer + JSON. */
 
-import { HttpError } from './errors.js';
+import { HttpError, httpErrorLine } from './errors.js';
 import { resolveRequest } from './protocol.js';
+import { checkMinClientVersion } from './wire.js';
+
+const floorWarned = new WeakSet<object>();
+
+/**
+ * One stderr warning per process when the host's `minClientVersion`
+ * (versioning.md §1.5, read from the discovery document negotiation already
+ * fetched — no extra request) is above the version this CLI speaks. A warning,
+ * not a refusal: whether to refuse is the host's decision (`426
+ * client_version_unsupported`, which the error renderer explains).
+ */
+function warnIfBelowClientFloor(ctx: Ctx): void {
+  if (floorWarned.has(ctx) || !ctx.discovery || !ctx.protocolMajor) return;
+  floorWarned.add(ctx);
+  const floor = checkMinClientVersion((ctx.discovery.doc as { minClientVersion?: unknown } | null)?.minClientVersion, ctx.protocolMajor);
+  if (floor.status === 'below') {
+    ctx.io.stderr.write(`openwop: warning: this host requires minClientVersion ${floor.required}; this CLI speaks ${floor.client}. Requests may be refused (426) — run \`openwop upgrade\`.\n`);
+  }
+}
 
 export interface RequestOptions {
   method?: string;
@@ -20,6 +39,7 @@ export async function requestJson(ctx: Ctx, requestedPath: string, options: Requ
     ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
     ...(options.headers ?? {}),
   });
+  warnIfBelowClientFloor(ctx);
   // Join path RELATIVE to the base so a base with a path prefix
   // (e.g. https://app.openwop.dev/api) is preserved. `new URL(path, base)`
   // with an absolute `path` would otherwise reset the base path to '/' —
@@ -36,7 +56,7 @@ export async function requestJson(ctx: Ctx, requestedPath: string, options: Requ
   const text = await res.text();
   const body = text.length > 0 ? parseJsonResponse(text) : null;
   if (!res.ok) {
-    throw new HttpError(`HTTP ${res.status}`, res.status, body);
+    throw new HttpError(httpErrorLine(res.status, body), res.status, body, res.headers);
   }
   return { status: res.status, headers: res.headers, body };
 }

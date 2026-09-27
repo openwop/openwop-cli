@@ -5,14 +5,19 @@ import { requestJson } from '../api.js';
 import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
+import { idempotencyHeaders } from '../wire.js';
 
 export const INTERRUPTS_HELP = `Usage:
   openwop interrupts list <runId> [--json]
-  openwop interrupts resolve <token> [--data-json '{...}'] [--json]
+  openwop interrupts resolve <token> [--data-json '{...}'] [--idempotency-key k] [--json]
 
 List a run's open interrupts (human-in-the-loop / approval pauses) and resolve
-one by its capability token. \`--data-json\` is the resume payload (validated
-against the interrupt's resumeSchema by the host).
+one by its capability token (POST /v1/interrupts/{token}; /interrupts/{token}
+under protocol v2). \`--data-json\` is the resume value (validated against the
+interrupt's resumeSchema by the host); it is sent as the closed body
+\`{ "resumeValue": <data> }\` both majors require. A payload that is already
+exactly \`{ "resumeValue": ... }\` is sent as-is. Every resolve carries an
+Idempotency-Key (interrupt.md §Resolve surfaces).
 `;
 
 export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
@@ -33,13 +38,17 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
       return 0;
     }
     case 'resolve': {
-      const { options, positionals } = parseOptions(rest, { value: ['--data-json'] });
-      if (positionals.length !== 1) { write(ctx.io.stdout, "Usage: openwop interrupts resolve <token> [--data-json '{...}'] [--json]\n"); return 2; }
-      let body = {};
+      const { options, positionals } = parseOptions(rest, { value: ['--data-json', '--idempotency-key'] });
+      if (positionals.length !== 1) { write(ctx.io.stdout, "Usage: openwop interrupts resolve <token> [--data-json '{...}'] [--idempotency-key k] [--json]\n"); return 2; }
+      let resumeValue: unknown = {};
       if (options.dataJson) {
-        try { body = JSON.parse(options.dataJson); } catch { throw new CliError('--data-json must be valid JSON.'); }
+        try { resumeValue = JSON.parse(options.dataJson); } catch { throw new CliError('--data-json must be valid JSON.'); }
       }
-      const res = await requestJson(ctx, `/v1/interrupts/${encodeURIComponent(positionals[0])}`, { method: 'POST', body });
+      const res = await requestJson(ctx, `/v1/interrupts/${encodeURIComponent(positionals[0])}`, {
+        method: 'POST',
+        body: resumeBody(resumeValue),
+        headers: idempotencyHeaders(options.idempotencyKey),
+      });
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       writeLine(ctx.io.stdout, `✓ Resolved interrupt — run ${res.body.runId} node ${res.body.nodeId} (${res.body.status ?? 'running'})`);
       return 0;
@@ -47,4 +56,18 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
     default:
       throw new CliError(`Unknown interrupts command: ${sub}\nRun \`openwop interrupts --help\` for usage.`);
   }
+}
+
+/**
+ * The resolve body — `{ resumeValue }`, closed (`additionalProperties: false`)
+ * in both `api/openapi.yaml` (v1) and `api/v2/openapi.yaml`. A value that is
+ * already exactly that envelope passes through, so a caller who wrapped it
+ * themselves is not double-wrapped.
+ */
+export function resumeBody(value: unknown): { resumeValue: unknown } {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const keys = Object.keys(value);
+    if (keys.length === 1 && keys[0] === 'resumeValue') return value as { resumeValue: unknown };
+  }
+  return { resumeValue: value };
 }
