@@ -93,7 +93,7 @@ async function startJob(ctx: Ctx, path: string, body: Record<string, unknown>): 
     const res = await requestJson(ctx, path, { method: 'POST', body });
     return renderDone(ctx, res.body, `Video job ${res.body?.jobId ?? ''} ${res.body?.status ?? 'started'}.`);
   } catch (err) {
-    const b = err instanceof HttpError ? (err.body as any) : undefined;
+    const b = err instanceof HttpError && err.body && typeof err.body === 'object' ? (err.body as { status?: unknown; error?: string }) : undefined;
     if (err instanceof HttpError && b && b.status === 'failed') {
       if (ctx.json) writeJson(ctx.io.stdout, b);
       else writeLine(ctx.io.stderr, `openwop: video generation failed (HTTP ${err.status}): ${b.error ?? 'unknown error'}${b.error === 'no_connection' ? ' — connect the video provider under Connections first' : ''}`);
