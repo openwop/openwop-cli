@@ -4,7 +4,9 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
-## [Unreleased]
+## [1.2.2] — 2026-09-27 — one command engine, no quirks
+
+A blank number flag no longer silently sends 0, and the 15 spec-table groups now print, help and hint like every other group. Exit codes and `--json` output are unchanged for every command (verified across 7,274 snapshot invocations).
 
 ### Fixed
 - **A blank number flag is a usage error, no longer sent as 0.** In the route-table groups a blank value such as `--limit=` or `--cost-usd=` read as `Number('')` = 0 and was sent (e.g. `roster activity <id> --limit=` requested `?limit=0`). Every group now refuses it with `--<flag> must be a number (got "")` and exit 2 before any request — the behaviour the spec-table groups already had.
