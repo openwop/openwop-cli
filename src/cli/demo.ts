@@ -121,7 +121,7 @@ export async function runDemoStatus(ctx: Ctx, argv: string[]): Promise<number> {
     safeRequest(ctx, '/health', { auth: false }),
     safeRequest(ctx, '/readiness', { auth: false }),
     safeRequest(ctx, '/.well-known/openwop', { auth: false }),
-    safeRequest(ctx, '/v1/host/sample/demo-summary'),
+    safeRequest(ctx, '/v1/host/openwop-app/demo-summary'),
   ]);
 
   const payload = {

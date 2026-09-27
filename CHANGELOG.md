@@ -4,6 +4,17 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
+## [Unreleased]
+
+### Fixed
+- **Host-extension paths renamed `/v1/host/sample/*` → `/v1/host/openwop-app/*`.** The reference host renamed that namespace in openwop-app PR #260 (2026-06-14); 66 of the CLI's 68 host-extension paths still used the old name and every one 404'd against `https://app.openwop.dev/api` (e.g. `/v1/host/sample/orgs` 404 vs `/v1/host/openwop-app/orgs` 200). The unit tests passed because they mocked fetch and asserted the old literal. Source, tests, README, FEATURES, ARCHITECTURE, ROADMAP and CLAUDE.md updated.
+- `kanban watch` opened its SSE stream with a hand-built URL that bypassed `resolveRequest`; it now goes through the same negotiation as every other request.
+
+### Changed
+- **Host-proprietary roots under major 2** (`spec/v2/core/versioning.md` §5). When the negotiated major is 2 and discovery advertises an unversioned mount for an org under `extensions.*` (`{ root: "/host/<org>/", twin: "/v1/host/<org>/" }` — the reference host's `openwop-app.host`), a `/v1/host/<org>/…` request is sent to `/host/<org>/…` with **no** `OpenWOP-Version` header (such a path has no major and is outside §1.4). With no advertised root the `/v1` twin is sent unchanged; under major 1 or an `OPENWOP_PROTOCOL_MAJOR` pin nothing is rewritten.
+- The single discovery read now carries `OpenWOP-Version: 2`, because only a host's v2 representation carries the §5 `extensions` mount (the header-less default is `preferredVersion`, the v1 document). Still one read per process; a host that does not serve major 2 answers `406` with `details.protocolVersions` (§1.3), which negotiation reads the same way.
+- `V2_PATH_TEMPLATES` refreshed from the corpus `spec/v2/path-manifest.json` (corpus `v2.42.6-15-g61b66240`, 45 paths, 43 embedded — adds `/webhooks/{webhookId}/dead-letters` and `/webhooks/{webhookId}/rotate-secret`). New `scripts/sync-path-manifest.mjs <corpus>` (stdlib only) regenerates the list and the checked-in `test/fixtures/v2-path-manifest-paths.json`; `test/path-manifest.test.mjs` fails on drift.
+
 ## [1.0.1] — 2026-09-10
 
 ### Fixed

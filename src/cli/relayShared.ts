@@ -8,7 +8,7 @@ import { openwopHomeDir } from '../config.js';
 import { getChannelPlugin } from '../channels/registry.js';
 import type { OutboundMessage } from '../channels/types.js';
 
-export const MESSAGING_BASE = '/v1/host/sample/messaging';
+export const MESSAGING_BASE = '/v1/host/openwop-app/messaging';
 export const DEVICE_TOKEN_HEADER = 'x-openwop-device-token';
 export const RELAY_CHANNELS = ['whatsapp', 'signal', 'imessage', 'discord'];
 

@@ -5,7 +5,7 @@ import type { Ctx } from '../context.js';
  * `A2ATaskState` per backing run (taskId === runId) for the run's whole
  * lifecycle, readable after the caller disconnects. This group reads that durable
  * projection via the host seam:
- *   GET /v1/host/sample/a2a/tasks/{taskId}  — the durable A2ATaskState
+ *   GET /v1/host/openwop-app/a2a/tasks/{taskId}  — the durable A2ATaskState
  *
  * The record is content-free by design (RFC 0100): it carries the projected
  * state, the interrupt kind (iff input-required), and an optional push config —
@@ -36,7 +36,7 @@ when the host doesn't advertise A2A.
 
 Endpoints:
   status   reads /.well-known/openwop → capabilities.a2a
-  task     GET /v1/host/sample/a2a/tasks/{taskId}
+  task     GET /v1/host/openwop-app/a2a/tasks/{taskId}
 
   --json   Print the raw host response instead of the rendered view.
 
@@ -124,11 +124,11 @@ async function runTask(ctx: Ctx, argv: string[]): Promise<number> {
   const id = positionals[0];
   let t: any;
   try {
-    const res = await requestJson(ctx, `/v1/host/sample/a2a/tasks/${encodeURIComponent(id)}`);
+    const res = await requestJson(ctx, `/v1/host/openwop-app/a2a/tasks/${encodeURIComponent(id)}`);
     t = res.body ?? {};
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) {
-      throw new CliError(`a2a: no durable task ${id} (the host must serve /v1/host/sample/a2a/tasks/{taskId}; taskId equals the backing runId).`, 1);
+      throw new CliError(`a2a: no durable task ${id} (the host must serve /v1/host/openwop-app/a2a/tasks/{taskId}; taskId equals the backing runId).`, 1);
     }
     throw err;
   }

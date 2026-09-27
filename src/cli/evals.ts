@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const base = (org: string) => `/v1/host/sample/evals/orgs/${encodeURIComponent(org)}`;
+const base = (org: string) => `/v1/host/openwop-app/evals/orgs/${encodeURIComponent(org)}`;
 
 export const EVALS_HELP = `Usage:
   openwop evals leaderboard --org <orgId> [--json]

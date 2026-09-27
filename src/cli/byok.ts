@@ -17,7 +17,7 @@ export const BYOK_HELP = `Usage:
 Bring-your-own-key secret store (host-side). The host holds the secret; the
 credential-payload-redaction invariant (RFC 0046) means a value is NEVER
 returned over the wire — 'list' shows only refs, and 'set' echoes only a
-masked preview. Drives /v1/host/sample/byok/secrets. If --value is omitted,
+masked preview. Drives /v1/host/openwop-app/byok/secrets. If --value is omitted,
 'set' prompts for it without echoing to the terminal.
 
   --ref <credentialRef>  Opaque ref a workflow/pack uses to fetch the secret
@@ -48,7 +48,7 @@ export async function runByok(ctx: Ctx, argv: string[]) {
 async function byokList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, BYOK_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/byok/secrets');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/byok/secrets');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const refs = Array.isArray(res.body?.credentialRefs) ? res.body.credentialRefs : [];
   if (refs.length === 0) { writeLine(ctx.io.stdout, 'No BYOK secrets stored. Add one with `openwop byok set --ref <name>`.'); return 0; }
@@ -72,7 +72,7 @@ async function byokSet(ctx: Ctx, argv: string[]) {
     value = typeof entered === 'string' ? entered : String(entered ?? '');
   }
   if (!value) throw new CliError('A non-empty --value (or prompted secret) is required.', 2);
-  const res = await requestJson(ctx, '/v1/host/sample/byok/secrets', {
+  const res = await requestJson(ctx, '/v1/host/openwop-app/byok/secrets', {
     method: 'POST',
     body: { credentialRef: options.ref, value },
   });
@@ -85,20 +85,20 @@ async function byokDelete(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop byok delete <credentialRef> [--yes]\n'); return options.help ? 0 : 2; }
   if (!options.yes) { writeLine(ctx.io.stderr, `Refusing to delete secret ${positionals[0]} without --yes.`); return 2; }
-  await requestJson(ctx, `/v1/host/sample/byok/secrets/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/v1/host/openwop-app/byok/secrets/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted secret ref ${positionals[0]}.`);
   return 0;
 }
 
 /** The headless AI-default credential binding (ADR 0110): GET/PUT/DELETE
- *  /v1/host/sample/byok/ai-default. `set` binds a stored credentialRef as the
+ *  /v1/host/openwop-app/byok/ai-default. `set` binds a stored credentialRef as the
  *  default the host uses when a run doesn't name one; `clear` removes it. */
 async function byokAiDefault(ctx: Ctx, argv: string[]) {
   const action = argv[0] && !argv[0].startsWith('-') ? argv[0] : 'get';
   const rest = ['get', 'set', 'clear'].includes(action) ? argv.slice(1) : argv;
   const { options, positionals } = parseOptions(rest, { bool: ['--help', '--yes'] });
   if (options.help) { write(ctx.io.stdout, BYOK_HELP); return 0; }
-  const path = '/v1/host/sample/byok/ai-default';
+  const path = '/v1/host/openwop-app/byok/ai-default';
   if (action === 'set') {
     if (positionals.length !== 1) { write(ctx.io.stderr, 'Usage: openwop byok ai-default set <credentialRef> [--json]\n'); return 2; }
     const res = await requestJson(ctx, path, { method: 'PUT', body: { credentialRef: positionals[0] } });

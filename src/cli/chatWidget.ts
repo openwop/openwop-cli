@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const base = (org: string) => `/v1/host/sample/chat-widget/orgs/${encodeURIComponent(org)}/widgets`;
+const base = (org: string) => `/v1/host/openwop-app/chat-widget/orgs/${encodeURIComponent(org)}/widgets`;
 
 export const CHAT_WIDGET_HELP = `Usage:
   openwop chat-widget list --org <orgId> [--json]

@@ -2,10 +2,10 @@ import type { Ctx } from '../context.js';
 /** `openwop connections ...` — inspect host connections + their OAuth client config.
  *
  * Drives the connections feature (sample host-extension, ADR 0024):
- *   GET  /v1/host/sample/connections                      — the connection list
- *   POST /v1/host/sample/connections/{id}/test            — health-probe one
- *   POST /v1/host/sample/connections/{provider}/authorize — mint a consent URL
- *   GET  /v1/host/sample/connections-oauth-clients         — host OAuth client config
+ *   GET  /v1/host/openwop-app/connections                      — the connection list
+ *   POST /v1/host/openwop-app/connections/{id}/test            — health-probe one
+ *   POST /v1/host/openwop-app/connections/{provider}/authorize — mint a consent URL
+ *   GET  /v1/host/openwop-app/connections-oauth-clients         — host OAuth client config
  *
  * SECRET BOUNDARY (the whole point of being careful here): OAuth client secrets,
  * access/refresh tokens and stored credentials are HOST-SIDE only. The host never
@@ -44,12 +44,12 @@ The host is the authority — the CLI renders its resolved view and fails closed
 the connections surface isn't advertised (/.well-known/openwop).
 
 Endpoints:
-  list           GET  /v1/host/sample/connections
-  get            GET  /v1/host/sample/connections  (filtered to <id> client-side;
+  list           GET  /v1/host/openwop-app/connections
+  get            GET  /v1/host/openwop-app/connections  (filtered to <id> client-side;
                  the host exposes no single-connection GET)
-  test           POST /v1/host/sample/connections/{id}/test
-  authorize      POST /v1/host/sample/connections/{provider}/authorize
-  oauth-clients  GET  /v1/host/sample/connections-oauth-clients[/{provider} filtered]
+  test           POST /v1/host/openwop-app/connections/{id}/test
+  authorize      POST /v1/host/openwop-app/connections/{provider}/authorize
+  oauth-clients  GET  /v1/host/openwop-app/connections-oauth-clients[/{provider} filtered]
 
   --scope <s>     (authorize) An OAuth scope to request (repeatable).
   --write         (authorize) Request write scopes (re-consent for write access).
@@ -124,10 +124,10 @@ async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const paths = wk.body && typeof wk.body === 'object' ? (wk.body as { paths?: unknown }).paths : undefined;
   const advertised =
     paths !== null && typeof paths === 'object' &&
-    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/sample/connections'));
+    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/openwop-app/connections'));
   if (!advertised) {
     throw new CliError(
-      'connections: this host does not advertise the connections surface (/v1/host/sample/connections is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
+      'connections: this host does not advertise the connections surface (/v1/host/openwop-app/connections is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
       1,
     );
   }
@@ -140,7 +140,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `connections: ${detail} (the host must mount /v1/host/sample/connections; the CLI renders the host's view, it never holds credentials).`,
+      `connections: ${detail} (the host must mount /v1/host/openwop-app/connections; the CLI renders the host's view, it never holds credentials).`,
       1,
     );
   }
@@ -157,7 +157,7 @@ function scopeAxis(c: any): string {
 async function fetchConnections(ctx: Ctx): Promise<any[]> {
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/sample/connections');
+    res = await requestJson(ctx, '/v1/host/openwop-app/connections');
   } catch (err) {
     gate404(err);
   }
@@ -232,7 +232,7 @@ async function runTest(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/connections/${encodeURIComponent(positionals[0])}/test`, { method: 'POST' });
+    res = await requestJson(ctx, `/v1/host/openwop-app/connections/${encodeURIComponent(positionals[0])}/test`, { method: 'POST' });
   } catch (err) {
     gate404(err);
   }
@@ -266,7 +266,7 @@ async function runAuthorize(ctx: Ctx, argv: string[]): Promise<number> {
   if (options.returnTo !== undefined) body.returnTo = options.returnTo;
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/sample/connections/${encodeURIComponent(positionals[0])}/authorize`, { method: 'POST', body });
+    res = await requestJson(ctx, `/v1/host/openwop-app/connections/${encodeURIComponent(positionals[0])}/authorize`, { method: 'POST', body });
   } catch (err) {
     // 409 = OAuth not configured for this provider on the host.
     if (err instanceof HttpError && err.status === 409) {
@@ -307,7 +307,7 @@ async function runOAuthClients(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/sample/connections-oauth-clients');
+    res = await requestJson(ctx, '/v1/host/openwop-app/connections-oauth-clients');
   } catch (err) {
     gate404(err);
   }

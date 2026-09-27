@@ -5,7 +5,7 @@ import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const prof = (id: string) => `/v1/host/sample/agents/${encodeURIComponent(id)}/profile`;
+const prof = (id: string) => `/v1/host/openwop-app/agents/${encodeURIComponent(id)}/profile`;
 
 export const AGENT_PROFILE_HELP = `Usage:
   openwop agent-profile get <agentId> [--json]
@@ -25,7 +25,7 @@ export async function runAgentProfile(ctx: Ctx, argv: string[]) {
   const agentId = positionals[0];
   switch (sub) {
     case 'get': writeJson(ctx.io.stdout, (await requestJson(ctx, prof(agentId))).body); return 0;
-    case 'readiness': writeJson(ctx.io.stdout, (await requestJson(ctx, `/v1/host/sample/agents/${encodeURIComponent(agentId)}/connection-readiness`)).body); return 0;
+    case 'readiness': writeJson(ctx.io.stdout, (await requestJson(ctx, `/v1/host/openwop-app/agents/${encodeURIComponent(agentId)}/connection-readiness`)).body); return 0;
     case 'set': {
       if (!options.profileJson) { write(ctx.io.stderr, "agent-profile set needs --profile-json '{...}'.\n"); return 2; }
       let profile;

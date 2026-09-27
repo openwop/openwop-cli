@@ -17,7 +17,7 @@ function capture() {
 }
 
 /**
- * In-memory stand-in for the /v1/host/sample/messaging relay-gateway, enough
+ * In-memory stand-in for the /v1/host/openwop-app/messaging relay-gateway, enough
  * to exercise the CLI command paths end-to-end (register/activate/connectors/
  * enqueue/device-loop).
  */
@@ -35,7 +35,7 @@ function relayServer() {
 
   return async function fetchImpl(url, init = {}) {
     const u = new URL(url);
-    const path = u.pathname.replace('/v1/host/sample/messaging', '');
+    const path = u.pathname.replace('/v1/host/openwop-app/messaging', '');
     const method = init.method ?? 'GET';
     const body = init.body ? JSON.parse(init.body) : {};
     const devToken = init.headers?.['x-openwop-device-token'];

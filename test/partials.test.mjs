@@ -61,7 +61,7 @@ describe('prompts + byok + governance + catalog partials', () => {
     await runCli(['byok', 'ai-default', 'set', 'anthropic-prod'], base(cap, async (url, init) => {
       path = new URL(url).pathname; method = init?.method; body = JSON.parse(init.body); return json({ credentialRef: 'anthropic-prod' });
     }));
-    assert.match(path, /\/v1\/host\/sample\/byok\/ai-default$/); assert.equal(method, 'PUT');
+    assert.match(path, /\/v1\/host\/openwop-app\/byok\/ai-default$/); assert.equal(method, 'PUT');
     assert.deepEqual(body, { credentialRef: 'anthropic-prod' });
   });
   it('governance media-budget set PUTs numeric caps', async () => {

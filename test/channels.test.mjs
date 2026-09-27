@@ -200,7 +200,7 @@ describe('startInboundReceive forwards normalized messages to /device/inbound (B
     assert.equal(typeof stop, 'function');
     assert.equal(posted.length, 2);
     assert.deepEqual(posted.map((p) => p.body.text), ['one', 'two']);
-    assert.equal(posted[0].path, '/v1/host/sample/messaging/device/inbound');
+    assert.equal(posted[0].path, '/v1/host/openwop-app/messaging/device/inbound');
     assert.equal(posted[0].devTok, 'dtok_x');
     assert.match(out, /Inbound receive active/);
   });

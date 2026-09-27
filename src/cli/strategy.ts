@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const BASE = '/v1/host/sample/strategy';
+const BASE = '/v1/host/openwop-app/strategy';
 
 export const STRATEGY_HELP = `Usage:
   openwop strategy list [--json]

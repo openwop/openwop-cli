@@ -16,6 +16,8 @@ export interface Ctx {
   apiKey?: string | undefined;
   /** Protocol major negotiated for this process (memoized by `negotiateMajor`; see src/protocol.ts). */
   protocolMajor?: 1 | 2;
+  /** Host-proprietary roots from discovery, `{ "/v1/host/<org>/": "/host/<org>/" }` (memoized by `negotiateMajor`). */
+  hostRoots?: Readonly<Record<string, string>>;
   /** Active config profile (`--profile` / OPENWOP_PROFILE); undefined = the default profile. */
   profile?: string | undefined;
   json: boolean;

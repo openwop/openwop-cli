@@ -25,7 +25,7 @@ describe('analytics summary', () => {
   it('renders the host-aggregated rollup', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/sample\/analytics\/orgs\/org_123\/summary$/);
+      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/analytics\/orgs\/org_123\/summary$/);
       return jsonResponse({ summary: { total: 42, sessions: 7, byType: { pageview: 30, event: 10, conversion: 2 }, topPaths: [{ path: '/pricing', count: 12 }], utmSources: [{ source: 'google', count: 9 }] } });
     };
     const code = await runCli(['analytics', 'summary', 'org_123'], opts(fetchImpl, cap));

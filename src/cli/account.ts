@@ -10,7 +10,7 @@ export const ACCOUNT_HELP = `Usage:
   openwop account delete [--confirm] [--json]
 
 Permanently delete ALL data for the signed-in account (DELETE
-/v1/host/sample/account). Requires a signed-in user (OIDC Bearer) — the host
+/v1/host/openwop-app/account). Requires a signed-in user (OIDC Bearer) — the host
 rejects non-user principals. This is irreversible: tenant rows are wiped and
 the KMS-wrapped DEKs become unrecoverable. Without --confirm you'll be asked
 to confirm interactively.
@@ -31,7 +31,7 @@ export async function runAccount(ctx: Ctx, argv: string[]) {
     const ok = await promptYesNo(ctx, 'Permanently delete ALL data for the signed-in account? This cannot be undone.', false);
     if (!ok) { writeLine(ctx.io.stdout, 'Aborted.'); return 1; }
   }
-  const res = await requestJson(ctx, '/v1/host/sample/account', { method: 'DELETE' });
+  const res = await requestJson(ctx, '/v1/host/openwop-app/account', { method: 'DELETE' });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const counts = Object.entries(res.body).filter(([k]) => k !== 'deleted').map(([k, v]) => `${k}=${v}`).join(' ');
   writeLine(ctx.io.stdout, `✓ Account deleted${counts ? ` (${counts})` : ''}`);

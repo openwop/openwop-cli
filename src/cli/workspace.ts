@@ -15,7 +15,7 @@ export const WORKSPACE_HELP = `Usage:
 Agent workspace (RFC 0059 §C). A tenant-scoped file area an agent reads and
 writes during a run, with optimistic concurrency via ETag / If-Match (WCT-1
 cross-owner isolation is enforced host-side). Drives the real CRUD surface
-GET/PUT/DELETE /v1/host/workspace/files. (The /v1/host/sample/workspace/op
+GET/PUT/DELETE /v1/host/workspace/files. (The /v1/host/openwop-app/workspace/op
 cross-owner seam is a conformance-only test seam and is intentionally not
 exposed here.)
 

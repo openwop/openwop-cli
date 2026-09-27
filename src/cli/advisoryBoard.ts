@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const BOARDS = '/v1/host/sample/advisors/boards';
+const BOARDS = '/v1/host/openwop-app/advisors/boards';
 
 export const ADVISORS_HELP = `Usage:
   openwop advisors list [--json]

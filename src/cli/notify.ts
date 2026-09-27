@@ -11,7 +11,7 @@ export const NOTIFY_HELP = `Usage:
   openwop notify sms   --to <number> --text <msg>
 
 Dispatch a one-off notification through the demo host
-(/v1/host/sample/messaging/notify). The reference app returns a synthetic
+(/v1/host/openwop-app/messaging/notify). The reference app returns a synthetic
 receipt; wiring a real provider (SES / Twilio) is a host concern.
 `;
 

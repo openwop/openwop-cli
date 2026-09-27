@@ -5,8 +5,8 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const twinPath = (id: string) => `/v1/host/sample/agents/${encodeURIComponent(id)}/twin`;
-const GRANTS = '/v1/host/sample/profiles/me/twin-grants';
+const twinPath = (id: string) => `/v1/host/openwop-app/agents/${encodeURIComponent(id)}/twin`;
+const GRANTS = '/v1/host/openwop-app/profiles/me/twin-grants';
 
 export const TWIN_HELP = `Usage:
   openwop twin get <agentId> [--json]

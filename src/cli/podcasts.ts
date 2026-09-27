@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const EP = '/v1/host/sample/podcasts/episodes';
+const EP = '/v1/host/openwop-app/podcasts/episodes';
 
 export const PODCASTS_HELP = `Usage:
   openwop podcasts list [--json]

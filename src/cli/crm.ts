@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const BASE = '/v1/host/sample/crm/contacts';
+const BASE = '/v1/host/openwop-app/crm/contacts';
 
 export const CRM_HELP = `Usage:
   openwop crm list [--stage <s>] [--json]

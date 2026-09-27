@@ -5,6 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { consumeSse } from '../sse.js';
+import { resolveRequest } from '../protocol.js';
 
 export const KANBAN_HELP = `Usage:
   openwop kanban boards [--json]
@@ -21,7 +22,7 @@ export const KANBAN_HELP = `Usage:
   openwop kanban assigned [--json]
   openwop kanban watch <boardId>
 
-Kanban boards (host-extension under /v1/host/sample/kanban). A board is a lane
+Kanban boards (host-extension under /v1/host/openwop-app/kanban). A board is a lane
 of cards an agent works; a board MAY bind to an RFC 0086 roster entry so its
 To Do column fires the named agent's first portfolio workflow. 'watch' streams
 the board's server-sent card events until interrupted.
@@ -66,7 +67,7 @@ export async function runKanban(ctx: Ctx, argv: string[]) {
 async function boardsList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, KANBAN_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/kanban/boards');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/kanban/boards');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const boards = Array.isArray(res.body?.boards) ? res.body.boards : (Array.isArray(res.body) ? res.body : []);
   if (boards.length === 0) {
@@ -88,7 +89,7 @@ async function boardGet(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop kanban board <boardId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/sample/kanban/boards/${encodeURIComponent(positionals[0])}`);
+  const res = await requestJson(ctx, `/v1/host/openwop-app/kanban/boards/${encodeURIComponent(positionals[0])}`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const b = res.body ?? {};
   writeLine(ctx.io.stdout, `board: ${b.id ?? positionals[0]} — ${b.name ?? ''}`);
@@ -122,7 +123,7 @@ async function boardCreate(ctx: Ctx, argv: string[]) {
   }
   if (options.triggerWorkflow) body.triggerWorkflowId = options.triggerWorkflow;
   if (options.roster) body.rosterId = options.roster;
-  const res = await requestJson(ctx, '/v1/host/sample/kanban/boards', { method: 'POST', body });
+  const res = await requestJson(ctx, '/v1/host/openwop-app/kanban/boards', { method: 'POST', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Created board ${res.body?.id ?? res.body?.boardId} (${res.body?.name}).`);
   return 0;
@@ -138,7 +139,7 @@ async function boardDelete(ctx: Ctx, argv: string[]) {
     writeLine(ctx.io.stderr, `Refusing to delete board ${positionals[0]} without --yes (this removes the board and its cards).`);
     return 2;
   }
-  await requestJson(ctx, `/v1/host/sample/kanban/boards/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/v1/host/openwop-app/kanban/boards/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted board ${positionals[0]}.`);
   return 0;
 }
@@ -157,7 +158,7 @@ async function cardAdd(ctx: Ctx, argv: string[]) {
   if (options.description) body.description = options.description;
   if (options.workflow) body.workflowId = options.workflow;
   if (options.priority) body.priority = options.priority;
-  const res = await requestJson(ctx, `/v1/host/sample/kanban/boards/${encodeURIComponent(positionals[0])}/cards`, { method: 'POST', body });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/kanban/boards/${encodeURIComponent(positionals[0])}/cards`, { method: 'POST', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Added card ${res.body?.id ?? ''} to board ${positionals[0]}.`);
   return 0;
@@ -183,7 +184,7 @@ async function cardPatch(ctx: Ctx, argv: string[], moveOnly: boolean) {
     if (options.workflow) body.workflowId = options.workflow;
   }
   if (Object.keys(body).length === 0) throw new CliError('Nothing to update — pass at least one field.', 2);
-  const res = await requestJson(ctx, `/v1/host/sample/kanban/cards/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/kanban/cards/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Updated card ${positionals[0]}.`);
   return 0;
@@ -199,7 +200,7 @@ async function cardDelete(ctx: Ctx, argv: string[]) {
     writeLine(ctx.io.stderr, `Refusing to delete card ${positionals[0]} without --yes.`);
     return 2;
   }
-  await requestJson(ctx, `/v1/host/sample/kanban/cards/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/v1/host/openwop-app/kanban/cards/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted card ${positionals[0]}.`);
   return 0;
 }
@@ -210,8 +211,9 @@ async function boardWatch(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop kanban watch <boardId>\n');
     return options.help ? 0 : 2;
   }
-  const url = new URL(`v1/host/sample/kanban/boards/${encodeURIComponent(positionals[0])}/events`, ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
-  const headers: Record<string, string> = { accept: 'text/event-stream' };
+  // Through resolveRequest so the negotiated host root applies (src/protocol.ts).
+  const { path, headers } = await resolveRequest(ctx, `/v1/host/openwop-app/kanban/boards/${encodeURIComponent(positionals[0])}/events`, { accept: 'text/event-stream' });
+  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
   if (ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
   const res = await ctx.fetchImpl(url, { headers });
   if (!res.ok || !res.body) {
@@ -226,7 +228,7 @@ async function boardWatch(ctx: Ctx, argv: string[]) {
   return 0;
 }
 
-/** POST /v1/host/sample/kanban/cards/{id}/assign — assign a card to a subject (RFC 0074). */
+/** POST /v1/host/openwop-app/kanban/cards/{id}/assign — assign a card to a subject (RFC 0074). */
 async function cardAssign(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { value: ['--assignee', '--role'], bool: ['--no-notify', '--help'] });
   if (options.help || positionals.length !== 1 || !options.assignee) {
@@ -236,30 +238,30 @@ async function cardAssign(ctx: Ctx, argv: string[]) {
   const body: Record<string, unknown> = { assigneeId: options.assignee };
   if (options.role) body.assigneeRole = options.role;
   if (options.noNotify) body.notifyAssignee = false;
-  const res = await requestJson(ctx, `/v1/host/sample/kanban/cards/${encodeURIComponent(positionals[0])}/assign`, { method: 'POST', body });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/kanban/cards/${encodeURIComponent(positionals[0])}/assign`, { method: 'POST', body });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Assigned card ${positionals[0]} to ${options.assignee}.`);
   return 0;
 }
 
-/** POST /v1/host/sample/kanban/cards/{id}/claim — claim a card for yourself (ADR 0049 D4). */
+/** POST /v1/host/openwop-app/kanban/cards/{id}/claim — claim a card for yourself (ADR 0049 D4). */
 async function cardClaim(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) {
     write(ctx.io.stdout, 'Usage: openwop kanban card-claim <cardId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/sample/kanban/cards/${encodeURIComponent(positionals[0])}/claim`, { method: 'POST', body: {} });
+  const res = await requestJson(ctx, `/v1/host/openwop-app/kanban/cards/${encodeURIComponent(positionals[0])}/claim`, { method: 'POST', body: {} });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Claimed card ${positionals[0]}.`);
   return 0;
 }
 
-/** GET /v1/host/sample/kanban/boards/personal — your personal boards. */
+/** GET /v1/host/openwop-app/kanban/boards/personal — your personal boards. */
 async function boardsPersonal(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, KANBAN_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/kanban/boards/personal');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/kanban/boards/personal');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const boards = Array.isArray(res.body?.boards) ? res.body.boards : [];
   if (boards.length === 0) { writeLine(ctx.io.stdout, 'No personal boards.'); return 0; }
@@ -270,11 +272,11 @@ async function boardsPersonal(ctx: Ctx, argv: string[]) {
   return 0;
 }
 
-/** GET /v1/host/sample/kanban/assigned — cards assigned to you across active boards (ADR 0049). */
+/** GET /v1/host/openwop-app/kanban/assigned — cards assigned to you across active boards (ADR 0049). */
 async function assignedList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, KANBAN_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/sample/kanban/assigned');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/kanban/assigned');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const cards = Array.isArray(res.body?.cards) ? res.body.cards : [];
   if (cards.length === 0) { writeLine(ctx.io.stdout, 'No cards assigned to you.'); return 0; }

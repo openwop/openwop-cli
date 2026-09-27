@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const USERS_BASE = '/v1/host/sample/users';
+const USERS_BASE = '/v1/host/openwop-app/users';
 
 // Mirror the host wire enum EXACTLY (usersService.ts USER_SOURCES).
 const USER_SOURCES = ['oidc', 'password', 'saml', 'scim', 'manual'] as const;

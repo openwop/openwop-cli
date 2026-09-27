@@ -95,7 +95,7 @@ describe('demo status command', () => {
           implementation: { name: 'demo', version: '0.1.0' },
           capabilities: {},
         },
-        '/v1/host/sample/demo-summary': {
+        '/v1/host/openwop-app/demo-summary': {
           demo: {
             nodeCatalog: { total: 2, runnable: 2 },
             workflows: { registered: 1, fixtures: 3 },
@@ -308,7 +308,7 @@ describe('account / admin commands', () => {
     const cap = capture();
     let method;
     const fetchImpl = async (url, init) => {
-      assert.equal(new URL(url).pathname, '/v1/host/sample/account');
+      assert.equal(new URL(url).pathname, '/v1/host/openwop-app/account');
       method = init?.method;
       return new Response(JSON.stringify({ deleted: true, runs: 3, secrets: 1 }), { status: 200 });
     };
@@ -335,7 +335,7 @@ describe('account / admin commands', () => {
     };
     const code = await runCli(['admin', 'cleanup', '--status'], ctxOpts(cap, fetchImpl));
     assert.equal(code, 0, cap.stderr);
-    assert.equal(path, '/v1/host/sample/admin/cleanup/status');
+    assert.equal(path, '/v1/host/openwop-app/admin/cleanup/status');
     assert.equal(method, 'GET');
     assert.match(cap.stdout, /trackedTenants=4 oldestActivity=5s ago/);
   });
@@ -344,7 +344,7 @@ describe('account / admin commands', () => {
     const cap = capture();
     let method;
     const fetchImpl = async (url, init) => {
-      assert.equal(new URL(url).pathname, '/v1/host/sample/admin/cleanup');
+      assert.equal(new URL(url).pathname, '/v1/host/openwop-app/admin/cleanup');
       method = init?.method;
       return new Response(JSON.stringify({ ok: true, activeTenants: 2, wipedSecrets: 7, windowMs: 86400000 }), { status: 200 });
     };
@@ -361,9 +361,9 @@ describe('media commands', () => {
     let posted;
     const fetchImpl = async (url, init) => {
       const path = new URL(url).pathname;
-      if (path === '/v1/host/sample/media/generate-image' && init?.method === 'POST') {
+      if (path === '/v1/host/openwop-app/media/generate-image' && init?.method === 'POST') {
         posted = JSON.parse(init.body);
-        return new Response(JSON.stringify({ url: '/v1/host/sample/assets/tok', bytes: 70, contentType: 'image/png', stub: true }), { status: 201 });
+        return new Response(JSON.stringify({ url: '/v1/host/openwop-app/assets/tok', bytes: 70, contentType: 'image/png', stub: true }), { status: 201 });
       }
       throw new Error(`unexpected fetch: ${path}`);
     };
@@ -383,10 +383,10 @@ describe('media commands', () => {
     const pngBytes = Buffer.from('iVBORw0KGgo=', 'base64');
     const fetchImpl = async (url, init) => {
       const path = new URL(url).pathname;
-      if (path === '/v1/host/sample/media/generate-image' && init?.method === 'POST') {
-        return new Response(JSON.stringify({ url: '/v1/host/sample/assets/tok', bytes: pngBytes.length, contentType: 'image/png', stub: true }), { status: 201 });
+      if (path === '/v1/host/openwop-app/media/generate-image' && init?.method === 'POST') {
+        return new Response(JSON.stringify({ url: '/v1/host/openwop-app/assets/tok', bytes: pngBytes.length, contentType: 'image/png', stub: true }), { status: 201 });
       }
-      if (path === '/v1/host/sample/assets/tok') {
+      if (path === '/v1/host/openwop-app/assets/tok') {
         return new Response(pngBytes, { status: 200 });
       }
       throw new Error(`unexpected fetch: ${path}`);
@@ -407,8 +407,8 @@ describe('media commands', () => {
     const cap = capture();
     const fetchImpl = async (url, init) => {
       const path = new URL(url).pathname;
-      if (path === '/v1/host/sample/media/synthesize' && init?.method === 'POST') {
-        return new Response(JSON.stringify({ url: '/v1/host/sample/assets/w', bytes: 44, contentType: 'audio/wav', voice: 'default', stub: true }), { status: 201 });
+      if (path === '/v1/host/openwop-app/media/synthesize' && init?.method === 'POST') {
+        return new Response(JSON.stringify({ url: '/v1/host/openwop-app/assets/w', bytes: 44, contentType: 'audio/wav', voice: 'default', stub: true }), { status: 201 });
       }
       throw new Error(`unexpected fetch: ${path}`);
     };
@@ -583,11 +583,11 @@ describe('onboard --non-interactive', () => {
     let byokPost = null;
     const fetchImpl = async (url, init) => {
       const path = new URL(url).pathname;
-      if (path === '/v1/host/sample/byok/secrets' && init?.method === 'POST') {
+      if (path === '/v1/host/openwop-app/byok/secrets' && init?.method === 'POST') {
         byokPost = JSON.parse(init.body);
         return new Response('{}', { status: 200 });
       }
-      if (path === '/v1/host/sample/byok/secrets') {
+      if (path === '/v1/host/openwop-app/byok/secrets') {
         return new Response(JSON.stringify({ secrets: [byokPost?.credentialRef].filter(Boolean) }), { status: 200 });
       }
       throw new Error(`unexpected fetch: ${path}`);
@@ -620,7 +620,7 @@ describe('onboard --non-interactive', () => {
     let byokPost = null;
     const fetchImpl = async (url, init) => {
       const path = new URL(url).pathname;
-      if (path === '/v1/host/sample/byok/secrets' && init?.method === 'POST') {
+      if (path === '/v1/host/openwop-app/byok/secrets' && init?.method === 'POST') {
         byokPost = JSON.parse(init.body);
         return new Response('{}', { status: 200 });
       }
@@ -679,7 +679,7 @@ describe('providers subcommand', () => {
   it('list shows credential refs returned by the backend', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      if (new URL(url).pathname === '/v1/host/sample/byok/secrets') {
+      if (new URL(url).pathname === '/v1/host/openwop-app/byok/secrets') {
         return new Response(JSON.stringify({ secrets: ['anthropic-default', 'openai-default'] }), { status: 200 });
       }
       throw new Error('unexpected');
@@ -697,7 +697,7 @@ describe('providers subcommand', () => {
     let posted = null;
     const fetchImpl = async (url, init) => {
       const path = new URL(url).pathname;
-      if (path === '/v1/host/sample/byok/secrets' && init?.method === 'POST') {
+      if (path === '/v1/host/openwop-app/byok/secrets' && init?.method === 'POST') {
         posted = JSON.parse(init.body);
         return new Response('{}', { status: 200 });
       }
@@ -730,7 +730,7 @@ describe('providers subcommand', () => {
       { io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_CONFIG_HOME: getTmp() } },
     );
     assert.equal(code, 0);
-    assert.equal(deleted, '/v1/host/sample/byok/secrets/anthropic-default');
+    assert.equal(deleted, '/v1/host/openwop-app/byok/secrets/anthropic-default');
   });
 
   it('test exits 0 when the credential ref is in the BYOK list', async () => {
@@ -1471,15 +1471,15 @@ describe('demo install (service plan)', () => {
 describe('doctor — daemon + provider rows', () => {
   const getTmp = withTempHome();
 
-  it('adds a daemon row from /v1/host/sample/daemon-status and provider rows from BYOK', async () => {
+  it('adds a daemon row from /v1/host/openwop-app/daemon-status and provider rows from BYOK', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
       const path = new URL(url).pathname;
       if (path === '/health') return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });
-      if (path === '/v1/host/sample/daemon-status') {
+      if (path === '/v1/host/openwop-app/daemon-status') {
         return new Response(JSON.stringify({ pid: 4242, uptimeSeconds: 12, startTime: '2026-05-26T00:00:00.000Z' }), { status: 200 });
       }
-      if (path === '/v1/host/sample/byok/secrets') {
+      if (path === '/v1/host/openwop-app/byok/secrets') {
         return new Response(JSON.stringify({ secrets: ['anthropic-default', 'openai-default'] }), { status: 200 });
       }
       return new Response('{}', { status: 404 });
@@ -1541,7 +1541,7 @@ describe('memory subcommand', () => {
       const u = new URL(url);
       observed = u;
       authHeader = init?.headers?.authorization;
-      if (u.pathname === '/v1/host/sample/memory') {
+      if (u.pathname === '/v1/host/openwop-app/memory') {
         return new Response(JSON.stringify({ memoryRef: 'tenant-memory', entries: MEM_ENTRIES }), { status: 200 });
       }
       throw new Error(`unexpected: ${u.pathname}`);
@@ -1612,7 +1612,7 @@ describe('memory subcommand', () => {
       io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
     });
     assert.equal(code, 0);
-    assert.equal(observed.pathname, '/v1/host/sample/memory/mem_aaa');
+    assert.equal(observed.pathname, '/v1/host/openwop-app/memory/mem_aaa');
     assert.match(cap.stdout, /id: mem_aaa/);
     assert.match(cap.stdout, /content: Run summary alpha/);
   });
@@ -1631,7 +1631,7 @@ describe('memory subcommand', () => {
     });
     assert.equal(code, 0);
     assert.equal(method, 'DELETE');
-    assert.equal(observed.pathname, '/v1/host/sample/memory/mem_bbb');
+    assert.equal(observed.pathname, '/v1/host/openwop-app/memory/mem_bbb');
     assert.match(cap.stdout, /Deleted: mem_bbb/);
   });
 
@@ -1741,7 +1741,7 @@ describe('agents command (RFC 0070 manifest agents)', () => {
   it('lists installed manifest agents as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.equal(new URL(url).pathname, '/v1/host/sample/agents');
+      assert.equal(new URL(url).pathname, '/v1/host/openwop-app/agents');
       return new Response(JSON.stringify(inventory), { status: 200 });
     };
     const code = await runCli(['agents', 'list', '--base-url', 'http://mock.local'], {
@@ -1755,7 +1755,7 @@ describe('agents command (RFC 0070 manifest agents)', () => {
   it('info renders one agent manifest and supports --json', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.equal(new URL(url).pathname, '/v1/host/sample/agents/core.openwop.agents.code-reviewer.default');
+      assert.equal(new URL(url).pathname, '/v1/host/openwop-app/agents/core.openwop.agents.code-reviewer.default');
       return new Response(JSON.stringify(inventory.agents[1]), { status: 200 });
     };
     const code = await runCli(['--json', 'agents', 'info', 'core.openwop.agents.code-reviewer.default', '--base-url', 'http://mock.local'], {
@@ -1770,7 +1770,7 @@ describe('agents command (RFC 0070 manifest agents)', () => {
   it('run dispatches an agent turn and exits 0 on completion', async () => {
     const cap = capture();
     const fetchImpl = async (url, init) => {
-      assert.equal(new URL(url).pathname, '/v1/host/sample/agents/core.openwop.agents.code-reviewer.default/dispatch');
+      assert.equal(new URL(url).pathname, '/v1/host/openwop-app/agents/core.openwop.agents.code-reviewer.default/dispatch');
       assert.equal(init.method, 'POST');
       const body = JSON.parse(init.body);
       assert.deepEqual(body.availableTools, ['openwop:fs.read', 'openwop:shell.exec']);
@@ -1923,7 +1923,7 @@ describe('cron subcommand', () => {
   it('list renders a table of scheduled jobs', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.equal(new URL(url).pathname, '/v1/host/sample/scheduler/jobs');
+      assert.equal(new URL(url).pathname, '/v1/host/openwop-app/scheduler/jobs');
       return new Response(JSON.stringify({
         jobs: [{ jobId: 'job-1', cronExpr: '*/5 * * * *', workflowId: 'wf-a', lastFiredTick: 3 }],
       }), { status: 200 });
@@ -1952,7 +1952,7 @@ describe('cron subcommand', () => {
     let posted = null;
     const fetchImpl = async (url, init) => {
       const path = new URL(url).pathname;
-      if (path === '/v1/host/sample/scheduler/jobs' && init?.method === 'POST') {
+      if (path === '/v1/host/openwop-app/scheduler/jobs' && init?.method === 'POST') {
         posted = JSON.parse(init.body);
         return new Response(JSON.stringify({ jobId: 'job-7', cronExpr: posted.cronExpr, workflowId: posted.workflowId, lastFiredTick: null }), { status: 201 });
       }
@@ -1995,7 +1995,7 @@ describe('cron subcommand', () => {
       io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
     });
     assert.equal(code, 0);
-    assert.equal(deleted, '/v1/host/sample/scheduler/jobs/job-1');
+    assert.equal(deleted, '/v1/host/openwop-app/scheduler/jobs/job-1');
   });
 
   it('trigger POSTs to the {id}/trigger endpoint and reports runs fired', async () => {
@@ -2009,7 +2009,7 @@ describe('cron subcommand', () => {
       io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
     });
     assert.equal(code, 0);
-    assert.equal(hit.path, '/v1/host/sample/scheduler/jobs/job-1/trigger');
+    assert.equal(hit.path, '/v1/host/openwop-app/scheduler/jobs/job-1/trigger');
     assert.equal(hit.method, 'POST');
     assert.match(cap.stdout, /Fired job-1 — 1 run/);
   });
@@ -2025,7 +2025,7 @@ describe('cron subcommand', () => {
       io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
     });
     assert.equal(code, 0);
-    assert.equal(hit.path, '/v1/host/sample/scheduler/jobs/job-1');
+    assert.equal(hit.path, '/v1/host/openwop-app/scheduler/jobs/job-1');
     assert.equal(hit.method, 'PATCH');
     assert.deepEqual(hit.body, { enabled: true });
     assert.match(cap.stdout, /Enabled job job-1/);
@@ -2060,7 +2060,7 @@ describe('cron subcommand', () => {
       io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
     });
     assert.equal(code, 0);
-    assert.equal(seenUrl.pathname, '/v1/host/sample/scheduler/jobs');
+    assert.equal(seenUrl.pathname, '/v1/host/openwop-app/scheduler/jobs');
     assert.equal(seenUrl.search, '?rosterId=ros-1');
     assert.match(cap.stdout, /job-9\s+0 \* \* \* \*\s+wf-b\s+no\s+ros-1/);
   });

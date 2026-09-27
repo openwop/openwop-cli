@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const BASE = '/v1/host/sample/notebooks';
+const BASE = '/v1/host/openwop-app/notebooks';
 
 export const NOTEBOOKS_HELP = `Usage:
   openwop notebooks list [--json]

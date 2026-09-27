@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const BASE = '/v1/host/sample/agent-allowlists/admin/agents';
+const BASE = '/v1/host/openwop-app/agent-allowlists/admin/agents';
 
 export const AGENT_ALLOWLISTS_HELP = `Usage:
   openwop agent-allowlists list [--json]

@@ -45,7 +45,7 @@ async function runProvidersList(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, PROVIDERS_HELP);
     return 0;
   }
-  const res = await requestJson(ctx, '/v1/host/sample/byok/secrets');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/byok/secrets');
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -79,7 +79,7 @@ async function runProvidersAdd(ctx: Ctx, argv: string[]) {
   const interactive = Boolean(process.stdin.isTTY);
   const apiKey = await resolveApiKey(ctx, options, provider, interactive);
   const credentialRef = options.credentialRef ?? `${provider}-default`;
-  await requestJson(ctx, '/v1/host/sample/byok/secrets', {
+  await requestJson(ctx, '/v1/host/openwop-app/byok/secrets', {
     method: 'POST',
     body: { credentialRef, value: apiKey },
   });
@@ -114,7 +114,7 @@ async function runProvidersRemove(ctx: Ctx, argv: string[]) {
   }
   const provider = positionals[0];
   const credentialRef = options.credentialRef ?? `${provider}-default`;
-  await requestJson(ctx, `/v1/host/sample/byok/secrets/${encodeURIComponent(credentialRef)}`, { method: 'DELETE' });
+  await requestJson(ctx, `/v1/host/openwop-app/byok/secrets/${encodeURIComponent(credentialRef)}`, { method: 'DELETE' });
   if (ctx.json) writeJson(ctx.io.stdout, { removed: credentialRef });
   else writeLine(ctx.io.stdout, `✓ Removed credential \`${credentialRef}\``);
   return 0;

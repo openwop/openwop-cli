@@ -58,7 +58,7 @@ async function runMediaGenerateImage(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop media generate-image <prompt> [--output path] [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, '/v1/host/sample/media/generate-image', {
+  const res = await requestJson(ctx, '/v1/host/openwop-app/media/generate-image', {
     method: 'POST',
     body: { prompt },
   });
@@ -94,7 +94,7 @@ async function runMediaTranscribe(ctx: Ctx, argv: string[]) {
   } catch (err) {
     throw new CliError(`Cannot read audio file ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
   }
-  const res = await requestJson(ctx, '/v1/host/sample/media/transcribe', {
+  const res = await requestJson(ctx, '/v1/host/openwop-app/media/transcribe', {
     method: 'POST',
     body: { audioBase64, ...(options.language ? { language: options.language } : {}) },
   });
@@ -123,7 +123,7 @@ async function runMediaSynthesize(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop media synthesize <text> [--voice name] [--output path] [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, '/v1/host/sample/media/synthesize', {
+  const res = await requestJson(ctx, '/v1/host/openwop-app/media/synthesize', {
     method: 'POST',
     body: { text, ...(options.voice ? { voice: options.voice } : {}) },
   });

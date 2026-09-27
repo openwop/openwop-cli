@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const BASE = '/v1/host/sample/csm/accounts';
+const BASE = '/v1/host/openwop-app/csm/accounts';
 
 export const CSM_HELP = `Usage:
   openwop csm list [--json]

@@ -59,7 +59,7 @@ async function runCatalogNodes(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, CATALOG_HELP);
     return 0;
   }
-  const res = await requestJson(ctx, '/v1/host/sample/node-catalog');
+  const res = await requestJson(ctx, '/v1/host/openwop-app/node-catalog');
   let nodes = Array.isArray(res.body.nodes) ? res.body.nodes : [];
   if (options.search) {
     const q = String(options.search).toLowerCase();
