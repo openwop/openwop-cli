@@ -19,7 +19,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Memory & workspace** | `memory` · `workspace` · `prompts` |
 | **Automation & messaging** | `cron` · `webhooks` · `messaging` · `relay` · `notifications` · `notify` |
 | **Observability & admin** | `analytics` (`usage`) · `account` · `admin` · `brand` · `conformance` |
-| **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` |
+| **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` · `docs` · `knowledge-sync` · `entities` · `creative-briefs` · `creative-video` · `production` · `tutorials` · `walkthroughs` · `widgets` · `ui-state` · `ui-plugin` · `canvas-collab` · `workflow-collab` · `canvas-packs` · `present` |
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 
 > **`0.18.x`:** the catalog now covers the full app feature surface — the agent
@@ -29,6 +29,21 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 > `podcasts`, `priority-matrix`) — alongside the protocol RFC surfaces (`a2a`,
 > `triggers`, `goals`, `proposals`, `export`/`import`). See [`CHANGELOG.md`](./CHANGELOG.md)
 > for the per-group detail.
+
+> **Knowledge + content surfaces:** `documents` (+ `artifacts`, `locate`,
+> templates catalog/assemble), `notebooks` (sources/transformations/chat/search),
+> `podcasts` (shows + episode/speaker profiles), `knowledge-sync`, the `media`
+> library (assets, collections, AI image edit/upscale, local-file `upload`),
+> `entities` (+ anonymous `public` reads), `creative-briefs`, `creative-video`,
+> `production`, and the smaller `tutorials` / `walkthroughs` / `widgets` /
+> `ui-state` / `ui-plugin` / `canvas-collab` / `workflow-collab` / `canvas-packs`
+> / `present` groups. Example:
+>
+> ```bash
+> openwop media assets create ./logo.png --org org_1 --tags brand
+> openwop entities types list --json
+> openwop documents render doc_1 --org org_1 --format docx
+> ```
 
 ## Protocol version support (v2 and v1)
 

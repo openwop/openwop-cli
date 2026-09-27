@@ -128,6 +128,21 @@ import { runGoals, GOALS_HELP } from './cli/goals.js';
 import { runExport, runImport, EXPORT_HELP, IMPORT_HELP } from './cli/portability.js';
 import { runTriggers, TRIGGERS_HELP } from './cli/triggers.js';
 import { runA2a, A2A_HELP } from './cli/a2a.js';
+import { runDocs, DOCS_HELP } from './cli/docs.js';
+import { runKnowledgeSync, KNOWLEDGE_SYNC_HELP } from './cli/knowledgeSync.js';
+import { runEntities, ENTITIES_HELP } from './cli/entities.js';
+import { runCreativeBriefs, CREATIVE_BRIEFS_HELP } from './cli/creativeBriefs.js';
+import { runCreativeVideo, CREATIVE_VIDEO_HELP } from './cli/creativeVideo.js';
+import { runProduction, PRODUCTION_HELP } from './cli/production.js';
+import { runTutorials, TUTORIALS_HELP } from './cli/tutorials.js';
+import { runWalkthroughs, WALKTHROUGHS_HELP } from './cli/walkthroughs.js';
+import { runWidgets, WIDGETS_HELP } from './cli/widgets.js';
+import { runUiState, UI_STATE_HELP } from './cli/uiState.js';
+import { runUiPlugin, UI_PLUGIN_HELP } from './cli/uiPlugin.js';
+import { runCanvasCollab, CANVAS_COLLAB_HELP } from './cli/canvasCollab.js';
+import { runWorkflowCollab, WORKFLOW_COLLAB_HELP } from './cli/workflowCollab.js';
+import { runCanvasPacks, CANVAS_PACKS_HELP } from './cli/canvasPacks.js';
+import { runPresent, PRESENT_HELP } from './cli/present.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -374,6 +389,36 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return runCompletion(ctx, commandArgs, COMMAND_NAMES);
       case 'upgrade':
         return await runUpgrade(ctx, commandArgs);
+      case 'docs':
+        return await runDocs(ctx, commandArgs);
+      case 'knowledge-sync':
+        return await runKnowledgeSync(ctx, commandArgs);
+      case 'entities':
+        return await runEntities(ctx, commandArgs);
+      case 'creative-briefs':
+        return await runCreativeBriefs(ctx, commandArgs);
+      case 'creative-video':
+        return await runCreativeVideo(ctx, commandArgs);
+      case 'production':
+        return await runProduction(ctx, commandArgs);
+      case 'tutorials':
+        return await runTutorials(ctx, commandArgs);
+      case 'walkthroughs':
+        return await runWalkthroughs(ctx, commandArgs);
+      case 'widgets':
+        return await runWidgets(ctx, commandArgs);
+      case 'ui-state':
+        return await runUiState(ctx, commandArgs);
+      case 'ui-plugin':
+        return await runUiPlugin(ctx, commandArgs);
+      case 'canvas-collab':
+        return await runCanvasCollab(ctx, commandArgs);
+      case 'workflow-collab':
+        return await runWorkflowCollab(ctx, commandArgs);
+      case 'canvas-packs':
+        return await runCanvasPacks(ctx, commandArgs);
+      case 'present':
+        return await runPresent(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -496,6 +541,21 @@ const HELP_MAP: Record<string, string> = {
     import: IMPORT_HELP,
     triggers: TRIGGERS_HELP,
     a2a: A2A_HELP,
+    'docs': DOCS_HELP,
+    'knowledge-sync': KNOWLEDGE_SYNC_HELP,
+    'entities': ENTITIES_HELP,
+    'creative-briefs': CREATIVE_BRIEFS_HELP,
+    'creative-video': CREATIVE_VIDEO_HELP,
+    'production': PRODUCTION_HELP,
+    'tutorials': TUTORIALS_HELP,
+    'walkthroughs': WALKTHROUGHS_HELP,
+    'widgets': WIDGETS_HELP,
+    'ui-state': UI_STATE_HELP,
+    'ui-plugin': UI_PLUGIN_HELP,
+    'canvas-collab': CANVAS_COLLAB_HELP,
+    'workflow-collab': WORKFLOW_COLLAB_HELP,
+    'canvas-packs': CANVAS_PACKS_HELP,
+    'present': PRESENT_HELP,
 };
 
 /** All top-level command names + aliases — the single drift-free source for the
@@ -824,14 +884,14 @@ Commands:
   crm list|create     Manage CRM contacts (+ get/update/delete/triage)
   csm list|create     Manage Customer-Success accounts (+ get/update/delete)
   comments list       Threaded comments on a resource (--org; +create/update/delete)
-  sharing list        Shareable resource links (--org; +create/revoke/resolve)
+  sharing list        Shareable resource links (--org; +create/revoke/resolve; public card/frame-view)
   forms list          Form builder + intake (--org; +create/update/status/submissions)
   email templates     Email templates + campaigns (--org; create/send/sends)
   chat-widget list    Embeddable chat widgets (--org; +create/rotate-token)
   marketplace listings  Browse/install packs + reviews (install; review --org)
   kb collections      Knowledge base (--org; collections/docs/search/rag)
   cms pages           CMS pages + authoring lifecycle (--org; submit/approve/publish)
-  documents list      Document generation + templates (--org; versions/render)
+  documents list      Document generation + templates (--org; versions/render/locate/from-canvas; + artifacts)
   projects list       Project workspaces (create --org; +members)
   reviews list        The unified review inbox (get; action <id> <action>)
   workspaces list     Your B2B workspaces / tenants (create/switch; vs the file 'workspace')
@@ -844,8 +904,8 @@ Commands:
   strategy list       Strategy documents (create --org; context/health)
   advisors list       Advisory boards (create --org; by-handle)
   campaigns-orchestration  Orchestrated campaigns (create/finalize)
-  notebooks list      NotebookLM-style notebooks (create --org; notes)
-  podcasts list       Podcast episodes (create/retry)
+  notebooks list      NotebookLM-style notebooks (create --org; ensure/notes/sources/transformations/chat/search)
+  podcasts list       Podcast episodes (create/retry/publish) + shows, episode-profiles, speaker-profiles
   priority-matrix lists  Prioritization boards (create --org; ideas)
   webhooks list       List webhook subscriptions
   webhooks add        Register a webhook subscription
@@ -880,6 +940,7 @@ Commands:
   media generate-image  Generate an image via the demo media route (stubbed)
   media transcribe    Transcribe an audio file (stubbed)
   media synthesize    Synthesize speech from text (stubbed)
+  media assets        Media library (--org; assets/collections/image-providers; upload/put/fetch by token)
   governance policy   Get/set tenant governance policy (alias: policy)
   governance audit    Read the host audit log (tenant-scoped)
   conformance         Run the OpenWOP conformance CLI from this repo
@@ -905,6 +966,21 @@ Commands:
   export / import     Agent-platform portability (RFC 0098): export a refs-only bundle; import --dry-run then apply
   triggers register   External-event trigger subscriptions (RFC 0099): register/list/get a source→workflow binding
   a2a task            Async/durable A2A tasks (RFC 0100): read a durable task's live state (+ a2a status)
+  docs backfill        Re-sync published product docs into the knowledge base (--org; public list)
+  knowledge-sync list  Knowledge-sync sources (browse/create/get/update/pause/resume/sync/delete)
+  entities types       Custom entity types, records, taxonomies, relationships (+ public reads)
+  creative-briefs list Creative briefs (--org; versions/diff/renders/transition/pdf/reel)
+  creative-video jobs  Creative video jobs (--org; generate/text-to-video)
+  production plans     Production plans + vendors (--org; status/portfolio/reindex-kb)
+  tutorials list       Tutorials catalog + your progress
+  walkthroughs progress  Product walkthrough progress + funnel
+  widgets list         Dashboard widgets (summary/create/archive/seed)
+  ui-state get         Per-resource saved UI state (get/set/delete)
+  ui-plugin packs      UI plugin packs + plugin entries (demo-artifact/rpc)
+  canvas-collab ticket Mint a live-collaboration ticket for a canvas (claim-seed/debug)
+  workflow-collab ticket  Mint a live-collaboration ticket for a workflow (claim-seed)
+  canvas-packs types   List canvas types contributed by installed canvas packs (--org)
+  present outline      Presentation remote: outline/state/command/events (token-authed)
 
 Examples:
   openwop onboard
