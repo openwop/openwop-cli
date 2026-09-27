@@ -165,6 +165,13 @@ function invocations(group, spec, fileFor) {
     add('text-json', ['--json', ...base, ...org, ...req, ...yes], 'raw');
   }
   if (spec.confirm) add('no-yes', [...base, ...org, ...req]);
+  // Double faults pin which check wins: input validation runs before the --yes gate.
+  if (spec.confirm && all.some((f) => f.required)) add('no-yes+missing', [...base, ...org]);
+  if (spec.confirm && all.some((f) => f.type === 'number' || f.type === 'json')) {
+    const f = all.find((x) => x.type === 'number' || x.type === 'json');
+    add('no-yes+bad', [...base, ...org, ...req, f.flag, f.type === 'number' ? 'abc' : '{nope']);
+  }
+  if (spec.confirm && org.length) add('no-yes+no-org', [...base, ...req]);
   if (org.length) add('no-org', [...base, ...req, ...yes]);
   if (pos.length) add('missing-positional', [...base.slice(0, -1), ...org, ...req, ...yes]);
   add('extra-positional', [...base, 'extra', ...org, ...req, ...yes]);
