@@ -215,3 +215,61 @@ describe('the stream origin is never silent (1.2.0 release review)', () => {
     assert.doesNotMatch(cap2.stderr, /reading the event stream/);
   });
 });
+
+describe('stream UX — a silent front door is explained, not waited on (grade-ux)', () => {
+  const buffering = (h) => async (url, init = {}) => {
+    if (/\/events$/.test(new URL(String(url)).pathname)) {
+      return new Promise((_, reject) => init.signal?.addEventListener('abort', () => reject(init.signal.reason ?? new Error('aborted'))));
+    }
+    return h.fetchImpl(url, init);
+  };
+  it('headers that never arrive are given up on at the HEADERS timeout (not the idle one), with a hint naming --stream-base-url', async () => {
+    const h = host({ connections: [] });
+    const cap = capture();
+    const t0 = Date.now();
+    await streamRunEvents({ ...ctxFor(h), io: cap.io, fetchImpl: buffering(h) }, 'r', { idleTimeoutMs: 60000, headersTimeoutMs: 120, timeoutMs: 2000 });
+    assert.ok(Date.now() - t0 < 1500, 'did not wait for the 60 s idle timeout');
+    assert.match(cap.stderr, /sent nothing for 120 ms — the host's front door may be buffering streams\. Following by polling instead; for live events pass --stream-base-url/);
+  });
+  it('once headers arrive, only the IDLE timeout applies — a quiet healthy stream outlives the headers timeout', async () => {
+    let first = true;
+    const body = new ReadableStream({
+      async pull(controller) {
+        // First bytes 250 ms after the headers: past the 100 ms headers timeout, inside the 400 ms idle one.
+        await new Promise((r) => setTimeout(r, first ? 250 : 10));
+        if (first) { controller.enqueue(enc.encode(frame(0, 'run.started'))); first = false; }
+        else { controller.enqueue(enc.encode(frame(1, 'run.completed'))); controller.close(); }
+      },
+    });
+    const h = host({ connections: [() => sse(body)] });
+    const events = [];
+    await streamRunEvents(ctxFor(h), 'r', { idleTimeoutMs: 400, headersTimeoutMs: 100, onEvent: (e) => events.push(e.sequence) });
+    assert.deepEqual(events, [0, 1]);
+    assert.equal(h.connections, 1, 'not cut off at the headers timeout');
+  });
+
+  it('--quiet suppresses the hint', async () => {
+    const h = host({ connections: [] });
+    const cap = capture();
+    await streamRunEvents({ ...ctxFor(h), io: cap.io, quiet: true, fetchImpl: buffering(h) }, 'r', { headersTimeoutMs: 50, timeoutMs: 2000 });
+    assert.equal(cap.stderr, '');
+  });
+  it('--verbose says a reconnect was a STALL, with the silence', async () => {
+    const h = host({
+      connections: [
+        () => sse(stallingBody(['retry: 1\n\n', frame(0, 'run.started')])),
+        () => sse(sseBody([frame(1, 'run.completed')])),
+      ],
+    });
+    const cap = capture();
+    await streamRunEvents({ ...ctxFor(h), io: cap.io, verbose: true }, 'r', { idleTimeoutMs: 120 });
+    assert.match(cap.stderr, /events stream stalled \(no bytes for 120ms\); reconnecting/);
+  });
+  it('giving up says how to continue', async () => {
+    const h = host({ connections: Array.from({ length: 3 }, () => () => sse(sseBody(['retry: 1\n\n'], { drop: true }))) });
+    await assert.rejects(
+      () => streamRunEvents(ctxFor(h), 'r', { maxReconnects: 1 }),
+      /dropped 2 times without progress.*--since <last sequence printed>.*--no-stream/s,
+    );
+  });
+});

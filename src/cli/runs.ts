@@ -67,7 +67,9 @@ honouring the server's \`retry:\` field), and no event is printed twice.
                       (\`values\` never combines). A host that does not serve
                       the mode answers 400 unsupported_stream_mode.
   --idle-timeout-ms N a connection that delivers no bytes for N ms (default
-                      45000; 0 disables) is treated as dropped and resumed.
+                      45000; 0 disables) is treated as dropped and resumed. A
+                      stream whose headers do not arrive within 10 s is given
+                      up on and followed by polling, with a hint on stderr.
 Streams are read from the stream origin: --stream-base-url (global), else the
 host's advertised \`streamBase\` (https only), else --base-url — some front
 doors buffer event streams entirely (e.g. a CDN rewrite).
