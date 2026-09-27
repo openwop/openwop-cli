@@ -23,6 +23,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` |
 | **Commerce & sales** | `commerce` · `commerce-connect` · `promotions` · `recommendations` · `dealers` · `commissions` · `territories` · `sales-maps` (+ `crm` extensions) |
 | **Marketing** | `brand-kits` · `campaign-brief` · `campaign-connectors` · `campaign-intel` · `campaign-journeys` · `cdp` · `destination-sync` · `discovery` · `funnels` · `webinars` · `public` |
+| **Operator administration** | `vault` · `developer-keys` · `billing` · `environments` · `custom-domains` · `site-config` · `runtime-posture` · `maintenance` · `menu-config` |
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 
 > **`0.18.x`:** the catalog now covers the full app feature surface — the agent
@@ -544,6 +545,37 @@ openwop config get host.baseUrl           # dotted-path lookup
 openwop config set defaultModel gpt-4o
 openwop config unset credentialRef
 ```
+
+## Identity & operator administration
+
+Identity, RBAC, tenancy and operator surfaces of the reference host (all under
+`/v1/host/openwop-app/…`; each group's `--help` names the exact path). Super-admin
+surfaces (`vault`, `site-config get|set`, `runtime-posture`, `maintenance`,
+`toggles admin`, `governance`, `billing` import/coupons/seats, `menu-config set tenant`,
+`brand get|set|asset`) fail **closed** with exit `4` and say how to get a super-admin
+principal (`OPENWOP_SUPERADMIN_TENANTS`); `admin …` needs the host admin token.
+Secrets are refs only: vault values, the break-glass token and an anonymous session
+cookie are read from a file or a no-echo prompt, never argv, and never printed. A
+developer key's token is printed once, when the host issues it.
+
+```bash
+openwop orgs invites org_1 create --email jo@acme.com --role editor
+openwop orgs decide --principal user:jo --action runs:read      # exit 0 allowed / 1 denied
+openwop users me security
+openwop vault list
+openwop vault set billing:stripe-key --scope host --value-file ./stripe.key
+openwop developer-keys create --name "CI deploy" --scope runs:write
+openwop environments promote --from dev                          # exit 3 when queued for approval
+openwop billing portal                                           # a Stripe-hosted URL; no card data
+openwop governance egress-rules set --mode allowlist --host api.stripe.com
+openwop toggles admin set crm --status beta                      # read-modify-write
+openwop admin run-retention hold t_acme --reason "legal hold"
+```
+
+Not driven (browser or server-to-server legs): `POST /auth/saml/sso/acs` (IdP form
+post), `POST /billing/webhook` (Stripe-signed), `POST /vault/secrets/:ref/reveal`
+(returns plaintext). Exit codes: `0` ok · `1` server error · `2` usage error / request
+rejected · `3` pending (approval queued, domain not yet live) · `4` not signed in / not permitted.
 
 ## Defaults
 

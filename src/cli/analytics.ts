@@ -15,12 +15,16 @@ export const ANALYTICS_HELP = `Usage:
   openwop analytics summary <orgId> [--json]
   openwop analytics events <orgId> [--json]
   openwop analytics collect <orgId> --session <key> [--type <t>] [--path <p>] [--name <n>] [--prop k=v]... [--json]
+  openwop analytics rollup <orgId> [--json]
 
 Org-scoped usage analytics (ADR 0018 host extension). Aliased as \`usage\`.
 Endpoints:
   GET  ${ANALYTICS_BASE}/:orgId/summary   aggregate usage rollup     [authed, workspace:read]
   GET  ${ANALYTICS_BASE}/:orgId/events    recent raw events (max 100) [authed, workspace:read]
   POST ${PUBLIC_BASE}/:orgId/collect              record one event           [PUBLIC, unauthed]
+  GET  /v1/host/openwop-app/usage/orgs/:orgId/rollup  AI token usage + cost estimate per provider/model
+                                                      [authed, host:members:manage, toggle 'usage-analytics']
+       (a model with no known rate shows cost '?' — never a fabricated 0)
 
 This is USAGE / cost / observability — distinct from \`governance audit\` (the policy-decision
 log). The HOST is the authority: it aggregates server-side and gates each org read by RBAC
@@ -45,6 +49,7 @@ Examples:
   openwop analytics summary org_123
   openwop usage events org_123 --json
   openwop analytics collect org_123 --session s_abc --type pageview --path /pricing
+  openwop usage rollup org_123
 `;
 
 // Probe + fail closed: a 404 means the host doesn't serve analytics for this org (toggle off /
@@ -76,6 +81,8 @@ export async function runAnalytics(ctx: Ctx, argv: string[]) {
       return await runEvents(ctx, argv.slice(1));
     case 'collect':
       return await runCollect(ctx, argv.slice(1));
+    case 'rollup':
+      return await runRollup(ctx, argv.slice(1));
     default:
       throw new CliError(`Unknown analytics command: ${sub}\nRun \`openwop analytics --help\` for usage.`);
   }
@@ -180,5 +187,23 @@ async function runCollect(ctx: Ctx, argv: string[]) {
     // Host-honest 202: analytics consent wasn't granted for this subject.
     writeLine(ctx.io.stdout, `Not recorded — ${r.reason === 'consent' ? 'analytics consent not granted for this session' : (r.reason ?? 'declined by host')}.`);
   }
+  return 0;
+}
+
+/** GET /usage/orgs/:orgId/rollup — AI token usage + cost estimate (usage-analytics feature). */
+async function runRollup(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help || positionals.length !== 1) {
+    write(ctx.io.stdout, 'Usage: openwop analytics rollup <orgId> [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  const res = await requestJson(ctx, `/v1/host/openwop-app/usage/orgs/${encodeURIComponent(positionals[0])}/rollup`);
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  const rows = Array.isArray(res.body?.rollup) ? res.body.rollup : [];
+  if (rows.length === 0) { writeLine(ctx.io.stdout, 'No AI usage recorded for this workspace yet.'); return 0; }
+  writeLine(ctx.io.stdout, formatTable(rows.map((r: any) => ({
+    provider: r.provider ?? '', model: r.model ?? '', calls: r.calls ?? 0, inputTokens: r.inputTokens ?? 0, outputTokens: r.outputTokens ?? 0,
+    costUsd: typeof r.costUsd === 'number' ? r.costUsd.toFixed(4) : '?',
+  })), ['provider', 'model', 'calls', 'inputTokens', 'outputTokens', 'costUsd']));
   return 0;
 }

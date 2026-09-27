@@ -4,6 +4,7 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, safeRequest, probeEndpoint } from '../api.js';
+import { readSecretInput } from './adminShared.js';
 
 export const AUTH_HELP = `Usage:
   openwop auth status [--json]
@@ -12,6 +13,7 @@ export const AUTH_HELP = `Usage:
   openwop auth saml validate --idp-url <url> --variant <name> [--json]
   openwop auth scim provision --op <create-user|assign-group|deactivate-user>
                               [--user-name <u>] [--external-id <id>] [--email <e>] [--display-name <n>] [--group <g>] [--json]
+  openwop auth break-glass [--token-file <path>] [--json]
 
 Enterprise identity-provider configuration (RFC 0050): SAML 2.0 SSO + SCIM 2.0
 provisioning. The host is the authority — this command surfaces status, public SP
@@ -36,6 +38,17 @@ Subcommands → endpoint:
   saml login-url GET /auth/saml/sso/login           The SP-initiated IdP redirect URL (not followed).
   saml validate POST /auth/saml/validate            Conformance seam: validate a synthetic-IdP assertion.
   scim provision POST /auth/scim/provision          Provisioning seam: create/assign-group/deactivate.
+  break-glass   POST /auth/break-glass              Emergency operator login with the single-use
+                                                    break-glass token (OPENWOP_BREAKGLASS_*). The token
+                                                    is read from --token-file or a no-echo prompt, never
+                                                    argv. On success the host issues a 10-minute browser
+                                                    session COOKIE (not kept by the CLI) — the command
+                                                    reports the outcome; the token is burned either way
+                                                    once it verifies. Refused → exit 4; not enabled → exit 1.
+
+Not driven: POST /auth/saml/sso/acs — the IdP posts the signed assertion there from the
+user's browser (a form post, answered with a redirect), so it has no CLI leg; use
+\`saml login-url\` to start that flow in a browser.
 
   --return-to <path>   (saml login-url) Same-site return path after login (default /).
   --idp-url <url>      (saml validate) The operator-configured synthetic IdP origin.
@@ -44,7 +57,7 @@ Subcommands → endpoint:
   --user-name/--external-id/--email/--display-name/--group  (scim provision) SCIM user/group fields.
 
 Exit codes: 0 success (saml validate: 0 = authenticated) · 1 host/HTTP error or not configured
-            (saml validate: 1 = rejected) · 2 usage error.
+            (saml validate: 1 = rejected) · 2 usage error · 4 break-glass refused.
 
 Examples:
   openwop auth status
@@ -105,6 +118,7 @@ export async function runAuth(ctx: Ctx, argv: string[]) {
     throw new CliError(`Unknown auth scim command: ${psub || '(none)'}\nRun \`openwop auth --help\` for usage.`);
   }
   if (sub === 'status') return await runStatus(ctx, argv.slice(1));
+  if (sub === 'break-glass') return await runBreakGlass(ctx, argv.slice(1));
   throw new CliError(`Unknown auth command: ${sub}\nRun \`openwop auth --help\` for usage.`);
 }
 
@@ -235,5 +249,23 @@ async function runScimProvision(ctx: Ctx, argv: string[]) {
     if (Array.isArray(p.groups)) writeLine(ctx.io.stdout, `groups: ${p.groups.length ? p.groups.join(', ') : '(none)'}`);
   }
   if (safe.resolvable !== undefined) writeLine(ctx.io.stdout, `resolvable: ${safe.resolvable ? 'yes' : 'no'}`);
+  return 0;
+}
+
+async function runBreakGlass(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { bool: ['--help'], value: ['--token-file'] });
+  if (options.help) { write(ctx.io.stdout, 'Usage: openwop auth break-glass [--token-file <path>] [--json]\n'); return 0; }
+  const token = await readSecretInput(ctx, options.tokenFile !== undefined ? { valueFile: options.tokenFile } : {}, 'Break-glass token');
+  let res;
+  try {
+    res = await requestJson(ctx, `${BASE}/break-glass`, { method: 'POST', body: { token } });
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) throw new CliError('Break-glass login is not enabled on this host (OPENWOP_BREAKGLASS_ENABLED is not true).', 1);
+    if (err instanceof HttpError && err.status === 401) throw new CliError('Break-glass login refused (wrong, short, or already-used token, or the host is misconfigured). The attempt was audited.', 4);
+    if (err instanceof HttpError && err.status === 429) throw new CliError('Too many break-glass attempts from this address — wait and retry.', 1);
+    throw err;
+  }
+  if (ctx.json) { writeJson(ctx.io.stdout, redact(res.body)); return 0; }
+  writeLine(ctx.io.stdout, `Break-glass login accepted for tenant ${res.body?.tenantId ?? '?'} (session valid ${res.body?.expiresInSeconds ?? '?'}s, issued as a browser cookie). The token is now burned — rotate OPENWOP_BREAKGLASS_TOKEN_HASH.`);
   return 0;
 }

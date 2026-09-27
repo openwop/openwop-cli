@@ -6,6 +6,14 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Added
+- **Identity, RBAC and operator-administration coverage (batch b2).** 9 new groups — `vault` (super-admin secrets vault: refs only, set/rotate from a file or no-echo prompt, delete; reveal deliberately not driven), `developer-keys` (token shown once), `custom-domains`, `environments` (snapshot / preview / promote / rollback / apply; exit 3 when queued for approval), `billing` (reads + Stripe-hosted checkout/portal URLs, super-admin import/coupons/seats/invoices), `site-config`, `runtime-posture`, `maintenance`, `menu-config`. Extended `orgs` (invites, invitations accept/decline/preview, `decide` — the RFC 0049 decision seam, transfer-ownership, `effective --member/--org`, custom roles in `roles list`, members create without `--subject`), `users` (me security / factor-event / sign-out-everywhere, revoke-sessions, logout, oidc-bind), `governance` (egress-rules, byok-chat-budget, audit `--format`, audit-export, media-budget `--images/--video-jobs`), `toggles admin` (list / get / features / env-governed / read-modify-write set / reset), `byok active-config`, `admin run-retention` (+ legal holds), `auth break-glass`, `brand asset`, `analytics rollup`, `workspaces migrate-anon`.
+- Super-admin, admin-token and scope-gated surfaces in these groups fail closed with ONE actionable message and exit 4 (`src/cli/adminShared.ts` `gatedRequest`), echoing the host's hint.
+
+### Fixed
+- `governance policy set --retention-graph-days/--retention-source-days` set two windows the host no longer enforces (it strips them and warns). Added `--retention-pii-days` / `--retention-internal-days` (the windows the host's sweep enforces) and the command now prints the host's `warnings`; the old flags are marked deprecated in help.
+- `governance media-budget` and the other governance reads/writes now map a 403 to the super-admin message (exit 4) instead of a bare `HTTP 403`.
+
 ### Fixed — v2 client compliance (audit against `spec/v2/core/*`, corpus `v2.42.6`)
 - **Tenant-bound run ids now travel in the projected wire form under major 2** (`identity.md` §5). A `<tenantId>/<id>` run id was sent as `acme%2Fr1`; a front door that decodes `%2F` before routing (app.openwop.dev's does) split it into two segments and answered `404`. Every `/runs/{runId}…` path (incl. `:fork`, `:diff` and `against=`) now sends `acme~2Fr1` — measured live: `%2F` → 404, `~2F` → 200. Already-projected ids pass through; under major 1 nothing changes. (`src/ids.ts`, one call in `resolveRequest`.)
 - **The poll cursor is `afterSequence` under major 2** (`events.md` §Poll — "`lastSequence` and `since` are not parameters"). `runs events --since N` and the SSE-fallback poller sent `lastSequence`, which a v2 host ignores, so every poll replayed from sequence 0. Terminal detection reads v2 `isTerminal` as well as v1 `isComplete`.

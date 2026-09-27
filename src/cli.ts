@@ -162,6 +162,15 @@ import { runDiscovery, DISCOVERY_HELP } from './cli/discovery.js';
 import { runFunnels, FUNNELS_HELP } from './cli/funnels.js';
 import { runWebinars, WEBINARS_HELP } from './cli/webinars.js';
 import { runPublic, PUBLIC_HELP } from './cli/publicSite.js';
+import { runVault, VAULT_HELP } from './cli/vault.js';
+import { runDeveloperKeys, DEVELOPER_KEYS_HELP } from './cli/developerKeys.js';
+import { runCustomDomains, CUSTOM_DOMAINS_HELP } from './cli/customDomains.js';
+import { runEnvironments, ENVIRONMENTS_HELP } from './cli/environments.js';
+import { runBilling, BILLING_HELP } from './cli/billing.js';
+import { runSiteConfig, SITE_CONFIG_HELP } from './cli/siteConfig.js';
+import { runRuntimePosture, RUNTIME_POSTURE_HELP } from './cli/runtimePosture.js';
+import { runMaintenance, MAINTENANCE_HELP } from './cli/maintenance.js';
+import { runMenuConfig, MENU_CONFIG_HELP } from './cli/menuConfig.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -476,6 +485,24 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runWebinars(ctx, commandArgs);
       case 'public':
         return await runPublic(ctx, commandArgs);
+      case 'vault':
+        return await runVault(ctx, commandArgs);
+      case 'developer-keys':
+        return await runDeveloperKeys(ctx, commandArgs);
+      case 'custom-domains':
+        return await runCustomDomains(ctx, commandArgs);
+      case 'environments':
+        return await runEnvironments(ctx, commandArgs);
+      case 'billing':
+        return await runBilling(ctx, commandArgs);
+      case 'site-config':
+        return await runSiteConfig(ctx, commandArgs);
+      case 'runtime-posture':
+        return await runRuntimePosture(ctx, commandArgs);
+      case 'maintenance':
+        return await runMaintenance(ctx, commandArgs);
+      case 'menu-config':
+        return await runMenuConfig(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -632,6 +659,15 @@ const HELP_MAP: Record<string, string> = {
     'funnels': FUNNELS_HELP,
     'webinars': WEBINARS_HELP,
     'public': PUBLIC_HELP,
+    'vault': VAULT_HELP,
+    'developer-keys': DEVELOPER_KEYS_HELP,
+    'custom-domains': CUSTOM_DOMAINS_HELP,
+    'environments': ENVIRONMENTS_HELP,
+    'billing': BILLING_HELP,
+    'site-config': SITE_CONFIG_HELP,
+    'runtime-posture': RUNTIME_POSTURE_HELP,
+    'maintenance': MAINTENANCE_HELP,
+    'menu-config': MENU_CONFIG_HELP,
 };
 
 /** All top-level command names + aliases — the single drift-free source for the
@@ -1076,6 +1112,21 @@ Commands:
   funnels list        Multi-step funnels: lifecycle, stats, step experiments (--org; +public view)
   webinars list       Webinar events: register, bind a form, sync, push registrants (--org)
   public pages        Anonymous published surfaces: pages, blog, feeds, podcasts, pricing
+  vault list|set|rotate|delete  Super-admin secrets vault — refs/status only, never values
+  developer-keys list|create|revoke  Developer API keys (token shown once on create)
+  custom-domains list|add|verify|remove  Custom hostnames for an org's published pages (--org)
+  environments list|promote|...  Config environments: snapshot, preview, promote, rollback, apply
+  billing subscription|portal|...  Workspace billing reads + Stripe-hosted checkout/portal URLs (no card data)
+  site-config public|get|set  The system marketing-site switch (get/set: super-admin)
+  runtime-posture [request]  Serving warm/cold posture; a change request returns commands, applies nothing
+  maintenance rekey-member-subjects  Super-admin: re-key legacy org-member subjects
+  menu-config get|set  Navigation menu layout (personal layer; workspace default: super-admin)
+  orgs invites|invitations|decide  Org invites, invitation accept/decline, authorization decision seam
+  toggles admin list|set|reset  Super-admin feature-toggle configuration (read-modify-write)
+  governance egress-rules|byok-chat-budget|audit-export  More governance controls + audit-chain export
+  admin run-retention  Run-retention posture + legal holds (admin token)
+  byok active-config  The workspace chat binding (provider/model/credential ref)
+  auth break-glass    Emergency operator login with the single-use break-glass token
 
 Examples:
   openwop onboard
