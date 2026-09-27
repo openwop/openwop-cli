@@ -1,20 +1,22 @@
-// Behaviour snapshot of every spec-table command (src/cli/resourceCommands.ts
-// groups): what each command sends and prints, for a generated matrix of
-// invocations, pinned against test/fixtures/command-behaviour.json.
+// Behaviour snapshot of every command-table command — the routeKit-native
+// `RouteCmd[]` groups and the src/cli/resourceCommands.ts spec-table groups:
+// what each command sends and prints, for a generated matrix of invocations,
+// pinned against test/fixtures/command-behaviour.json.
 //
 // A red here means a command's wire request, output, or exit code changed.
 // Do NOT regenerate the fixture to make it pass unless the change is intended;
-// regenerate with `node scripts/snapshot-commands.mjs` and review the diff.
+// regenerate with `node scripts/snapshot-commands.mjs` and review the diff —
+// classify it with `node scripts/diff-command-snapshot.mjs <old> --expect …`.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { generateSnapshot, FIXTURE } from '../scripts/snapshot-commands.mjs';
 
 describe('command behaviour snapshot', () => {
-  it('every spec-table command behaves exactly as pinned', async () => {
+  it('every command-table command behaves exactly as pinned', async () => {
     const live = await generateSnapshot();
     const pinned = JSON.parse(readFileSync(FIXTURE, 'utf8'));
-    assert.ok(live.commandCount > 250, `enumerated only ${live.commandCount} commands`);
+    assert.ok(live.commandCount > 450, `enumerated only ${live.commandCount} commands`);
     assert.deepEqual(Object.keys(live.groups), Object.keys(pinned.groups));
     for (const [group, entry] of Object.entries(pinned.groups)) {
       const got = live.groups[group];

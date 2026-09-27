@@ -1,15 +1,21 @@
 #!/usr/bin/env node
 /**
- * Behaviour snapshot of every command built on the declarative spec-table
- * engine (`src/cli/resourceCommands.ts`).
+ * Behaviour snapshot of every command built on the command-table engine
+ * (`src/cli/routeKit.ts`): the routeKit-native `RouteCmd[]` tables AND the
+ * `resourceCommands` spec tables that adapt onto the same pipeline.
  *
  * The groups are ENUMERATED from source, never hand-listed: every
  * `src/cli/*.ts` that calls `runResourceGroup(ctx, '<group>', <HELP>, <SPECS>`
- * or `dispatchSpecs(ctx, '<group>', <SPECS>` contributes that spec array. For
- * each spec the generator derives invocations from the spec itself (dummy
- * positionals, every required flag, every optional flag with a type-appropriate
- * dummy, `--yes` / `--org`, `--json` and human variants, and the common failure
- * modes) and runs them through `runCli` against a mock host, recording
+ * or `dispatchSpecs(ctx, '<group>', <SPECS>` contributes that spec array, and
+ * every `runRouteGroup(ctx, '<group>', <HELP>, <ROUTES>` or
+ * `dispatchRoutes(ctx, '<group>', <ROUTES>` contributes that route table. An
+ * exported `CommandSpec[]` / `RouteCmd[]` that no call site dispatches is an
+ * error, so a new table cannot silently escape the snapshot. For each command
+ * the generator derives invocations from its declaration (dummy positionals,
+ * every required flag, every optional flag with a type-appropriate dummy,
+ * `--yes` / `--org`, `--json` and human variants, a blank value for every
+ * number flag, double faults, and the common failure modes) and runs them
+ * through `runCli` against a mock host, recording
  * {argv, requests (method, path+query, body), stdout, stderr, exit}. It also
  * records `openwop <group> --help` and `openwop <group> <sub> --help`.
  *
@@ -29,20 +35,42 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CLI_DIR = join(ROOT, 'src/cli');
 export const FIXTURE = join(ROOT, 'test/fixtures/command-behaviour.json');
 
-/** [{ group, specsId }] for every spec table a group dispatches, read from source. */
+/**
+ * [{ kind, group, specsId, file }] for every command table a group dispatches,
+ * read from source. `kind` is `spec` (a resourceCommands `CommandSpec[]`) or
+ * `route` (a routeKit-native `RouteCmd[]`).
+ */
 function discoverGroups() {
   const out = [];
   const exporters = new Map();
+  const composedOf = new Map(); // `export const X: T[] = [...A, ...B]` → X: [A, B]
   for (const file of readdirSync(CLI_DIR).filter((f) => f.endsWith('.ts')).sort()) {
     const src = readFileSync(join(CLI_DIR, file), 'utf8');
-    for (const m of src.matchAll(/export const ([A-Z0-9_]+)\s*:\s*CommandSpec\[\]/g)) exporters.set(m[1], file);
-    for (const m of src.matchAll(/runResourceGroup\(\s*ctx,\s*'([^']+)',\s*[A-Za-z0-9_]+,\s*([A-Z0-9_]+)/g)) out.push({ group: m[1], specsId: m[2] });
-    for (const m of src.matchAll(/dispatchSpecs\(\s*ctx,\s*'([^']+)',\s*([A-Z0-9_]+)/g)) out.push({ group: m[1], specsId: m[2] });
+    for (const m of src.matchAll(/export const ([A-Z0-9_]+)\s*:\s*CommandSpec\[\]/g)) exporters.set(m[1], { file, kind: 'spec' });
+    for (const m of src.matchAll(/export const ([A-Z0-9_]+)\s*:\s*RouteCmd\[\]/g)) exporters.set(m[1], { file, kind: 'route' });
+    for (const m of src.matchAll(/export const ([A-Z0-9_]+)\s*:\s*(?:CommandSpec|RouteCmd)\[\]\s*=\s*\[((?:\s*\.\.\.[A-Za-z0-9_]+\s*,?)+)\]/g)) {
+      composedOf.set(m[1], [...m[2].matchAll(/\.\.\.([A-Za-z0-9_]+)/g)].map((x) => x[1]));
+    }
+    for (const m of src.matchAll(/runResourceGroup\(\s*ctx,\s*'([^']+)',\s*[A-Za-z0-9_]+,\s*([A-Z0-9_]+)/g)) out.push({ group: m[1], specsId: m[2], via: 'spec' });
+    for (const m of src.matchAll(/dispatchSpecs\(\s*ctx,\s*'([^']+)',\s*([A-Z0-9_]+)/g)) out.push({ group: m[1], specsId: m[2], via: 'spec' });
+    for (const m of src.matchAll(/runRouteGroup\(\s*ctx,\s*'([^']+)',\s*[A-Za-z0-9_]+,\s*([A-Z0-9_]+)/g)) out.push({ group: m[1], specsId: m[2], via: 'route' });
+    for (const m of src.matchAll(/dispatchRoutes\(\s*ctx,\s*'([^']+)',\s*([A-Z0-9_]+)/g)) out.push({ group: m[1], specsId: m[2], via: 'route' });
   }
   for (const g of out) {
-    g.file = exporters.get(g.specsId);
-    if (!g.file) throw new Error(`spec table ${g.specsId} (group ${g.group}) is not an exported CommandSpec[]`);
+    const ex = exporters.get(g.specsId);
+    if (!ex || ex.kind !== g.via) throw new Error(`table ${g.specsId} (group ${g.group}) is not an exported ${g.via === 'spec' ? 'CommandSpec[]' : 'RouteCmd[]'}`);
+    g.file = ex.file;
+    g.kind = ex.kind;
+    delete g.via;
   }
+  // A table is covered when a group dispatches it, or it is spread into a covered one.
+  const dispatched = new Set(out.map((g) => g.specsId));
+  for (const id of [...dispatched]) for (const part of composedOf.get(id) ?? []) dispatched.add(part);
+  const orphans = [...exporters.keys()].filter((id) => !dispatched.has(id));
+  if (orphans.length) throw new Error(`exported command tables with no discovered call site: ${orphans.join(', ')}`);
+  const names = out.map((g) => g.group);
+  const dup = names.find((n, i) => names.indexOf(n) !== i);
+  if (dup) throw new Error(`group ${dup} dispatches more than one table — key the snapshot by table`);
   return out.sort((a, b) => a.group.localeCompare(b.group));
 }
 
@@ -63,9 +91,9 @@ async function loadModules(groups, dir) {
   return { runCli: mod.runCli, specsOf };
 }
 
-// ── spec reading (mirrors the documented spec syntax, not the engine) ────────
+// ── declaration reading (mirrors the documented syntax, not the engine) ─────
 
-function field(spec) {
+function specField(spec) {
   let s = spec;
   let flagOverride;
   const eq = s.indexOf('=');
@@ -74,19 +102,72 @@ function field(spec) {
   if (required) s = s.slice(0, -1);
   const [key = '', type = 'string'] = s.split(':');
   const flag = `--${flagOverride ?? key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`).replace(/_/g, '-')}`;
-  return { key, flag, type, required };
+  // The spec syntax's `list` is one comma-separated value (routeKit's `csv`).
+  return { key, flag, type: type === 'list' ? 'csv' : type, required };
 }
 const hasOrg = (route) => /:org(?![A-Za-z0-9_])/.test(route);
-const params = (route) => (route.match(/:[A-Za-z][A-Za-z0-9_]*/g) ?? []).map((p) => p.slice(1)).filter((p) => p !== 'org');
+const paramNames = (route) => (route.match(/:[A-Za-z][A-Za-z0-9_]*/g) ?? []).map((p) => p.slice(1));
 
+/**
+ * One normalized descriptor per command, whatever its declaration syntax:
+ * { key, words, method, templates: [[positional names]], org, fields, body
+ * ('accepted' | 'rejected' | 'ignored'), confirm, list, text, rmwKey, bodyOnError }.
+ */
+function describeSpec(spec) {
+  return {
+    key: `${spec.method} ${spec.cmd.join(' ')} ${spec.route}`,
+    words: spec.cmd,
+    method: spec.method,
+    templates: [paramNames(spec.route).filter((p) => p !== 'org')],
+    org: hasOrg(spec.route),
+    fields: [...(spec.query ?? []), ...(spec.body ?? [])].map(specField),
+    bodyFields: (spec.body ?? []).map(specField),
+    body: spec.body || spec.rawBody ? 'accepted' : 'rejected',
+    confirm: Boolean(spec.confirm),
+    list: spec.list,
+    text: Boolean(spec.text),
+    rmwKey: spec.rmwKey,
+    bodyOnError: [],
+  };
+}
+
+const routeField = (f) => ({ key: f.key, flag: f.flag, type: f.type ?? 'string', required: Boolean(f.required) });
+
+function describeRoute(cmd) {
+  const paths = Array.isArray(cmd.path) ? cmd.path : [cmd.path];
+  const isWrite = cmd.method !== 'GET' && cmd.method !== 'DELETE';
+  const takesBody = isWrite || Boolean(cmd.body?.length) || cmd.bodyFlags === true;
+  const org = Boolean(cmd.orgFlag) && paths.some((p) => paramNames(p).includes('org'));
+  return {
+    key: `${cmd.method} ${cmd.words.join(' ')} ${paths.join(' | ')}`,
+    words: cmd.words,
+    method: cmd.method,
+    templates: paths.map((p) => paramNames(p).filter((n) => !(cmd.orgFlag && n === 'org'))),
+    org,
+    fields: [...(cmd.query ?? []), ...(cmd.body ?? [])].map(routeField),
+    bodyFields: (cmd.body ?? []).map(routeField),
+    body: cmd.bodyFlags === false ? 'rejected' : takesBody ? 'accepted' : 'ignored',
+    confirm: cmd.confirm ?? cmd.method === 'DELETE',
+    list: cmd.table ? { key: cmd.table.key, columns: cmd.table.columns } : undefined,
+    text: Boolean(cmd.rawText),
+    rmwKey: undefined,
+    bodyOnError: cmd.bodyOnError ?? [],
+  };
+}
+
+/** The argv tokens that set field `f` to a type-appropriate dummy (`bool`: 'true' | 'false'). */
 function dummy(f, fileFor, bool = 'true') {
   switch (f.type) {
-    case 'number': return '42';
-    case 'bool': return bool;
-    case 'json': return '{"k":"v"}';
-    case 'list': return 'a, b,,c';
-    case 'file': return fileFor(f);
-    default: return `${f.key}-val`;
+    case 'number': return [f.flag, '42'];
+    case 'boolean': return [bool === 'true' ? f.flag : f.flag.replace(/^--/, '--no-')];
+    case 'bool': return [f.flag, bool];
+    case 'json': return [f.flag, '{"k":"v"}'];
+    case 'csv': return [f.flag, 'a, b,,c'];
+    case 'list': return [f.flag, 'a', f.flag, 'b'];
+    case 'map': return [f.flag, 'k=v', f.flag, 'n=3'];
+    case 'file': case 'file64': return [f.flag, fileFor(f)];
+    case 'json-file': return [f.flag, fileFor({ key: f.key, json: '{"fromJsonFile":true}' })];
+    default: return [f.flag, `${f.key}-val`];
   }
 }
 
@@ -100,8 +181,11 @@ function rowFor(columns, n) {
   return row;
 }
 
-/** Response for a request, by variant mode. The spec only shapes the canned data. */
+/** Response for a request, by variant mode. The descriptor only shapes the canned data. */
 function respond(spec, mode, req) {
+  // Capability probes (`ensureAdvertised`): answer "cannot prove absence" so the
+  // guarded groups reach their declared commands.
+  if (req.url.pathname === '/.well-known/openwop') return jsonRes({ error: 'not_found' }, 404);
   if (mode === 'null') return new Response(null, { status: 204 });
   if (mode === 'err404') return jsonRes({ error: 'not_found', message: 'No such thing.' }, 404);
   if (mode === 'err401') return jsonRes({ error: 'unauthenticated', message: 'Sign in.' }, 401);
@@ -110,6 +194,7 @@ function respond(spec, mode, req) {
   if (mode === 'raw') return new Response('a,b\n1,2', { status: 200, headers: { 'content-type': 'text/csv' } });
   if (mode === 'listkey-miss') return jsonRes({ total: 2, other: [rowFor(spec.list?.columns ?? ['id'], 1)] });
   if (mode === 'array') return jsonRes([rowFor(spec.list?.columns ?? ['id'], 1)]);
+  if (mode.startsWith('status')) return jsonRes({ status: 'degraded', checks: [{ id: 'db', ok: false }] }, Number(mode.slice(6)));
   const columns = spec.list?.columns ?? ['id', 'name'];
   const rows = mode === 'empty' ? [] : [rowFor(columns, 1), rowFor(columns, 2)];
   if (req.method === 'GET') {
@@ -122,75 +207,92 @@ function respond(spec, mode, req) {
 
 // ── invocations ──────────────────────────────────────────────────────────────
 
-function invocations(group, spec, fileFor) {
-  const q = (spec.query ?? []).map(field);
-  const b = (spec.body ?? []).map(field);
-  const all = [...q, ...b];
-  const allowBody = Boolean(spec.body || spec.rawBody);
-  const pos = params(spec.route).map((p) => `${p}/1`);
-  const org = hasOrg(spec.route) ? ['--org', 'o/1'] : [];
-  const yes = spec.confirm ? ['--yes'] : [];
-  const req = all.filter((f) => f.required).flatMap((f) => [f.flag, dummy(f, fileFor)]);
-  const opt = (bool) => all.filter((f) => !f.required).flatMap((f) => [f.flag, dummy(f, fileFor, bool)]);
-  const base = [group, ...spec.cmd, ...pos];
+function invocations(group, d, fileFor) {
+  const all = d.fields;
+  const pos = (d.templates[0] ?? []).map((p) => `${p}/1`);
+  const org = d.org ? ['--org', 'o/1'] : [];
+  const yes = d.confirm ? ['--yes'] : [];
+  const req = all.filter((f) => f.required).flatMap((f) => dummy(f, fileFor));
+  const opt = (bool) => all.filter((f) => !f.required).flatMap((f) => dummy(f, fileFor, bool));
+  const base = [group, ...d.words, ...pos];
   const v = [];
   const add = (name, argv, mode = 'ok') => v.push({ name, argv, mode });
+  const isBool = (f) => f.type === 'bool' || f.type === 'boolean';
 
   add('min', [...base, ...org, ...req, ...yes]);
   add('min-json', ['--json', ...base, ...org, ...req, ...yes]);
   add('full', [...base, ...org, ...req, ...opt('true'), ...yes]);
   add('full-json', ['--json', ...base, ...org, ...req, ...opt('true'), ...yes]);
-  if (all.some((f) => f.type === 'bool' && !f.required)) {
+  if (all.some((f) => isBool(f) && !f.required)) {
     add('full-false', [...base, ...org, ...req, ...opt('false'), ...yes]);
-    add('bool-no', [...base, ...org, ...req, ...all.filter((f) => f.type === 'bool').flatMap((f) => [f.flag, 'no']), ...yes]);
+    if (all.some((f) => f.type === 'bool')) add('bool-no', [...base, ...org, ...req, ...all.filter((f) => f.type === 'bool').flatMap((f) => [f.flag, 'no']), ...yes]);
   }
-  if (allowBody) {
+  if (d.body === 'accepted') {
     add('body', [...base, ...org, ...req, '--body', '{"extra":1,"keep":"body"}', ...yes]);
-    add('body-only', [...base, ...org, '--body', JSON.stringify(Object.fromEntries(b.map((f) => [f.key, 'from-body']))), ...yes]);
+    add('body-only', [...base, ...org, '--body', JSON.stringify(Object.fromEntries(d.bodyFields.map((f) => [f.key, 'from-body']))), ...yes]);
     add('body-file', [...base, ...org, ...req, '--body-file', fileFor({ key: '__body', json: '{"fromFile":true}' }), ...yes]);
     add('body-bad', [...base, ...org, ...req, '--body', '[1]', ...yes]);
-  } else {
+  } else if (d.body === 'rejected') {
     add('body-rejected', [...base, ...org, ...req, '--body', '{}', ...yes]);
+  } else {
+    add('body-ignored', [...base, ...org, ...req, '--body', '{}', ...yes]);
   }
   add('null', [...base, ...org, ...req, ...yes], 'null');
   add('null-json', ['--json', ...base, ...org, ...req, ...yes], 'null');
   add('err404', [...base, ...org, ...req, ...yes], 'err404');
-  if (spec.list) {
+  if (d.list) {
     add('list-empty', [...base, ...org, ...req, ...yes], 'empty');
     add('list-key-miss', [...base, ...org, ...req, ...yes], 'listkey-miss');
     add('list-array', [...base, ...org, ...req, ...yes], 'array');
   }
-  if (spec.text) {
+  if (d.text) {
     add('text', [...base, ...org, ...req, ...yes], 'raw');
     add('text-json', ['--json', ...base, ...org, ...req, ...yes], 'raw');
   }
-  if (spec.confirm) add('no-yes', [...base, ...org, ...req]);
-  // Double faults pin which check wins: input validation runs before the --yes gate.
-  if (spec.confirm && all.some((f) => f.required)) add('no-yes+missing', [...base, ...org]);
-  if (spec.confirm && all.some((f) => f.type === 'number' || f.type === 'json')) {
+  if (d.confirm) add('no-yes', [...base, ...org, ...req]);
+  // Double faults pin which check wins (e.g. input validation vs the --yes gate).
+  if (d.confirm && all.some((f) => f.required)) add('no-yes+missing', [...base, ...org]);
+  if (d.confirm && all.some((f) => f.type === 'number' || f.type === 'json')) {
     const f = all.find((x) => x.type === 'number' || x.type === 'json');
     add('no-yes+bad', [...base, ...org, ...req, f.flag, f.type === 'number' ? 'abc' : '{nope']);
   }
-  if (spec.confirm && org.length) add('no-yes+no-org', [...base, ...req]);
+  if (d.confirm && org.length) add('no-yes+no-org', [...base, ...req]);
   if (org.length) add('no-org', [...base, ...req, ...yes]);
   if (pos.length) add('missing-positional', [...base.slice(0, -1), ...org, ...req, ...yes]);
   add('extra-positional', [...base, 'extra', ...org, ...req, ...yes]);
   for (const f of all.filter((x) => x.required)) {
-    add(`missing ${f.flag}`, [...base, ...org, ...all.filter((x) => x.required && x !== f).flatMap((x) => [x.flag, dummy(x, fileFor)]), ...yes]);
+    add(`missing ${f.flag}`, [...base, ...org, ...all.filter((x) => x.required && x !== f).flatMap((x) => dummy(x, fileFor)), ...yes]);
   }
-  const bad = { number: 'abc', bool: 'maybe', json: '{nope', file: '/nonexistent/openwop-snapshot' };
+  const bad = { number: 'abc', bool: 'maybe', json: '{nope', file: '/nonexistent/openwop-snapshot', file64: '/nonexistent/openwop-snapshot', 'json-file': '/nonexistent/openwop-snapshot', map: 'novalue' };
   for (const f of all) {
     if (bad[f.type] && !v.some((x) => x.name === `bad ${f.type}`)) {
-      const rest = all.filter((x) => x.required && x !== f).flatMap((x) => [x.flag, dummy(x, fileFor)]);
+      const rest = all.filter((x) => x.required && x !== f).flatMap((x) => dummy(x, fileFor));
       add(`bad ${f.type}`, [...base, ...org, ...rest, f.flag, bad[f.type], ...yes]);
     }
   }
-  if (all.some((f) => f.type === 'number')) {
-    const f = all.find((x) => x.type === 'number');
-    const rest = all.filter((x) => x.required && x !== f).flatMap((x) => [x.flag, dummy(x, fileFor)]);
-    add('blank number', [...base, ...org, ...rest, `${f.flag}=`, ...yes]);
-  }
+  const numbers = all.filter((x) => x.type === 'number');
+  const blank = (f) => [...base, ...org, ...all.filter((x) => x.required && x !== f).flatMap((x) => dummy(x, fileFor)), `${f.flag}=`, ...yes];
+  if (numbers.length) add('blank number', blank(numbers[0]));
   add('sub-help', [...base, '--help']);
+  // ── additions (2026-09, engine convergence): appended so every row above
+  // keeps its position. A blank value for EVERY number flag (human + --json),
+  // double faults without a --yes gate, alternate path templates, and the
+  // readiness-style statuses that still carry a body.
+  for (const f of numbers.slice(1)) add(`blank ${f.flag}`, blank(f));
+  for (const f of numbers) add(`blank ${f.flag} json`, ['--json', ...blank(f)]);
+  const badF = all.find((x) => x.type === 'number' || x.type === 'json');
+  if (badF && all.some((x) => x.required && x !== badF)) {
+    add('missing+bad', [...base, ...org, badF.flag, badF.type === 'number' ? 'abc' : '{nope', ...yes]);
+  }
+  if (numbers.length && d.body === 'accepted') add('blank-number+body-bad', [...base, ...org, ...req, `${numbers[0].flag}=`, '--body', '[1]', ...yes]);
+  d.templates.slice(1).forEach((names, i) => {
+    add(`template#${i + 1}`, [group, ...d.words, ...names.map((p) => `${p}/1`), ...org, ...req, ...yes]);
+    add(`template#${i + 1}-json`, ['--json', group, ...d.words, ...names.map((p) => `${p}/1`), ...org, ...req, ...yes]);
+  });
+  for (const status of d.bodyOnError) {
+    add(`status ${status}`, [...base, ...org, ...req, ...yes], `status${status}`);
+    add(`status ${status} json`, ['--json', ...base, ...org, ...req, ...yes], `status${status}`);
+  }
   return v;
 }
 
@@ -201,10 +303,14 @@ export async function generateSnapshot() {
   try {
     const groups = discoverGroups();
     const { runCli, specsOf } = await loadModules(groups, dir);
-    let fileN = 0;
+    // Named by content, not by call order, so adding a variant never renames
+    // the files every later invocation's argv records.
+    const files = new Map();
     const fileFor = (f) => {
-      const path = join(dir, `f${fileN++}.txt`);
-      writeFileSync(path, f.json ?? `${f.key}-secret\n`);
+      const content = f.json ?? `${f.key}-secret\n`;
+      const path = join(dir, `${f.key}${f.json ? '.json' : '.txt'}`);
+      if (files.has(path) && files.get(path) !== content) throw new Error(`snapshot file ${path}: conflicting contents`);
+      if (!files.has(path)) { files.set(path, content); writeFileSync(path, content); }
       return path;
     };
     const norm = (s) => s.split(dir).join('<TMP>');
@@ -232,11 +338,12 @@ export async function generateSnapshot() {
 
     const result = { groups: {}, commandCount: 0, helpCount: 0, invocationCount: 0 };
     for (const g of groups) {
-      const specs = specsOf(g);
-      const entry = { specsId: g.specsId, help: await run([g.group, '--help']), commands: {} };
+      const specs = specsOf(g).map((c) => (g.kind === 'spec' ? describeSpec(c) : describeRoute(c)));
+      const entry = { ...(g.kind === 'route' ? { kind: 'route' } : {}), specsId: g.specsId, help: await run([g.group, '--help']), commands: {} };
       result.helpCount++;
       for (const spec of specs) {
-        const key = `${spec.method} ${spec.cmd.join(' ')} ${spec.route}`;
+        const key = spec.key;
+        if (entry.commands[key]) throw new Error(`${g.group}: duplicate command key ${key}`);
         const rows = [];
         for (const inv of invocations(g.group, spec, fileFor)) {
           const r = await run(inv.argv, spec, inv.mode);
