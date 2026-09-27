@@ -1,4 +1,5 @@
 import type { Ctx } from './context.js';
+import { CliError } from './errors.js';
 import { projectRunIdsInPath } from './ids.js';
 /**
  * Protocol-major negotiation — the one place the CLI decides which wire it speaks.
@@ -182,6 +183,7 @@ export async function negotiateMajor(ctx: Ctx): Promise<ProtocolMajor> {
       // Kept for the readers that render discovery (capabilities, doctor) so
       // they reuse this one fetch instead of issuing a second.
       ctx.discovery = { doc, servedVersion: res.headers?.get?.('openwop-version') ?? undefined };
+      ctx.discoveredStreamBase = streamBaseFrom(doc?.extensions, ctx.baseUrl);
       major = selectMajor(doc?.protocolVersions);
       if (major === 2) roots = hostRootsFrom(doc?.extensions);
     } else if (res.status === 406) {
@@ -217,4 +219,72 @@ export async function resolveRequest(
   const rooted = hostRootFor(path, ctx.hostRoots ?? {});
   if (rooted !== null) return { path: rooted, headers };
   return { path, headers };
+}
+
+/** True for a loopback host (the local-development exception to the https rule). */
+function isLoopback(url: URL): boolean {
+  return url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]' || url.hostname === '::1';
+}
+
+/**
+ * A stream origin the USER chose (`--stream-base-url` / OPENWOP_STREAM_BASE_URL /
+ * config `host.streamBaseUrl`): any URL is honoured — it is the user's decision —
+ * but it must parse, and a trailing slash is dropped. An unparseable value is a
+ * usage error, not a silent fallback.
+ */
+export function explicitStreamBase(raw: unknown): string | undefined {
+  if (typeof raw !== 'string' || raw.trim() === '') return undefined;
+  try { new URL(raw.trim()); } catch { throw new CliError(`--stream-base-url / OPENWOP_STREAM_BASE_URL is not a URL: ${raw}`); }
+  return raw.trim().replace(/\/+$/, '');
+}
+
+/**
+ * The stream origin a HOST advertised (`extensions.<org>.<name>.streamBase`,
+ * versioning.md §5 — host-proprietary; the reference host's
+ * `openwop-app.host.streamBase`, openwop-app ADR 0761). The bearer is sent to
+ * it, so it is accepted only when it cannot downgrade the connection: `https:`,
+ * no credentials, query or fragment — or plain `http:` on a loopback host when
+ * the base URL is itself loopback (local development). Anything else → undefined
+ * (streams stay on the base URL).
+ */
+export function streamBaseFrom(extensions: unknown, baseUrl: string): string | undefined {
+  if (!extensions || typeof extensions !== 'object' || Array.isArray(extensions)) return undefined;
+  let base: URL;
+  try { base = new URL(baseUrl); } catch { return undefined; }
+  for (const value of Object.values(extensions as Record<string, unknown>)) {
+    const raw = value && typeof value === 'object' ? (value as { streamBase?: unknown }).streamBase : undefined;
+    if (typeof raw !== 'string') continue;
+    let url: URL;
+    try { url = new URL(raw); } catch { continue; }
+    if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '') continue;
+    const secure = url.protocol === 'https:' && (base.protocol === 'https:' || isLoopback(base));
+    const localDev = url.protocol === 'http:' && isLoopback(url) && isLoopback(base);
+    if (!secure && !localDev) continue;
+    return raw.replace(/\/+$/, '');
+  }
+  return undefined;
+}
+
+/**
+ * THE one place an event-stream request is built (run events, host-extension
+ * streams, board watch, present). Same path negotiation as `resolveRequest`,
+ * joined to the STREAM origin — the user's `streamBaseUrl`, else the host's
+ * accepted `streamBase`, else `baseUrl` — keeping any path prefix, with the
+ * bearer attached. Non-stream requests never use this (they stay on `baseUrl`).
+ *
+ * Why a separate origin exists at all (openwop-app ADR 0761, MEASURED): a CDN
+ * rewrite in front of a host may buffer a streamed response entirely —
+ * `https://app.openwop.dev/api` delivered zero bytes of an event stream in 25 s.
+ */
+export async function resolveStreamRequest(
+  ctx: Ctx,
+  requestedPath: string,
+  headers: Record<string, string>,
+): Promise<{ url: URL; headers: Record<string, string> }> {
+  const resolved = await resolveRequest(ctx, requestedPath, { accept: 'text/event-stream', ...headers });
+  const origin = ctx.streamBaseUrl ?? ctx.discoveredStreamBase ?? ctx.baseUrl;
+  const url = new URL(resolved.path.replace(/^\//, ''), origin.endsWith('/') ? origin : `${origin}/`);
+  const out = { ...resolved.headers };
+  if (ctx.apiKey) out.authorization = `Bearer ${ctx.apiKey}`;
+  return { url, headers: out };
 }

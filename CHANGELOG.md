@@ -6,6 +6,12 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Added
+- **Stream origin.** Event streams are read from `--stream-base-url` > `OPENWOP_STREAM_BASE_URL` > config `host.streamBaseUrl` > a host-advertised `extensions.*.streamBase` > `--base-url`; everything else stays on `--base-url`. Measured: the reference host's public front door (`https://app.openwop.dev/api`, a CDN rewrite) delivered 0 bytes of an event stream in 25 s, so `runs watch`, `chat`, `notifications stream`, `kanban watch` and `present` never showed a live event through it. An advertised origin receives the bearer, so it is accepted only if `https:` without credentials/query/fragment and read from an `https:` host (loopback `http:` only for a loopback base). All five stream call sites now go through one seam (`resolveStreamRequest`); `present` also gains the bearer it omitted.
+- **Idle watchdog** on run streams: no bytes (keep-alives count) for `--idle-timeout-ms` (default 45000; 0 disables) → abort + resume with `Last-Event-ID`. A half-open connection used to block forever.
+- `scripts/live-sse-resume.mjs` — a live check against a real run: breaks the first events stream (`--mode drop` destroys the socket, `--mode stall` holds it silent) and asserts the reconnect carried `Last-Event-ID`, no event printed twice, terminal event reached. Passed both modes against the reference host 2026-09-27.
+
+
 ### Fixed
 - **Anonymous normative reads no longer dead-end on a v2 host.** `agents list|info`, `roster list` and `org-chart get|dept` read the normative `/v1/agents*` first; a v2 host MUST refuse a request that presents no credential (`401` + `WWW-Authenticate: Bearer` with no `error=`, RFC 0200 §B.1 / `identity.md` §2.5), so anonymous use of these commands exited 4. They now fall back to the host's anonymous view (the host-extension alias) on exactly that challenge **and** only when the request sent no credential — never on `invalid_token`, a refused `--api-key` or caller credential, a bare 401 or a 403 (no silent identity switch). The fallback is announced on stderr every time, naming the path actually sent; if the host has no such alias, the original 401 is reported.
 

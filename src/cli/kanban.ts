@@ -5,7 +5,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { consumeSse } from '../sse.js';
-import { resolveRequest } from '../protocol.js';
+import { resolveStreamRequest } from '../protocol.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
 const KB = '/v1/host/openwop-app/kanban/boards/:boardId';
@@ -226,10 +226,8 @@ async function boardWatch(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop kanban watch <boardId>\n');
     return options.help ? 0 : 2;
   }
-  // Through resolveRequest so the negotiated host root applies (src/protocol.ts).
-  const { path, headers } = await resolveRequest(ctx, `/v1/host/openwop-app/kanban/boards/${encodeURIComponent(positionals[0])}/events`, { accept: 'text/event-stream' });
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
-  if (ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
+  // Through the one stream seam: negotiated host root + stream origin + bearer (src/protocol.ts).
+  const { url, headers } = await resolveStreamRequest(ctx, `/v1/host/openwop-app/kanban/boards/${encodeURIComponent(positionals[0])}/events`, {});
   const res = await ctx.fetchImpl(url, { headers });
   if (!res.ok || !res.body) {
     throw new CliError(`Could not open the board event stream (HTTP ${res.status}).`, 1);

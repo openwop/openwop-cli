@@ -216,7 +216,8 @@ export { requestNormativeOrHost } from './cli/requestHelpers.js';
 export { checkMinClientVersion, idempotencyHeaders, CLI_PROTOCOL_VERSION_BY_MAJOR } from './wire.js';
 export { formatTable };
 export { extractGlobalOptions };
-export { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, hostRootsFrom, hostRootFor } from './protocol.js';
+export { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, hostRootsFrom, hostRootFor, streamBaseFrom, resolveStreamRequest, explicitStreamBase } from './protocol.js';
+import { explicitStreamBase } from './protocol.js';
 export { configPathFor, readConfigSafe, saveConfig, openwopHomeDir };
 
 export async function runCli(argv: string[], options: any = {}): Promise<number> {
@@ -248,6 +249,7 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         parsed.globals.baseUrl ?? env.OPENWOP_BASE_URL ?? savedConfig?.host?.baseUrl ?? DEFAULT_BASE_URL,
       ),
       apiKey: parsed.globals.apiKey ?? env.OPENWOP_API_KEY ?? savedConfig?.host?.apiKey,
+      streamBaseUrl: explicitStreamBase(parsed.globals.streamBaseUrl ?? env.OPENWOP_STREAM_BASE_URL ?? savedConfig?.host?.streamBaseUrl),
       json: parsed.globals.json,
       quiet: parsed.globals.quiet,
       verbose: parsed.globals.verbose,
@@ -1042,6 +1044,7 @@ Usage:
 
 Global options:
   --base-url <url>    Host base URL (default: --base-url > OPENWOP_BASE_URL > saved config > http://localhost:8080)
+  --stream-base-url <url>  Where to read event streams (default: OPENWOP_STREAM_BASE_URL > saved config > the host's advertised https streamBase > --base-url)
   --api-key <key>     Bearer API key (default: OPENWOP_API_KEY > saved config > sample-token for localhost)
   --profile <name>    Use a named config profile (~/.openwop-<name>); also OPENWOP_PROFILE
   --json              Print machine-readable JSON where supported

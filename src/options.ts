@@ -4,6 +4,7 @@ import { CliError } from './errors.js';
 
 export interface GlobalOptions {
   baseUrl: string | undefined;
+  streamBaseUrl: string | undefined;
   apiKey: string | undefined;
   profile: string | undefined;
   json: boolean;
@@ -17,6 +18,7 @@ export interface GlobalOptions {
 export function extractGlobalOptions(argv: string[], env = process.env): { globals: GlobalOptions; args: string[] } {
   const globals: GlobalOptions = {
     baseUrl: undefined,
+    streamBaseUrl: undefined,
     apiKey: undefined,
     profile: undefined,
     json: false,
@@ -34,6 +36,10 @@ export function extractGlobalOptions(argv: string[], env = process.env): { globa
 
     if (flag === '--base-url') {
       globals.baseUrl = value ?? takeValue(argv, ++i, '--base-url');
+      continue;
+    }
+    if (flag === '--stream-base-url') {
+      globals.streamBaseUrl = value ?? takeValue(argv, ++i, '--stream-base-url');
       continue;
     }
     if (flag === '--api-key') {

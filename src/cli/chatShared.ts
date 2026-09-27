@@ -15,7 +15,7 @@
 import type { Ctx } from '../context.js';
 import { CliError, HttpError, httpErrorLine } from '../errors.js';
 import { writeJson, writeLine } from '../io.js';
-import { resolveRequest } from '../protocol.js';
+import { resolveStreamRequest } from '../protocol.js';
 import { consumeSse } from '../sse.js';
 
 /** URL-encode one path segment (ids may carry `/` or `:`). */
@@ -64,9 +64,7 @@ export interface HostSseOptions {
  * CliError instead of mis-parsing JSON as frames.
  */
 export async function streamHostSse(ctx: Ctx, requestedPath: string, opts: HostSseOptions): Promise<number> {
-  const { path, headers } = await resolveRequest(ctx, requestedPath, { accept: 'text/event-stream' });
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
-  if (ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
+  const { url, headers } = await resolveStreamRequest(ctx, requestedPath, {});
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   if (opts.timeoutMs && opts.timeoutMs > 0) timer = setTimeout(() => controller.abort(), opts.timeoutMs);

@@ -13,6 +13,13 @@ export interface Ctx {
   io: CliIo;
   fetchImpl: typeof fetch;
   baseUrl: string;
+  /**
+   * Origin to read event streams from, when the user chose one
+   * (`--stream-base-url` > OPENWOP_STREAM_BASE_URL > config `host.streamBaseUrl`).
+   * Absent → the host's advertised `streamBase` (validated), else `baseUrl`.
+   * See `resolveStreamRequest` (src/protocol.ts).
+   */
+  streamBaseUrl?: string | undefined;
   apiKey?: string | undefined;
   /** Protocol major negotiated for this process (memoized by `negotiateMajor`; see src/protocol.ts). */
   protocolMajor?: 1 | 2;
@@ -24,6 +31,8 @@ export interface Ctx {
   discovery?: { doc: unknown; servedVersion: string | undefined };
   /** Host-proprietary roots from discovery, `{ "/v1/host/<org>/": "/host/<org>/" }` (memoized by `negotiateMajor`). */
   hostRoots?: Readonly<Record<string, string>>;
+  /** Advertised stream origin accepted from discovery (memoized by `negotiateMajor`); undefined = none/rejected. */
+  discoveredStreamBase?: string | undefined;
   /** Active config profile (`--profile` / OPENWOP_PROFILE); undefined = the default profile. */
   profile?: string | undefined;
   json: boolean;
