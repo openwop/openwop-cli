@@ -27,7 +27,9 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
  * A field spec: `key[:type][!]`. The flag is the kebab-case of `key`
  * (`priceMinor` → `--price-minor`). Types: `string` (default), `number`
  * (finite, e.g. minor units), `bool` (`true`/`false`), `json` (parsed JSON),
- * `list` (comma-separated → string[]). A trailing `!` marks it required
+ * `list` (comma-separated → string[]), `file` (a local file's text — for a
+ * secret the user supplies, so it never lands in shell history; one trailing
+ * newline dropped). A trailing `!` marks it required
  * (satisfied either by the flag or by the same key inside `--body`).
  * An optional `=flag-name` suffix overrides the flag name
  * (`client_id=client-id`).
@@ -96,6 +98,8 @@ function coerce(field: ParsedField, raw: string): unknown {
       try { return JSON.parse(raw); } catch { throw new CliError(`${field.flag} must be valid JSON`); }
     case 'list':
       return raw.split(',').map((v) => v.trim()).filter((v) => v.length > 0);
+    case 'file':
+      try { return readFileSync(raw, 'utf8').replace(/\r?\n$/, ''); } catch { throw new CliError(`Cannot read ${field.flag} ${raw}`); }
     default:
       return raw;
   }
@@ -115,7 +119,7 @@ export function usageLine(group: string, spec: CommandSpec): string {
   const parts = [`openwop ${group}`, ...spec.cmd, ...paramsOf(spec.route).map((p) => `<${p}>`)];
   if (hasOrg(spec.route)) parts.push('--org <orgId>');
   const fmt = (f: ParsedField) => {
-    const v = f.type === 'bool' ? 'true|false' : f.type === 'json' ? 'json' : f.type === 'list' ? 'a,b' : f.type === 'number' ? 'n' : 'v';
+    const v = f.type === 'bool' ? 'true|false' : f.type === 'json' ? 'json' : f.type === 'list' ? 'a,b' : f.type === 'number' ? 'n' : f.type === 'file' ? 'path' : 'v';
     return f.required ? `${f.flag} <${v}>` : `[${f.flag} <${v}>]`;
   };
   for (const f of (spec.query ?? []).map(parseField)) parts.push(fmt(f));
@@ -268,6 +272,21 @@ function render(ctx: Ctx, spec: CommandSpec, status: number, body: any): number 
   }
   writeJson(ctx.io.stdout, body);
   return 0;
+}
+
+/**
+ * Run the spec matching `argv` when there is one, else `undefined` — for a
+ * hand-written group that serves part of its surface from a spec table and
+ * falls through to its own switch for the rest.
+ */
+export async function dispatchSpecs(ctx: Ctx, group: string, specs: CommandSpec[], argv: string[]): Promise<number | undefined> {
+  const match = matchSpec(specs, argv);
+  return match ? runSpec(ctx, group, match.spec, match.rest) : undefined;
+}
+
+/** One usage + route line per spec — the generated block a hand-written group appends to its help. */
+export function specsUsage(group: string, specs: CommandSpec[]): string {
+  return specs.map((s) => `  ${usageLine(group, s)}\n      ${s.method} ${s.route}${s.auth === false ? '  (public, no auth)' : ''} — ${s.summary}`).join('\n');
 }
 
 /** Dispatch `argv` against a group's spec table (`--help` / no args → help). */

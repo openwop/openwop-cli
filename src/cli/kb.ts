@@ -5,6 +5,20 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
+import { dispatchSpecs, specsUsage, type CommandSpec } from './resourceCommands.js';
+
+const KC = '/v1/host/openwop-app/kb/orgs/:org/collections/:collectionId';
+
+/** Collection retrieval config (ADR 0351), media-collection ingest, and the reindex job controls. */
+export const KB_EXT_SPECS: CommandSpec[] = [
+  { cmd: ['collections', 'retrieval'], method: 'PATCH', route: `${KC}/retrieval`, body: ['mode', 'embedder', 'enrichment', 'rerank:json'],
+    summary: 'Set retrieval: --mode dense|hybrid|hybrid+rerank, --embedder local|provider, --enrichment off|heading-path, --rerank \'{"kind":"local"}\' (only the fields you pass change).' },
+  { cmd: ['collections', 'ingest-media'], method: 'POST', route: `${KC}/ingest-media-collection`, body: ['mediaCollectionId!'],
+    summary: 'Ingest every document in a media collection into this knowledge collection.' },
+  { cmd: ['collections', 'reindex', 'drain'], method: 'POST', route: `${KC}/reindex/drain`, body: ['maxChunks:number'],
+    summary: 'Advance the running reindex job by up to --max-chunks (host caps at 4096) (org admin).' },
+  { cmd: ['collections', 'reindex', 'cancel'], method: 'POST', route: `${KC}/reindex/cancel`, summary: 'Cancel the running reindex job (org admin).' },
+];
 
 const base = (org: string) => `/v1/host/openwop-app/kb/orgs/${encodeURIComponent(org)}`;
 const cols = (org: string) => `${base(org)}/collections`;
@@ -24,6 +38,15 @@ export const KB_HELP = `Usage:
 Knowledge base (host-extension, org-scoped). Collections hold documents; \`search\` runs
 retrieval and \`rag\` a retrieve-then-generate query. Every command needs --org. The host
 is the authority; the CLI mirrors + relays.
+
+${specsUsage('kb', KB_EXT_SPECS)}
+
+Exit codes: 0 ok · 2 usage error / request rejected (404 = no reindex job) · 4 not
+signed in or not permitted · 1 server error.
+
+Examples:
+  openwop kb collections retrieval kc_1 --org org_1 --mode hybrid --embedder local
+  openwop kb collections reindex drain kc_1 --org org_1 --max-chunks 512
 `;
 
 
@@ -31,6 +54,8 @@ export async function runKb(ctx: Ctx, argv: string[]) {
   const group = argv[0] ?? 'collections';
   if (group === '--help' || group === '-h') { write(ctx.io.stdout, KB_HELP); return 0; }
   const rest = argv.slice(1);
+  const ext = await dispatchSpecs(ctx, 'kb', KB_EXT_SPECS, argv);
+  if (ext !== undefined) return ext;
   switch (group) {
     case 'collections': return kbCollections(ctx, rest);
     case 'docs': return kbDocs(ctx, rest);

@@ -4,8 +4,18 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
 const BOARDS = '/v1/host/openwop-app/advisors/boards';
+
+/** Board strategy preview (ADR 0079 P5) + shared planning knowledge (ADR 0100 D2 / ADR 0277). */
+export const ADVISORS_ROUTES: RouteCmd[] = [
+  { words: ['strategy-context'], method: 'GET', path: `${BOARDS}/:boardId/strategy-context`, summary: 'Preview the strategy context the board would convene with.' },
+  { words: ['shared-knowledge'], method: 'GET', path: `${BOARDS}/:boardId/shared-knowledge`, summary: 'Which planning knowledge kinds are shared with every advisor on the board.',
+    table: { key: 'items', columns: ['kind', 'shared', 'shareable', 'count'], empty: 'No shareable knowledge.' } },
+  { words: ['shared-knowledge', 'set'], method: 'POST', path: `${BOARDS}/:boardId/shared-knowledge`, summary: 'Share (--shared) or unshare (--no-shared) one knowledge kind with all advisors.',
+    body: [{ flag: '--kind', key: 'kind', required: true }, { flag: '--shared', key: 'shared', type: 'boolean', required: true }] },
+];
 
 export const ADVISORS_HELP = `Usage:
   openwop advisors list [--json]
@@ -15,11 +25,16 @@ export const ADVISORS_HELP = `Usage:
   openwop advisors delete <boardId> [--yes]
 
 Advisory boards (host-extension) — a panel of advisor agents. \`create\` needs the
-owning --org. The host is the authority; the CLI mirrors + relays.`;
+owning --org. The host is the authority; the CLI mirrors + relays.
+
+${routesHelp('advisors', ADVISORS_ROUTES)}
+`;
 
 export async function runAdvisors(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, ADVISORS_HELP); return 0; }
+  const ext = await dispatchRoutes(ctx, 'advisors', ADVISORS_ROUTES, argv);
+  if (ext !== undefined) return ext;
   const args = argv.slice(['list', 'get', 'by-handle', 'create', 'delete'].includes(sub) ? 1 : 0);
   const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--org', '--name', '--handle'] });
   if (options.help) { write(ctx.io.stdout, ADVISORS_HELP); return 0; }

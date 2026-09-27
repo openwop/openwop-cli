@@ -201,6 +201,9 @@ import { runWorkSelection, WORK_SELECTION_HELP } from './cli/workSelection.js';
 import { runTasks, TASKS_HELP } from './cli/tasks.js';
 import { runModelRouter, MODEL_ROUTER_HELP } from './cli/modelRouter.js';
 import { runDev, DEV_HELP } from './cli/dev.js';
+import { runCapabilityFirewall, CAPABILITY_FIREWALL_HELP } from './cli/capabilityFirewall.js';
+import { runHeartbeat, HEARTBEAT_HELP } from './cli/heartbeat.js';
+import { runSettings, SETTINGS_HELP } from './cli/settings.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -594,6 +597,12 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runModelRouter(ctx, commandArgs);
       case 'dev':
         return await runDev(ctx, commandArgs);
+      case 'capability-firewall':
+        return await runCapabilityFirewall(ctx, commandArgs);
+      case 'heartbeat':
+        return await runHeartbeat(ctx, commandArgs);
+      case 'settings':
+        return await runSettings(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -789,6 +798,9 @@ const HELP_MAP: Record<string, string> = {
     tasks: TASKS_HELP,
     'model-router': MODEL_ROUTER_HELP,
     dev: DEV_HELP,
+    'capability-firewall': CAPABILITY_FIREWALL_HELP,
+    heartbeat: HEARTBEAT_HELP,
+    settings: SETTINGS_HELP,
 };
 
 /** All top-level command names + aliases — the single drift-free source for the
@@ -1281,6 +1293,9 @@ Commands:
   tasks deck          Your run task deck, bucketed by state (ADR 0133)
   model-router enable Turn an org's model-router config on/off (ADR 0130)
   dev ucp-merchant call  Demo-only: JSON-RPC tools/call against the reference UCP merchant
+  capability-firewall rules  Capability-firewall rules, decisions + simulate (ADR 0135)
+  heartbeat settings  Host-wide agent heartbeat switch (super-admin, ADR 0318)
+  settings prefs      Your personal budget, reasoning directive + privacy (ADR 0396)
 
 Examples:
   openwop onboard

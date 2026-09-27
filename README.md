@@ -28,6 +28,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 | **Protocol + run operations** | `content` (RFC 0103) · `dispatch` (RFC 0118) · `openapi` · `agent-knowledge` · `compat-endpoints` (RFC 0108) · `host-events` · `client-support` (+ `runs` / `interrupts` / `workflows` / `approvals` / `reviews` / `webhooks` / `prompts` / `catalog` extensions) |
 | **Conversations & messaging** | `chat` (sessions/messages/search/export/tools) · `assistant` · `channels` · `scheduled-chats` · `voice` · `ai` · `computer-use` · `whatsapp` · `agent-author` · `workflow-author` · `workflow-proposals` (+ `a2a`, `notifications` extensions) |
+| **Residual host surfaces** | `capability-firewall` · `heartbeat` · `settings` (+ `cms` / `email` / `kb` / `forms` / `chat-widget` / `consent` / `approvals` / `profiles` / `advisors` / `campaigns-orchestration` / `notifications` / `workflows` / `kanban` / `job-search` extensions) |
 
 > **`0.18.x`:** the catalog now covers the full app feature surface — the agent
 > platform (`agent-profile`, `agent-packs`, `agent-allowlists`, `agent-ops`,
@@ -674,6 +675,42 @@ openwop tasks deck
 Destructive commands refuse without `--yes`. Exit codes: `0` ok · `2` usage error /
 not found / rejected · `4` not signed in or not permitted · `1` server error
 (`kicktodo readiness` also exits `1` when the product reports `degraded`).
+
+## Residual host surfaces
+
+The last host-extension routes the reference host serves, added as three new
+groups — `capability-firewall` (composition rules, recent decisions, a read-only
+`simulate`, and the super-admin platform baseline), `heartbeat` (the host-wide
+agent heartbeat switch, super-admin) and `settings` (your personal token cap,
+reasoning directive and privacy opt-outs) — and as route tables inside existing
+groups: `cms` (scheduled publish/unpublish, version restore, review status, shared
+sections, language settings, translator locale grants, per-locale publish, AI
+section translation, page A/B experiments, and the page SEO head), `email` (sender
+settings, provider status, bounce-webhook configs, campaign engagement), `kb`
+(retrieval config, media-collection ingest, reindex drain/cancel), `forms`
+(templates), `chat-widget tool-catalog`, `consent` (purpose vocabulary, re-admit an
+erased subject), `approvals teams-pref`, `profiles memory-extraction`, `advisors`
+(strategy context, shared knowledge), `campaigns-orchestration`
+(workspace/versions/dispatches), `notifications preferences`, `workflows budget`,
+`kanban column-limit|work-item-run` and `job-search answers`.
+
+Replace-on-write documents (firewall rules, SEO head, heartbeat config,
+notification preferences, personal settings, workflow budget) are
+read-modify-write, so flags you do not pass keep their saved values. The email
+webhook verification secret is read from a file and never printed.
+
+```bash
+openwop capability-firewall simulate --org org_1 --next '{"egress":"safe-fetch"}' --seen '[{"safetyTier":"read"}]'
+openwop cms schedule publish page_1 --org org_1 --at 2026-10-01T09:00:00Z
+openwop cms experiments results page_1 pexp:1 --org org_1
+openwop email webhooks add --org org_1 --provider postmark --verification-secret-file ./secret.txt
+openwop notifications preferences set --quiet-hours --timezone Europe/Oslo
+openwop workflows budget set wf_1 --daily-usd 10 --hard-cap
+openwop settings prefs set --daily-token-cap 200000
+```
+
+Exit codes: `0` ok · `2` usage error / not found / rejected · `4` not signed in or
+not permitted (the super-admin surfaces say so) · `1` server error.
 
 ## Defaults
 

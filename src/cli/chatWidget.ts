@@ -5,6 +5,12 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
+import { dispatchSpecs, specsUsage, type CommandSpec } from './resourceCommands.js';
+
+/** ADR 0469 Phase B — the workspace tool catalog the anonymous-visitor grant editor picks from. */
+export const CHAT_WIDGET_EXT_SPECS: CommandSpec[] = [
+  { cmd: ['tool-catalog'], method: 'GET', route: '/v1/host/openwop-app/chat-widget/orgs/:org/tool-catalog', summary: 'Tools a widget can grant to anonymous visitors (read-only).' },
+];
 import { writeFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { APP, dispatchTable, detail, qs, requestRaw, writeText, type Cmd } from './marketingShared.js';
@@ -18,6 +24,7 @@ export const CHAT_WIDGET_HELP = `Usage:
   openwop chat-widget update <widgetId> --org <orgId> [--name <n>] [--json]
   openwop chat-widget delete <widgetId> --org <orgId> [--yes]
   openwop chat-widget rotate-token <widgetId> --org <orgId> [--json]
+${specsUsage('chat-widget', CHAT_WIDGET_EXT_SPECS)}
 
 Embeddable chat widgets (host-extension, org-scoped). Each widget carries an embed
 token; \`rotate-token\` invalidates the old one. Every command needs --org.
@@ -41,6 +48,8 @@ Exit codes: 0 ok; 2 usage error or host 4xx (404 = unknown token, 429 = cap hit)
 export async function runChatWidget(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, CHAT_WIDGET_HELP); return 0; }
+  const ext = await dispatchSpecs(ctx, 'chat-widget', CHAT_WIDGET_EXT_SPECS, argv);
+  if (ext !== undefined) return ext;
   if (sub === 'public') return dispatchTable(ctx, 'chat-widget public', CHAT_WIDGET_HELP, WIDGET_PUBLIC, argv.slice(1), '--help');
   const args = argv.slice(['list', 'get', 'create', 'update', 'delete', 'rotate-token'].includes(sub) ? 1 : 0);
   const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--org', '--name'] });

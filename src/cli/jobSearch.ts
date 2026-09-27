@@ -73,6 +73,15 @@ export const JOB_SEARCH_ROUTES: RouteCmd[] = [
     body: [{ flag: '--public', key: 'public', type: 'boolean', required: true }] },
   { words: ['exceptions'], method: 'GET', path: `${R}/me/exceptions`, summary: 'Application questions the autopilot could not answer for you.',
     table: { key: 'exceptions', columns: ['questionKey', 'blockedCount', 'reason', 'questionText'], empty: 'No exceptions.' } },
+  { words: ['answers'], method: 'GET', path: `${R}/me/answers`, summary: 'Your answer bank: the standard questions, your answers, and your coverage.',
+    table: { key: 'answers', columns: ['questionKey', 'value', 'source', 'confirmedAt', 'usageCount'], empty: 'No saved answers.' } },
+  { words: ['answers', 'set'], method: 'PUT', path: `${R}/me/answers`, summary: 'Save an answer (a special-category question is refused with 422 and its reason).',
+    body: [
+      { flag: '--question-text', key: 'questionText', required: true },
+      { flag: '--value', key: 'value', required: true },
+      { flag: '--source', key: 'source', help: 'user (default) | inferred | profile' },
+      { flag: '--confirmed', key: 'confirmed', type: 'boolean', help: '--no-confirmed saves it unconfirmed' },
+    ] },
   { words: ['exceptions', 'answer'], method: 'POST', path: `${R}/me/exceptions`, summary: 'Answer one (saved to your answer bank as confirmed).',
     body: [{ flag: '--question-text', key: 'questionText', required: true }, { flag: '--value', key: 'value', required: true }] },
 ];
