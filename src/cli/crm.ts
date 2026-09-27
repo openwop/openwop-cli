@@ -4,6 +4,8 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { buildGroupHelp, runResourceGroup } from './resourceCommands.js';
+import { CRM_EXT_SPECS, CRM_EXT_INTRO } from './crmExt.js';
 
 const BASE = '/v1/host/openwop-app/crm/contacts';
 
@@ -18,7 +20,8 @@ export const CRM_HELP = `Usage:
 CRM contacts (host-extension ${BASE}). A contact has a name, optional email /
 company, and a pipeline stage. \`triage\` runs the host's triage workflow over a
 contact and returns the run. The host is the authority; the CLI mirrors + relays.
-`;
+
+${buildGroupHelp('crm', CRM_EXT_INTRO || 'CRM extensions.', CRM_EXT_SPECS)}`;
 
 export async function runCrm(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
@@ -31,7 +34,7 @@ export async function runCrm(ctx: Ctx, argv: string[]) {
     case 'update': return crmUpdate(ctx, args);
     case 'delete': return crmDelete(ctx, args);
     case 'triage': return crmTriage(ctx, args);
-    default: throw new CliError(`Unknown crm command: ${sub}\nRun \`openwop crm --help\` for usage.`);
+    default: return runResourceGroup(ctx, 'crm', CRM_HELP, CRM_EXT_SPECS, argv);
   }
 }
 

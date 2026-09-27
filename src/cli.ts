@@ -143,6 +143,14 @@ import { runCanvasCollab, CANVAS_COLLAB_HELP } from './cli/canvasCollab.js';
 import { runWorkflowCollab, WORKFLOW_COLLAB_HELP } from './cli/workflowCollab.js';
 import { runCanvasPacks, CANVAS_PACKS_HELP } from './cli/canvasPacks.js';
 import { runPresent, PRESENT_HELP } from './cli/present.js';
+import { runCommerce, COMMERCE_HELP } from './cli/commerce.js';
+import { runCommerceConnect, COMMERCE_CONNECT_HELP } from './cli/commerceConnect.js';
+import { runPromotions, PROMOTIONS_HELP } from './cli/promotions.js';
+import { runRecommendations, RECOMMENDATIONS_HELP } from './cli/recommendations.js';
+import { runDealers, DEALERS_HELP } from './cli/dealers.js';
+import { runCommissions, COMMISSIONS_HELP } from './cli/commissions.js';
+import { runTerritories, TERRITORIES_HELP } from './cli/territories.js';
+import { runSalesMaps, SALES_MAPS_HELP } from './cli/salesMaps.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
@@ -419,6 +427,22 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runCanvasPacks(ctx, commandArgs);
       case 'present':
         return await runPresent(ctx, commandArgs);
+      case 'commerce':
+        return await runCommerce(ctx, commandArgs);
+      case 'commerce-connect':
+        return await runCommerceConnect(ctx, commandArgs);
+      case 'promotions':
+        return await runPromotions(ctx, commandArgs);
+      case 'recommendations':
+        return await runRecommendations(ctx, commandArgs);
+      case 'dealers':
+        return await runDealers(ctx, commandArgs);
+      case 'commissions':
+        return await runCommissions(ctx, commandArgs);
+      case 'territories':
+        return await runTerritories(ctx, commandArgs);
+      case 'sales-maps':
+        return await runSalesMaps(ctx, commandArgs);
       default:
         throw new CliError(`Unknown command: ${command}\nRun \`openwop --help\` for usage.`);
     }
@@ -556,6 +580,14 @@ const HELP_MAP: Record<string, string> = {
     'workflow-collab': WORKFLOW_COLLAB_HELP,
     'canvas-packs': CANVAS_PACKS_HELP,
     'present': PRESENT_HELP,
+    commerce: COMMERCE_HELP,
+    'commerce-connect': COMMERCE_CONNECT_HELP,
+    promotions: PROMOTIONS_HELP,
+    recommendations: RECOMMENDATIONS_HELP,
+    dealers: DEALERS_HELP,
+    commissions: COMMISSIONS_HELP,
+    territories: TERRITORIES_HELP,
+    'sales-maps': SALES_MAPS_HELP,
 };
 
 /** All top-level command names + aliases — the single drift-free source for the
@@ -981,6 +1013,14 @@ Commands:
   workflow-collab ticket  Mint a live-collaboration ticket for a workflow (claim-seed)
   canvas-packs types   List canvas types contributed by installed canvas packs (--org)
   present outline      Presentation remote: outline/state/command/events (token-authed)
+  commerce products   Commerce: catalog, cart, orders, quotes, subscriptions, affiliates, UCP (+ public store)
+  commerce-connect    Stripe Connect paid listings: seller status/onboarding links, orders, payouts, approvals
+  promotions list     Commerce promotions (threshold / product / loss-leader / tiered / BOGO)
+  recommendations     Product-recommendation placements + resolve (+ public resolve)
+  dealers list        Dealer + outlet network, registrations, partner portal
+  commissions plans   Sales-commission plans + statements (compute / approve / pay)
+  territories models  Sales territory models, rules, quotas, attainment, reassignment
+  sales-maps geocode  Geocode addresses for the sales map
 
 Examples:
   openwop onboard
