@@ -4,12 +4,18 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
-## [Unreleased]
+## [1.2.1] — 2026-09-27 — quality pass on 1.2.0
+
+Findings from the post-release code / UX / data grading of the 1.1–1.2 work. No new flags.
 
 ### Changed
 - **A buffering front door is detected in 10 s, and said so.** An events stream whose response headers do not arrive within 10 s (`min(--idle-timeout-ms, 10000)`) is followed by polling, with one stderr line explaining why and naming `--stream-base-url` (`--quiet` suppresses it). Before, the command sat silent for the full 45 s idle timeout. Once headers arrive, only the idle timeout applies.
 - `--stream-base-url` / `OPENWOP_STREAM_BASE_URL` / config `host.streamBaseUrl` refuse a URL carrying credentials (`user:pass@`) — it would sit in plaintext in `~/.openwop` config and shell history; the bearer already travels as `--api-key`.
 - `--verbose` reconnect lines say whether the connection **dropped** or **stalled** (with the silence); giving up says how to continue (`--since <last sequence printed>` or `--no-stream`).
+
+### Fixed
+- **One secret redactor.** `connections`, `export`/`import` and `auth` each carried a private copy of the redactor, and they had drifted; one traversal (`src/redact.ts`) now serves all three, each surface keeping its own policy (no output change). The CLI has no `as any` casts left.
+- `scripts/live-sse-resume.mjs` finds its upstream from the host's advertised `streamBase` before falling back to the reference origin.
 
 ## [1.2.0] — 2026-09-27 — streams that work through a buffering front door
 
