@@ -96,6 +96,21 @@ function httpErrorHint(err: HttpError, env: ReturnType<typeof errorEnvelope>): s
   return undefined;
 }
 
+/**
+ * RFC 0200 §B.1 / `spec/v2/core/identity.md` §2.5 — the NO-CREDENTIAL refusal:
+ * `401` with a `Bearer` challenge and NO `error=` parameter. A challenge that
+ * carries `error=` (`invalid_token`, `insufficient_scope` — RFC 6750 §3) means a
+ * credential WAS presented and refused, and a bare 401 without a challenge is
+ * ambiguous; neither matches. Same predicate as the reference SPA's
+ * `isNoCredentialChallenge` (openwop-app `client/anonBootstrap.ts`).
+ */
+export function isNoCredentialChallenge(err: unknown): boolean {
+  if (!(err instanceof HttpError) || err.status !== 401) return false;
+  const challenge = err.headers?.get?.('www-authenticate');
+  if (!challenge || !/^\s*Bearer\b/i.test(challenge)) return false;
+  return !/\berror\s*=/i.test(challenge);
+}
+
 /** Narrow an unknown caught value to a printable message (strict catch vars). */
 export function errText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
