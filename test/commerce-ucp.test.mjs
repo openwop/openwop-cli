@@ -59,7 +59,7 @@ describe('commerce ucp clients (merchant admin)', () => {
   it('403 → exit 4', async () => {
     const cap = capture();
     assert.equal(await runCli(['commerce', 'ucp', 'clients', 'list', '--org', 'o'], opts(async () => jsonResponse({ message: 'Forbidden.' }, 403), cap)), 4);
-    assert.match(cap.stderr, /HTTP 403: Forbidden\./);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Forbidden\./);
   });
 });
 

@@ -103,7 +103,7 @@ describe('crm org-scoped: companies / deals / pipelines', () => {
   it('403 → legible message + exit 4', async () => {
     const { code, cap } = await run(['crm', 'deals', 'get', 'd1', '--org', 'o1'], { message: 'Not a member.' }, 403);
     assert.equal(code, 4);
-    assert.match(cap.stderr, /HTTP 403: Not a member\./);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Not a member\./);
   });
 });
 

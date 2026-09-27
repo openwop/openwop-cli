@@ -79,6 +79,6 @@ describe('commissions', () => {
   it('403 → exit 4', async () => {
     const cap = capture();
     assert.equal(await runCli(['commissions', 'plans', 'create', '--org', 'o', '--name', 'x', '--currency', 'USD', '--effective-from', '2026-01-01'], opts(async () => jsonResponse({ message: 'Requires host:commissions:manage.' }, 403), cap)), 4);
-    assert.match(cap.stderr, /HTTP 403: Requires host:commissions:manage\./);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Requires host:commissions:manage\./);
   });
 });

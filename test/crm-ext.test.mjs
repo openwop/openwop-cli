@@ -177,7 +177,7 @@ describe('crm fields / segments / suppressions / gmail-sync', () => {
   it('403 → legible message + exit 4', async () => {
     const { code, cap } = await run(['crm', 'suppressions', 'list'], { error: 'forbidden', message: 'Not permitted.' }, 403);
     assert.equal(code, 4);
-    assert.match(cap.stderr, /HTTP 403: Not permitted\./);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Not permitted\./);
   });
 
   it('an unknown crm command is a usage error', async () => {

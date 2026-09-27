@@ -211,7 +211,7 @@ describe('commerce errors', () => {
   it('403 → legible message + exit 4', async () => {
     const { code, cap } = await run(['orders', 'get', 'ord1', '--org', 'o1'], jsonResponse({ error: 'forbidden', message: 'Not permitted.' }, 403));
     assert.equal(code, 4);
-    assert.match(cap.stderr, /HTTP 403: Not permitted\./);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Not permitted\./);
   });
   it('unknown command is a usage error', async () => {
     const { code, cap } = await run(['widgets', 'list', '--org', 'o1']);

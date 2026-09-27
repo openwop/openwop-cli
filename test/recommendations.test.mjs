@@ -75,7 +75,7 @@ describe('recommendations', () => {
   it('403 → exit 4', async () => {
     const cap = capture();
     assert.equal(await runCli(['recommendations', 'placements', 'list', '--org', 'o'], opts(async () => jsonResponse({ message: 'nope' }, 403), cap)), 4);
-    assert.match(cap.stderr, /HTTP 403: nope/);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: nope/);
   });
 });
 

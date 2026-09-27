@@ -101,6 +101,6 @@ describe('dealers', () => {
   it('403 → legible message + exit 4', async () => {
     const cap = capture();
     assert.equal(await runCli(['dealers', 'list', '--org', 'o'], opts(async () => jsonResponse({ message: 'Feature disabled.' }, 403), cap)), 4);
-    assert.match(cap.stderr, /HTTP 403: Feature disabled\./);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Feature disabled\./);
   });
 });

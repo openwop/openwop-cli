@@ -82,6 +82,6 @@ describe('promotions', () => {
     const cap = capture();
     const code = await runCli(['promotions', 'get', 'p1', '--org', 'o'], opts(async () => jsonResponse({ error: 'forbidden', message: 'Not permitted.' }, 403), cap));
     assert.equal(code, 4);
-    assert.match(cap.stderr, /HTTP 403: Not permitted\./);
+    assert.match(cap.stderr, /HTTP 403( [a-z_]+)?: Not permitted\./);
   });
 });

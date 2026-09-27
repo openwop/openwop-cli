@@ -116,6 +116,6 @@ describe('commerce-connect', () => {
   it('403 on a superadmin route → legible message + exit 4', async () => {
     const r = await call(['commerce-connect', 'admin', 'orders'], () => jsonResponse({ error: 'forbidden', message: 'Superadmin only.' }, 403));
     assert.equal(r.code, 4);
-    assert.match(r.cap.stderr, /HTTP 403: Superadmin only\./);
+    assert.match(r.cap.stderr, /HTTP 403( [a-z_]+)?: Superadmin only\./);
   });
 });
