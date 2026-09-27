@@ -101,6 +101,11 @@ function coerce(field: ParsedField, raw: string): unknown {
   }
 }
 
+/** True when the route binds `:org` exactly (not `:orgId`). */
+function hasOrg(route: string): boolean {
+  return /:org(?![A-Za-z0-9_])/.test(route);
+}
+
 function paramsOf(route: string): string[] {
   return (route.match(/:[A-Za-z][A-Za-z0-9_]*/g) ?? []).map((p) => p.slice(1)).filter((p) => p !== 'org');
 }
@@ -108,7 +113,7 @@ function paramsOf(route: string): string[] {
 /** The one-line usage for a command (also used by the generated group help). */
 export function usageLine(group: string, spec: CommandSpec): string {
   const parts = [`openwop ${group}`, ...spec.cmd, ...paramsOf(spec.route).map((p) => `<${p}>`)];
-  if (spec.route.includes(':org')) parts.push('--org <orgId>');
+  if (hasOrg(spec.route)) parts.push('--org <orgId>');
   const fmt = (f: ParsedField) => {
     const v = f.type === 'bool' ? 'true|false' : f.type === 'json' ? 'json' : f.type === 'list' ? 'a,b' : f.type === 'number' ? 'n' : 'v';
     return f.required ? `${f.flag} <${v}>` : `[${f.flag} <${v}>]`;
@@ -170,7 +175,7 @@ export async function runSpec(ctx: Ctx, group: string, spec: CommandSpec, argv: 
   const bodyFields = (spec.body ?? []).map(parseField);
   const allowBody = Boolean(spec.body || spec.rawBody);
   const valueFlags = [...queryFields, ...bodyFields].map((f) => f.flag);
-  if (spec.route.includes(':org')) valueFlags.push('--org');
+  if (hasOrg(spec.route)) valueFlags.push('--org');
   if (allowBody) valueFlags.push('--body', '--body-file');
   const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'], value: valueFlags });
   const usage = `Usage: ${usageLine(group, spec)}\n  ${spec.method} ${spec.route} — ${spec.summary}\n`;

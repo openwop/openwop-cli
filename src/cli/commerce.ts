@@ -20,7 +20,7 @@ import { COMMERCE_UCP_SPECS, COMMERCE_UCP_INTRO, runCommerceUcpCustom } from './
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
 const O = '/v1/host/openwop-app/commerce/orgs/:org';
-const P = '/v1/host/openwop-app/public-store/:orgId';
+const P = '/v1/host/openwop-app/public-store/:org';
 
 const PRODUCT_FIELDS = [
   'type', 'description', 'price:number', 'currency', 'imageAssetTokens:json', 'downloadAssetTokens:json',
@@ -133,8 +133,8 @@ export const COMMERCE_HELP = buildGroupHelp('commerce', [COMMERCE_INTRO, COMMERC
   openwop commerce orders partial-refund ord_1 --org org_1 --amount 5 --refund-key adj-1 --yes
   openwop commerce price get --org org_1 --product-id prod_1 --contact-id c_1
   openwop commerce affiliates payouts-csv --org org_1 > payouts.csv
-  openwop commerce public products org_1 --category mugs
-  openwop commerce public checkout org_1 --email a@b.co --lines '[{"productId":"prod_1","quantity":1}]'`);
+  openwop commerce public products --org org_1 --category mugs
+  openwop commerce public checkout --org org_1 --email a@b.co --lines '[{"productId":"prod_1","quantity":1}]'`);
 
 export async function runCommerce(ctx: Ctx, argv: string[]) {
   const custom = await runCommerceUcpCustom(ctx, argv);

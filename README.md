@@ -20,6 +20,8 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Automation & messaging** | `cron` · `webhooks` · `messaging` · `relay` · `notifications` · `notify` |
 | **Observability & admin** | `analytics` (`usage`) · `account` · `admin` · `brand` · `conformance` |
 | **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` · `docs` · `knowledge-sync` · `entities` · `creative-briefs` · `creative-video` · `production` · `tutorials` · `walkthroughs` · `widgets` · `ui-state` · `ui-plugin` · `canvas-collab` · `workflow-collab` · `canvas-packs` · `present` |
+| **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` |
+| **Commerce & sales** | `commerce` · `commerce-connect` · `promotions` · `recommendations` · `dealers` · `commissions` · `territories` · `sales-maps` (+ `crm` extensions) |
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 
 > **`0.18.x`:** the catalog now covers the full app feature surface — the agent
@@ -473,7 +475,36 @@ openwop a2a task run_abc123 --json    # the durable task's live state
 
 The record is content-free by design (state, `interruptKind`, push config — never run inputs/outputs/credentials); the CLI renders the host's resolved state and never derives one locally. Gated on `capabilities.a2a` (the durable read needs `durableTasks: true`). `task` exit codes: `0` completed · `3` submitted/working/input-required/auth-required · `1` failed/canceled/rejected or error.
 
-## Config
+## Commerce & sales
+
+Host-extension groups over the reference host's commerce and sales surfaces
+(`/v1/host/openwop-app/{commerce,commerce-connect,promotions,recommendations,dealers,commissions,territories,sales-maps,crm}/…`,
+plus the public visitor routes `public-store`, `public-recommendations`, `partner`,
+`public-book`, `public-sign`, sent without auth). Each group's `--help` lists every
+command with the exact method + path it hits. Org-scoped commands take `--org <orgId>`;
+flags are the host's field names in kebab-case, and `--body`/`--body-file` supply a
+full JSON body. Money amounts pass through exactly in the unit the host's field
+names (`priceMinor`, `priceMajorUnits`, `price` …) — the CLI never computes a total.
+Stripe Connect seller onboarding returns a hosted link only; no card or bank data
+ever passes through the CLI.
+
+```bash
+openwop commerce products list --org org_1 --q shirt
+openwop commerce orders get ord_1 --org org_1 --json
+openwop commerce public products --org org_1               # the anonymous storefront view
+openwop commerce ucp token --org org_1 --client-id c_1 --client-secret-env UCP_SECRET
+openwop commerce-connect seller onboard                     # prints the Stripe-hosted onboarding link
+openwop promotions create --org org_1 --name "10% off 50+" --type cart_threshold --min-spend 50 --reward '{"kind":"percentage","value":10}'
+openwop crm deals list --org org_1
+openwop crm segments members seg_1 --json
+openwop crm public-sign get <token>
+openwop territories models activate mdl_1 --org org_1
+openwop commissions statements pay st_1 --org org_1
+```
+
+Destructive commands (deletes, refunds, cancels, voids) refuse without `--yes`.
+Exit codes: `0` ok · `2` usage error / request rejected · `4` not signed in or not permitted · `1` server error.
+
 
 `~/.openwop/config.json` (or `$OPENWOP_CONFIG_HOME/.openwop/`) stores the host URL, default provider, default model, and credential ref. **API keys are never stored locally.**
 

@@ -165,6 +165,15 @@ host route is what the subcommands hit.
 | **canvas-packs** | ADR 0314 | `/v1/host/openwop-app/canvas-packs/orgs/:orgId/types` | Editable canvas types from installed canvas packs. |
 | **present** | ADR 0328 | `/v1/host/openwop-app/present/:token/*` | Presentation remote by token: outline/command/state + follow the `nav` event stream. |
 | **sharing** (extended) | ADR 0328 P7 | `/v1/host/openwop-app/shared/:token/{card,frame-view}` | Public `card` / `frame-view` (no auth) + owner `frame-views` analytics. |
+| **commerce** | openwop-app ADRs 0178/0188 (UCP), commerce | `/v1/host/openwop-app/commerce/orgs/:orgId/*`, `/commerce/ucp/orgs/:orgId/*`, `/public-store/:orgId/*` | Catalog, product fields, price lists, cart, orders (pay/refund/cancel/fulfilment), quotes, subscriptions, coupons, affiliates (+ payouts CSV), reports; UCP seller agent-commerce + buyer; `public` storefront (no auth). Stripe webhook receiver not driven (server-to-server). |
+| **commerce-connect** | openwop-app ADR 0385 | `/v1/host/openwop-app/commerce-connect/*` | Stripe Connect paid listings: seller status + hosted onboarding link, listings, purchase checkout, orders, payouts, approvals, superadmin refunds/disputes/delist/fee-config. Never card/bank data. |
+| **promotions** | openwop-app ADR 0274 | `/v1/host/openwop-app/promotions/orgs/:orgId/promotions` | Promotion CRUD (threshold / product / loss-leader / tiered / BOGO); evaluation stays host-side. |
+| **recommendations** | openwop-app ADR 0273 | `/v1/host/openwop-app/recommendations/orgs/:orgId/*`, `/public-recommendations/:orgId/resolve` | Placements CRUD, affinity rebuild, resolve (+ public resolve, no auth). |
+| **dealers** | openwop-app ADR 0281 | `/v1/host/openwop-app/dealers/orgs/:orgId/*`, `/partner/:token` | Dealers, outlets, registrations, portal-token mint (shown once); public partner portal get/register. |
+| **commissions** | openwop-app ADR 0280 | `/v1/host/openwop-app/commissions/orgs/:orgId/*` | Commission plans + statements: compute, approve (approval-gated, 202), pay. |
+| **territories** | openwop-app ADR 0272 | `/v1/host/openwop-app/territories/orgs/:orgId/*` | Territory types, models (activate/archive/preview/quotas/attainment), territories, rules, quotas, active model, reassignment. |
+| **sales-maps** | openwop-app ADR 0282 | `/v1/host/openwop-app/sales-maps/orgs/:orgId/geocode` | Geocode an address / coordinates. |
+| **crm** (extended) | openwop-app ADR 0008 + CRM ADRs | `/v1/host/openwop-app/crm/*`, `/public-book/*`, `/public-sign/*` | Adds contact score/convert/merge/identifiers, fields, segments, suppressions, duplicates, export, merge events, gmail-sync, and the org surface: companies, deals, pipelines, tasks, activities, import/export, booking links, sign requests, public book/sign (no auth). |
 
 > **Channel plugins** (used by `relay` + `messaging`): the inbound/outbound
 > normalizers for **Signal, iMessage, WhatsApp, and Discord** live in
