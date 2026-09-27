@@ -108,7 +108,7 @@ const port = proxy.address().port;
 
 // 3. The CLI.
 const cli = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'openwop.js');
-const child = spawn(process.execPath, [cli, '--json', 'runs', 'watch', run.runId, '--base-url', `http://127.0.0.1:${port}`, ...(mode === 'stall' ? ['--idle-timeout-ms', '3000'] : [])], { env: { ...process.env, OPENWOP_STREAM_BASE_URL: '' } });
+const child = spawn(process.execPath, [cli, '--json', 'runs', 'watch', run.runId, '--base-url', `http://127.0.0.1:${port}`, ...(mode === 'stall' ? ['--idle-timeout-ms', '3000'] : [])], { env: { ...process.env, OPENWOP_STREAM_BASE_URL: `http://127.0.0.1:${port}` } });
 let stdout = ''; let stderr = '';
 child.stdout.on('data', (d) => { stdout += d; });
 child.stderr.on('data', (d) => { stderr += d; });

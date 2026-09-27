@@ -114,6 +114,7 @@ describe('stream origin (openwop-app ADR 0761) — only event streams move; ever
     const ext = { a: { streamBase: 'http://127.0.0.1:9000' } };
     assert.equal(streamBaseFrom(ext, 'http://localhost:8080'), 'http://127.0.0.1:9000');
     assert.equal(streamBaseFrom(ext, 'https://front.example'), undefined);
+    assert.equal(streamBaseFrom({ a: { streamBase: 'https://svc.run.app' } }, 'http://127.0.0.1:8080'), undefined, 'a local base never follows an advertisement off the machine');
     assert.equal(streamBaseFrom({ a: { streamBase: 'https://s.example' } }, 'http://front.example'), undefined, 'https advertised by a plaintext host is not trusted');
   });
 
