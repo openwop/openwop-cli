@@ -16,7 +16,8 @@
  *   additive       no invocation removed or changed; only new ones added
  *                  (temp-file paths in argv are ignored — they name fixtures, not behaviour)
  *   blank-number   only blank-number invocations (`--<number-flag>=`) change, and each
- *                  becomes a usage error: exit 2, no request sent, nothing on stdout
+ *                  becomes a usage error: exit 2, no request sent (a guarded group's
+ *                  /.well-known/openwop capability probe aside), nothing on stdout
  *   presentation   the exit code, the requests sent and every `--json` stdout are
  *                  unchanged; only stderr, help text and human-mode stdout may move
  *
@@ -86,7 +87,8 @@ const PROFILES = {
       if (!x.tags.includes('blank-number')) { v.push(`non-blank-number invocation changed (${x.moved.join(',')}): ${x.id}`); continue; }
       if (x.moved.includes('argv')) v.push(`argv changed: ${x.id}`);
       if (x.after.exit !== 2) v.push(`blank number did not become exit 2 (got ${x.after.exit}): ${x.id}`);
-      if (x.after.requests.length !== 0) v.push(`blank number still sent a request: ${x.id}`);
+      // A guarded group's capability probe runs before the command parses its flags.
+      if (x.after.requests.some((r) => r.url !== '/.well-known/openwop')) v.push(`blank number still sent a request: ${x.id}`);
       if (x.after.stdout !== '') v.push(`blank number still printed stdout: ${x.id}`);
     }
     return v;

@@ -162,7 +162,6 @@ export function toRouteCmd(group: string, spec: CommandSpec): RouteCmd {
     writeOutput: 'json',
     hostErrors: false,
     validateFirst: true,
-    strictNumbers: true,
     usageText: usage,
     messages: {
       required: (flag, usageText) => `${flag} is required.\n${usageText}`,

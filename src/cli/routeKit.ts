@@ -133,8 +133,6 @@ export interface RouteCmd {
   writeOutput?: 'summary' | 'json';
   /** Wrap host errors with a hint + exit-code mapping (`hostError`). `false` rethrows the HttpError as-is. Default: true. */
   hostErrors?: boolean;
-  /** `number` fields reject a blank value (`--n=`) instead of reading it as 0. Default: false. */
-  strictNumbers?: boolean;
   /** Printed verbatim for `--help` (stdout) and a positional-count mismatch (stderr) instead of the generated usage. */
   usageText?: string;
   /** Override individual user-facing error messages (defaults: `DEFAULT_MESSAGES`). */
@@ -246,7 +244,7 @@ function setPath(target: Record<string, any>, key: string, value: unknown): void
   node[parts[parts.length - 1] as string] = value;
 }
 
-function coerce(f: FieldSpec, raw: unknown, cmd: RouteCmd, msg: RouteMessages): unknown {
+function coerce(f: FieldSpec, raw: unknown, msg: RouteMessages): unknown {
   const t = f.type ?? 'string';
   if (t === 'boolean') return raw;
   if (t === 'bool') {
@@ -269,8 +267,9 @@ function coerce(f: FieldSpec, raw: unknown, cmd: RouteCmd, msg: RouteMessages): 
   }
   const s = String(raw);
   if (t === 'number') {
+    // A blank value (`--limit=`) is a usage error, never `Number('')` === 0.
     const n = Number(s);
-    if (!Number.isFinite(n) || (cmd.strictNumbers && s.trim() === '')) throw new CliError(msg.invalidNumber(f.flag, s), 2);
+    if (s.trim() === '' || !Number.isFinite(n)) throw new CliError(msg.invalidNumber(f.flag, s), 2);
     return n;
   }
   if (t === 'json-file') {
@@ -365,7 +364,7 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
   for (const f of cmd.query ?? []) {
     const v = optionOf(f);
     if (v === undefined) { if (f.required) throw requiredError(f); continue; }
-    const c = coerce(f, v, cmd, msg);
+    const c = coerce(f, v, msg);
     if (f.type === 'csv') qs.set(f.key, (c as string[]).join(','));
     else if (Array.isArray(c)) c.forEach((x) => qs.append(f.key, String(x)));
     else qs.set(f.key, c !== null && typeof c === 'object' ? JSON.stringify(c) : String(c));
@@ -384,7 +383,7 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
     explicit = readBodyOptions(options, msg);
     for (const f of cmd.body ?? []) {
       const v = optionOf(f);
-      if (v !== undefined) setPath(overlay, f.key, coerce(f, v, cmd, msg));
+      if (v !== undefined) setPath(overlay, f.key, coerce(f, v, msg));
       else if (cmd.validateFirst && f.required && getPath(explicit, f.key) === undefined) throw requiredError(f);
     }
   }

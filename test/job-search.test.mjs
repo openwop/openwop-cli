@@ -55,6 +55,14 @@ describe('job-search', () => {
     assert.equal(host.calls.length, 0);
   });
 
+  it('a blank --max-submits= is a usage error, never sent as 0', async () => {
+    const host = mockHost();
+    const cap = capture();
+    assert.equal(await runCli(['job-search', 'grants', 'create', 'o1', '--campaign-id', 'c', '--origins', 'x', '--expires-at', 'e', '--max-submits=', '--max-prepared', '1', '--rate-per-hour', '1'], opts(host, cap)), 2);
+    assert.match(cap.stderr, /--max-submits must be a number \(got ""\)/);
+    assert.equal(host.calls.length, 0);
+  });
+
   it('404 (feature off) → exit 2 with a hint; 401 → exit 4', async () => {
     let host = mockHost(() => json({ error: 'not_found' }, 404));
     let cap = capture();
