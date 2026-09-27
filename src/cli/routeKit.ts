@@ -289,6 +289,8 @@ function coerce(f: FieldSpec, raw: unknown, cmd: RouteCmd, msg: RouteMessages): 
 function readBodyOptions(options: Record<string, any>, msg: RouteMessages): Record<string, any> {
   let raw: string | undefined;
   if (options.bodyFile !== undefined) {
+    // `--body-file=` with no path: say so, rather than "cannot read <nothing>".
+    if (String(options.bodyFile).trim() === '') throw new CliError('--body-file needs a path (got an empty value).', 2);
     try { raw = readFileSync(String(options.bodyFile), 'utf8'); }
     catch (err) { throw new CliError(msg.unreadableBody(String(options.bodyFile), err), 2); }
   } else if (options.body !== undefined) {
