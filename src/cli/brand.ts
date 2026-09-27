@@ -4,6 +4,8 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { readFileSync } from 'node:fs';
+import { resolve, extname } from 'node:path';
 
 const PUBLIC_PATH = '/v1/host/openwop-app/public-brand';
 const APP_PATH = '/v1/host/openwop-app/app-brand';
@@ -18,6 +20,7 @@ export const BRAND_HELP = `Usage:
   openwop brand set [--name <n>] [--product-name <n>] [--accent <color>] [--neutral <color>]
                     [--contrast standard|medium|high] [--radius sm|md|lg] [--default-mode system|light|dark]
                     [--logo <url>] [--favicon <url>] [--identity-json <json>] [--json]
+  openwop brand asset --slot mark|markDark|lockup|lockupDark|favicon --file <path> [--content-type <mime>] [--json]
 
 White-label app brand for the OpenWOP demo host (ADR 0170 / 0171). ONE brand owns the
 app's own runtime identity — logo, colors, fonts, name, and a generative theme — applied
@@ -35,6 +38,12 @@ dark theme from the seed (the accent is kept exact; text shades are solved for W
 
 Looking for per-org MARKETING brand kits (voice, guardrails, custom fonts)? Those
 live at /v1/host/openwop-app/brand/* and are driven by 'openwop brand-kits'.
+
+'asset' uploads a raster image (PNG / JPEG / GIF / WebP / ICO — SVG is refused by the host)
+to POST /v1/host/openwop-app/app-brand/assets (super-admin). The host copies the bytes into
+the reserved brand media scope and returns a serve URL; pass that URL to 'set --logo' /
+'set --favicon' to use it. The content type is inferred from the file extension unless
+--content-type is given; the host checks the bytes match it.
 
   --name <n>          The brand's internal name.
   --product-name <n>  The app's product name (shown in the wordmark / document title).
@@ -60,7 +69,7 @@ export async function runBrand(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, BRAND_HELP);
     return 0;
   }
-  const args = argv.slice(['public', 'get', 'set'].includes(sub) ? 1 : 0);
+  const args = argv.slice(['public', 'get', 'set', 'asset'].includes(sub) ? 1 : 0);
   switch (sub) {
     case 'public':
       return await brandPublic(ctx, args);
@@ -68,6 +77,8 @@ export async function runBrand(ctx: Ctx, argv: string[]) {
       return await brandGet(ctx, args);
     case 'set':
       return await brandSet(ctx, args);
+    case 'asset':
+      return await brandAsset(ctx, args);
     default:
       throw new CliError(`Unknown brand command: ${sub}\nRun \`openwop brand --help\` for usage.`);
   }
@@ -199,5 +210,34 @@ async function brandSet(ctx: Ctx, argv: string[]) {
   }
   writeLine(ctx.io.stdout, 'App brand updated. Applied live to the running app.');
   showIdentity(ctx, res.body?.brand?.identity);
+  return 0;
+}
+
+const ASSET_SLOTS = ['mark', 'markDark', 'lockup', 'lockupDark', 'favicon'];
+const EXT_TYPES: Record<string, string> = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.ico': 'image/x-icon',
+};
+
+async function brandAsset(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { bool: ['--help'], value: ['--slot', '--file', '--content-type'] });
+  if (options.help || !options.slot || !options.file) {
+    write(ctx.io.stdout, 'Usage: openwop brand asset --slot mark|markDark|lockup|lockupDark|favicon --file <path> [--content-type <mime>] [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  if (!ASSET_SLOTS.includes(options.slot)) throw new CliError(`--slot must be one of ${ASSET_SLOTS.join(', ')}`, 2);
+  const contentType = options.contentType ?? EXT_TYPES[extname(String(options.file)).toLowerCase()];
+  if (!contentType) throw new CliError('Cannot infer the image type from the file extension — pass --content-type (image/png, image/jpeg, image/gif, image/webp, image/x-icon).', 2);
+  let bytes: Buffer;
+  try {
+    bytes = readFileSync(resolve(ctx.cwd, String(options.file)));
+  } catch (err) {
+    throw new CliError(`Cannot read --file ${options.file}: ${err instanceof Error ? err.message : String(err)}`, 2);
+  }
+  const res = await appRequest(ctx, `${APP_PATH}/assets`, {
+    method: 'POST', body: { slot: options.slot, contentBase64: bytes.toString('base64'), contentType },
+  }, 'Uploading a brand asset');
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, `Uploaded ${options.slot}: ${res.body?.url ?? '?'}`);
+  writeLine(ctx.io.stdout, `Apply it with: openwop brand set --${options.slot === 'favicon' ? 'favicon' : 'logo'} '${res.body?.url ?? ''}'`);
   return 0;
 }

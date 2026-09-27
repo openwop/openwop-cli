@@ -19,6 +19,12 @@ export const USERS_HELP = `Usage:
   openwop users enable <userId> [--json]
   openwop users delete <userId> [--yes]
   openwop users me [--display-name <n>] [--json]
+  openwop users me security [--json]
+  openwop users me factor-event --event bound|unbound [--factor-count <n>] [--json]
+  openwop users me sign-out-everywhere --yes [--json]
+  openwop users revoke-sessions <userId> --yes [--json]
+  openwop users logout [--json]
+  openwop users oidc-bind [--json]
 
 Tenant identity DIRECTORY + account lifecycle (host users feature under ${USERS_BASE}).
 This is the durable record of WHO exists in a tenant and whether their account is active —
@@ -36,9 +42,22 @@ denied (403), surfaced legibly.
   --display-name <n>  Display name; on update, '' clears it.
   --group <g>         An IdP group name (repeatable). On update, replaces the set.
   --source <s>        Identity source: ${USER_SOURCES.join(' | ')} (create; default manual).
-  --yes               (delete) Confirm the destructive removal.
+  --yes               (delete / revoke-sessions / sign-out-everywhere) Confirm.
 
-Exit codes: 0 ok · 1 host error · 2 usage error / surface not served / account disabled.
+Session + security legs:
+  me security          GET  /me/security                 identity source + whether THIS session is MFA-verified
+  me factor-event      POST /me/security/factor-event    record an authenticator bound/unbound notice for
+                                                         YOUR account (notification + audit only; unbound also
+                                                         ends your other sessions). Never an authorization input.
+  me sign-out-everywhere POST /me/sessions/revoke        end every session of yours (including this one)
+  revoke-sessions      POST /users/:id/sessions/revoke   admin "sign out everywhere" for another user
+                                                         (host:members:manage; refused for your own row)
+  logout               POST /auth/logout                 clear the browser session cookie (a bearer key is
+                                                         unaffected — this is for cookie-session parity)
+  oidc-bind            POST /auth/oidc/bind              bind the verified OIDC bearer (--api-key <id-token>)
+                                                         to a durable user; the host answers with the user
+
+Exit codes: 0 ok · 1 host error · 2 usage error / surface not served / account disabled · 4 not signed in / permission denied.
 
 Examples:
   openwop users list
@@ -69,7 +88,7 @@ async function usersRequest(ctx: Ctx, path: string, options?: Parameters<typeof 
 
 export async function runUsers(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
-  const args = argv.slice(['list', 'get', 'create', 'update', 'disable', 'enable', 'delete', 'me'].includes(sub) ? 1 : 0);
+  const args = argv.slice(['list', 'get', 'create', 'update', 'disable', 'enable', 'delete', 'me', 'revoke-sessions', 'logout', 'oidc-bind'].includes(sub) ? 1 : 0);
   if (sub === '--help' || sub === '-h') {
     write(ctx.io.stdout, USERS_HELP);
     return 0;
@@ -89,7 +108,16 @@ export async function runUsers(ctx: Ctx, argv: string[]) {
     case 'delete':
       return await runUsersDelete(ctx, args);
     case 'me':
+      if (args[0] === 'security') return await runUsersMeSecurity(ctx, args.slice(1));
+      if (args[0] === 'factor-event') return await runUsersFactorEvent(ctx, args.slice(1));
+      if (args[0] === 'sign-out-everywhere') return await runUsersSignOutEverywhere(ctx, args.slice(1));
       return await runUsersMe(ctx, args);
+    case 'revoke-sessions':
+      return await runUsersRevokeSessions(ctx, args);
+    case 'logout':
+      return await runUsersSimplePost(ctx, args, `${USERS_BASE}/auth/logout`, (b) => (b?.loggedOut ? 'Signed out (session cookie cleared).' : 'Logout sent.'));
+    case 'oidc-bind':
+      return await runUsersSimplePost(ctx, args, `${USERS_BASE}/auth/oidc/bind`, (b) => `Bound ${b?.user?.userId ?? '?'} (${b?.user?.principalId ?? '?'}); re-keyed ${b?.rekeyed ?? 0} membership(s).`);
     default:
       throw new CliError(`Unknown users command: ${sub}\nRun \`openwop users --help\` for usage.`);
   }
@@ -262,5 +290,65 @@ async function runUsersMe(ctx: Ctx, argv: string[]) {
     return 0;
   }
   printUser(ctx, res.body ?? {});
+  return 0;
+}
+
+async function runUsersMeSecurity(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help) { write(ctx.io.stdout, USERS_HELP); return 0; }
+  const res = await usersRequest(ctx, `${USERS_BASE}/me/security`);
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, `source: ${res.body?.source ?? '?'}`);
+  writeLine(ctx.io.stdout, `mfaSessionVerified: ${res.body?.mfaSessionVerified === true ? 'yes' : 'no'}`);
+  return 0;
+}
+
+async function runUsersFactorEvent(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { bool: ['--help'], value: ['--event', '--factor-count'] });
+  if (options.help || (options.event !== 'bound' && options.event !== 'unbound')) {
+    write(ctx.io.stdout, 'Usage: openwop users me factor-event --event bound|unbound [--factor-count <n>] [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  const body: Record<string, any> = { event: options.event };
+  if (options.factorCount !== undefined) {
+    const n = Number(options.factorCount);
+    if (!Number.isFinite(n) || n < 0) throw new CliError('--factor-count must be a non-negative number', 2);
+    body.factorCount = n;
+  }
+  const res = await usersRequest(ctx, `${USERS_BASE}/me/security/factor-event`, { method: 'POST', body });
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, `Recorded authenticator ${options.event} notice.`);
+  return 0;
+}
+
+async function runUsersSignOutEverywhere(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { bool: ['--help', '--yes'] });
+  if (options.help) { write(ctx.io.stdout, USERS_HELP); return 0; }
+  if (!options.yes) { writeLine(ctx.io.stderr, 'Refusing to end all of your sessions without --yes.'); return 2; }
+  const res = await usersRequest(ctx, `${USERS_BASE}/me/sessions/revoke`, { method: 'POST', body: {} });
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, 'All of your sessions were revoked.');
+  return 0;
+}
+
+async function runUsersRevokeSessions(ctx: Ctx, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'] });
+  if (options.help || positionals.length !== 1) {
+    write(ctx.io.stdout, 'Usage: openwop users revoke-sessions <userId> --yes [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  if (!options.yes) { writeLine(ctx.io.stderr, `Refusing to revoke the sessions of ${positionals[0]} without --yes.`); return 2; }
+  const res = await usersRequest(ctx, `${USERS_BASE}/users/${encodeURIComponent(positionals[0])}/sessions/revoke`, { method: 'POST', body: {} });
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, `Revoked every session of ${res.body?.userId ?? positionals[0]} (epoch ${res.body?.sessionEpoch ?? '?'}).`);
+  return 0;
+}
+
+async function runUsersSimplePost(ctx: Ctx, argv: string[], path: string, human: (body: any) => string) {
+  const { options } = parseOptions(argv, { bool: ['--help'] });
+  if (options.help) { write(ctx.io.stdout, USERS_HELP); return 0; }
+  const res = await usersRequest(ctx, path, { method: 'POST', body: {} });
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, human(res.body));
   return 0;
 }
