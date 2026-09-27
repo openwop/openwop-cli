@@ -246,3 +246,13 @@ describe('profiles (extended)', () => {
     assert.deepEqual(host.last().body, { token: 'tok' });
   });
 });
+
+describe('profiles edit (contact read-modify-write)', () => {
+  it('--link keeps the saved location; --preferred-name + --growth-interests are sent', async () => {
+    const host = kit.mockHost((c) => kit.json(c.method === 'GET' ? { userId: 'u', contact: { location: 'Oslo', links: [] } } : { userId: 'u' }));
+    const cap = kit.capture();
+    assert.equal(await runCli(['profiles', 'edit', '--preferred-name', 'Dee', '--growth-interests', 'ML', '--link', 'site=https://dee.dev'], kit.opts(host, cap)), 0, cap.stderr);
+    assert.equal(host.last().method, 'PATCH');
+    assert.deepEqual(host.last().body, { preferredName: 'Dee', growthInterests: ['ML'], contact: { location: 'Oslo', links: [{ label: 'site', url: 'https://dee.dev' }] } });
+  });
+});

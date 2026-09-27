@@ -32,8 +32,8 @@ export const PROFILES_HELP = `Usage:
   openwop profiles get [<userId>] [--json]            (omit userId for your own — same as 'me')
   openwop profiles me [--json]
   openwop profiles activity [--limit <n>] [--status <s>] [--json]
-  openwop profiles edit [--job-title <t>] [--department <t>] [--bio <t>] [--location <t>]
-                        [--equipment <x>]... [--interests <x>]...
+  openwop profiles edit [--preferred-name <t>] [--job-title <t>] [--department <t>] [--bio <t>] [--location <t>]
+                        [--link <label=url>]... [--equipment <x>]... [--interests <x>]... [--growth-interests <x>]...
                         [--availability-status available|busy|away] [--timezone <tz>] [--hours-per-week <n>] [--json]
   openwop profiles skills set --skill <name=proficiency>... [--json]
   openwop profiles portfolio add --token <mediaToken> [--json]
@@ -55,7 +55,8 @@ lifecycle lives in the host's users surface) and NOT RBAC (that's \`orgs\`). \`p
 is the persona directory of the tenant, not an account-management list.
 
   --job-title/--department/--bio/--location   (edit) Text fields; pass empty string to clear.
-  --equipment/--interests <x>                 (edit) Repeatable; replaces the whole list.
+  --equipment/--interests/--growth-interests <x>  (edit) Repeatable; replaces the whole list.
+  --link <label=url>                          (edit) Repeatable contact link; replaces the link list (location is kept).
   --availability-status / --timezone / --hours-per-week  (edit) Availability sub-fields.
   --skill <name=proficiency>                  (skills set) Repeatable; proficiency is 1..5. Replaces the skill list.
   --token <mediaToken>                        (portfolio add) A tenant media-asset token (must be an image).
@@ -221,17 +222,33 @@ async function runActivity(ctx: Ctx, argv: string[]) {
 async function runEdit(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, {
     bool: ['--help'],
-    value: ['--job-title', '--department', '--bio', '--location', '--availability-status', '--timezone', '--hours-per-week'],
-    multi: ['--equipment', '--interests'],
+    value: ['--preferred-name', '--job-title', '--department', '--bio', '--location', '--availability-status', '--timezone', '--hours-per-week'],
+    multi: ['--equipment', '--interests', '--growth-interests', '--link'],
   });
   if (options.help) { write(ctx.io.stdout, PROFILES_HELP); return 0; }
   const body: Record<string, unknown> = {};
+  if (options.preferredName !== undefined) body.preferredName = options.preferredName;
   if (options.jobTitle !== undefined) body.jobTitle = options.jobTitle;
   if (options.department !== undefined) body.department = options.department;
   if (options.bio !== undefined) body.bio = options.bio;
   if (Array.isArray(options.equipment)) body.equipment = options.equipment;
   if (Array.isArray(options.interests)) body.interests = options.interests;
-  if (options.location !== undefined) body.contact = { location: options.location };
+  if (Array.isArray(options.growthInterests)) body.growthInterests = options.growthInterests;
+  if (options.location !== undefined || Array.isArray(options.link)) {
+    // The host REPLACES the whole contact object, so read-modify-write: keep the
+    // links when only --location changes, and the location when only --link does.
+    const current = (await profilesRequest(ctx, `${BASE}/me`)).body?.contact ?? {};
+    const contact: Record<string, unknown> = { ...current };
+    if (options.location !== undefined) contact.location = options.location;
+    if (Array.isArray(options.link)) {
+      contact.links = options.link.map((l: string) => {
+        const eq = l.indexOf('=');
+        if (eq <= 0) throw new CliError(`--link must be label=url (got '${l}')`, 2);
+        return { label: l.slice(0, eq), url: l.slice(eq + 1) };
+      });
+    }
+    body.contact = contact;
+  }
   const avail: Record<string, unknown> = {};
   if (options.availabilityStatus !== undefined) {
     if (!['available', 'busy', 'away'].includes(options.availabilityStatus)) {
