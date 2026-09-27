@@ -8,6 +8,7 @@ versioned on its own SemVer line.
 
 ### Changed
 - **A buffering front door is detected in 10 s, and said so.** An events stream whose response headers do not arrive within 10 s (`min(--idle-timeout-ms, 10000)`) is followed by polling, with one stderr line explaining why and naming `--stream-base-url` (`--quiet` suppresses it). Before, the command sat silent for the full 45 s idle timeout. Once headers arrive, only the idle timeout applies.
+- `--stream-base-url` / `OPENWOP_STREAM_BASE_URL` / config `host.streamBaseUrl` refuse a URL carrying credentials (`user:pass@`) — it would sit in plaintext in `~/.openwop` config and shell history; the bearer already travels as `--api-key`.
 - `--verbose` reconnect lines say whether the connection **dropped** or **stalled** (with the silence); giving up says how to continue (`--since <last sequence printed>` or `--no-stream`).
 
 ## [1.2.0] — 2026-09-27 — streams that work through a buffering front door
