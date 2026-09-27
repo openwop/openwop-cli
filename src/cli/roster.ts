@@ -5,6 +5,15 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requestNormativeOrHost } from './requestHelpers.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+/** Declared roster commands (routeKit): an entry's run activity + an on-demand heartbeat check. */
+export const ROSTER_ROUTES: RouteCmd[] = [
+  { words: ['activity'], method: 'GET', path: '/v1/host/openwop-app/roster/:rosterId/activity', summary: 'Recent runs this standing agent initiated.',
+    query: [{ flag: '--limit', key: 'limit', type: 'number' }, { flag: '--status', key: 'status' }],
+    table: { key: 'items', columns: ['runId', 'workflowId', 'status', 'source', 'timestamp'], empty: 'No activity.' } },
+  { words: ['check'], method: 'POST', path: '/v1/host/openwop-app/roster/:rosterId/check', summary: 'Run the agent\'s heartbeat now: pick the next runnable card (or report why not).' },
+];
 
 export const ROSTER_HELP = `Usage:
   openwop roster list [--host] [--json]
@@ -12,6 +21,7 @@ export const ROSTER_HELP = `Usage:
   openwop roster create --persona <name> --agent-ref <agentId> [--agent-version <v> | --agent-channel <c>] [--workflow <id>]... [--label <text>] [--description <text>] [--disabled] [--avatar-url <url>] [--json]
   openwop roster update <rosterId> [--persona <name>] [--workflow <id>]... [--label <text>] [--description <text>] [--enabled|--disabled] [--avatar-url <url>] [--json]
   openwop roster delete <rosterId> [--yes]
+${routesHelp('roster', ROSTER_ROUTES)}
 
 Agent roster (RFC 0086). A roster entry is a named, tenant-scoped standing
 agent that owns a portfolio of workflows[]; its triggers compose RFC 0052
@@ -51,6 +61,8 @@ export async function runRoster(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, ROSTER_HELP);
     return 0;
   }
+  const declared = await dispatchRoutes(ctx, 'roster', ROSTER_ROUTES, argv);
+  if (declared !== undefined) return declared;
   const args = argv.slice(['list', 'get', 'create', 'update', 'delete'].includes(sub) ? 1 : 0);
   switch (sub) {
     case 'list':

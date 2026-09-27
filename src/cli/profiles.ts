@@ -4,6 +4,28 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
+
+const ME = '/v1/host/openwop-app/profiles/me';
+
+/** Declared profile commands (routeKit): pins, avatar, workflows, personal knowledge + memory. Mirrors features/profiles + features/profile-memory. */
+export const PROFILES_ROUTES: RouteCmd[] = [
+  { words: ['pin-chat'], method: 'PUT', path: `${ME}/pinned-chat-agents/:rosterId`, summary: 'Pin an agent to your AI-chat welcome screen.' },
+  { words: ['unpin-chat'], method: 'DELETE', path: `${ME}/pinned-chat-agents/:rosterId`, confirm: false, summary: 'Unpin an agent from your AI-chat welcome screen.' },
+  { words: ['avatar', 'set'], method: 'PUT', path: `${ME}/avatar`, summary: 'Set your avatar from a tenant image media token.', body: [{ flag: '--token', key: 'token', required: true }] },
+  { words: ['avatar', 'clear'], method: 'DELETE', path: `${ME}/avatar`, confirm: false, summary: 'Remove your avatar.' },
+  { words: ['workflows', 'set'], method: 'PUT', path: `${ME}/workflows`, summary: 'REPLACE the workflows on your profile.', body: [{ flag: '--workflows', key: 'workflows', type: 'csv', required: true }] },
+  { words: ['knowledge', 'bind'], method: 'POST', path: `${ME}/knowledge/bindings`, summary: 'Bind a knowledge collection to your profile.', body: [{ flag: '--collection-id', key: 'collectionId', required: true }] },
+  { words: ['knowledge', 'unbind'], method: 'DELETE', path: `${ME}/knowledge/bindings/:collectionId`, summary: 'Unbind a collection from your profile.' },
+  { words: ['knowledge', 'collections', 'create'], method: 'POST', path: `${ME}/knowledge/collections`, summary: 'Create a collection in --org and bind it to your profile.',
+    body: [{ flag: '--org', key: 'orgId', required: true }, { flag: '--name', key: 'name', required: true }, { flag: '--description', key: 'description' }] },
+  { words: ['knowledge', 'documents', 'add'], method: 'POST', path: `${ME}/knowledge/collections/:collectionId/documents`, summary: 'Add a document: inline --text, a --text-file, or an uploaded --media-token.',
+    body: [{ flag: '--org', key: 'orgId', required: true }, { flag: '--title', key: 'title' }, { flag: '--text', key: 'text' }, { flag: '--text-file', key: 'text', type: 'file' }, { flag: '--media-token', key: 'mediaToken' }] },
+  { words: ['knowledge', 'documents', 'remove'], method: 'DELETE', path: `${ME}/knowledge/collections/:collectionId/documents/:documentId`, summary: 'Remove a document (the host needs its --org).',
+    body: [{ flag: '--org', key: 'orgId', required: true }] },
+  { words: ['knowledge', 'retrieve'], method: 'POST', path: `${ME}/knowledge/retrieve`, summary: 'Retrieve chunks from your personal knowledge + memory.', body: [{ flag: '--query', key: 'query', required: true }] },
+  { words: ['memory', 'remove'], method: 'DELETE', path: `${ME}/memory/:noteId`, summary: 'Forget one of your memory notes.' },
+];
 
 export const PROFILES_HELP = `Usage:
   openwop profiles list [--json]
@@ -20,6 +42,7 @@ export const PROFILES_HELP = `Usage:
   openwop profiles unpin <rosterId> [--json]
   openwop profiles endorse <userId> <skill> [--json]
   openwop profiles unendorse <userId> <skill> [--json]
+${routesHelp('profiles', PROFILES_ROUTES)}
 
 Self-service PERSONA: your job title, bio, contact, skills, availability, portfolio,
 and pinned agents (ADR 0005). The host is the authority and renders the resolved view —
@@ -75,6 +98,8 @@ export async function runProfiles(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, PROFILES_HELP);
     return 0;
   }
+  const declared = await dispatchRoutes(ctx, 'profiles', PROFILES_ROUTES, argv);
+  if (declared !== undefined) return declared;
   if (sub === 'portfolio') {
     const psub = argv[1] ?? '';
     const rest = argv.slice(2);

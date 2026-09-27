@@ -28,9 +28,10 @@ import { requestJson } from '../api.js';
 /**
  * `file` reads a local file's text into the field (one trailing newline dropped, so
  * a token file works); `map` is a repeatable `key=value` flag collected into an
- * object (numeric values become numbers).
+ * object (numeric values become numbers); `file64` reads a local file as base64
+ * (for hosts that take an upload inline in a JSON body).
  */
-export type FieldType = 'string' | 'number' | 'boolean' | 'json' | 'list' | 'csv' | 'file' | 'map';
+export type FieldType = 'string' | 'number' | 'boolean' | 'json' | 'list' | 'csv' | 'file' | 'file64' | 'map';
 
 /** A flag that maps onto a body (or query) field. `key` may be dotted (`a.b`). */
 export interface FieldSpec {
@@ -87,7 +88,7 @@ function paramNames(path: string): string[] {
 
 function flagHint(f: FieldSpec): string {
   const t = f.type ?? 'string';
-  const v = t === 'boolean' ? '' : t === 'file' ? ' <path>' : t === 'map' ? ' <key=value>...' : t === 'list' ? ` <${f.key}>...` : t === 'json' ? ` <json>` : ` <${f.key.split('.').pop()}>`;
+  const v = t === 'boolean' ? '' : t === 'file' || t === 'file64' ? ' <path>' : t === 'map' ? ' <key=value>...' : t === 'list' ? ` <${f.key}>...` : t === 'json' ? ` <json>` : ` <${f.key.split('.').pop()}>`;
   return f.required ? `${f.flag}${v}` : `[${f.flag}${v}]`;
 }
 
@@ -153,6 +154,10 @@ function coerce(f: FieldSpec, raw: unknown): unknown {
     const n = Number(s);
     if (!Number.isFinite(n)) throw new CliError(`${f.flag} must be a number (got "${s}").`, 2);
     return n;
+  }
+  if (t === 'file64') {
+    try { return readFileSync(s).toString('base64'); }
+    catch (err) { throw new CliError(`Could not read ${s} for ${f.flag}: ${err instanceof Error ? err.message : String(err)}`, 2); }
   }
   if (t === 'file') {
     try { return readFileSync(s, 'utf8').replace(/\r?\n$/, ''); }
@@ -314,9 +319,12 @@ function render(ctx: Ctx, cmd: RouteCmd, positionals: string[], status: number, 
  * Returns `undefined` when no declared command matches, so a hand-written group
  * can fall through to its own switch.
  */
-export async function dispatchRoutes(ctx: Ctx, group: string, cmds: RouteCmd[], argv: string[]): Promise<number | undefined> {
+export async function dispatchRoutes(ctx: Ctx, group: string, cmds: RouteCmd[], argv: string[], guard?: (ctx: Ctx) => Promise<void>): Promise<number | undefined> {
   const cmd = matchRoute(cmds, argv);
   if (!cmd) return undefined;
+  // A group that fails closed on an unadvertised surface passes its probe here,
+  // so declared commands honour the same capability check as hand-written ones.
+  if (guard && !argv.slice(cmd.words.length).some((a) => a === '--help' || a === '-h')) await guard(ctx);
   return runRoute(ctx, group, cmd, argv);
 }
 

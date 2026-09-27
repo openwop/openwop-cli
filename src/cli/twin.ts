@@ -4,9 +4,16 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
 const twinPath = (id: string) => `/v1/host/openwop-app/agents/${encodeURIComponent(id)}/twin`;
 const GRANTS = '/v1/host/openwop-app/profiles/me/twin-grants';
+
+/** Declared twin commands (routeKit). */
+export const TWIN_ROUTES: RouteCmd[] = [
+  { words: ['recalls'], method: 'GET', path: '/v1/host/openwop-app/profiles/me/twin-recalls', summary: 'Audit trail of agents recalling your twin knowledge (ok / denied). 404 when twin recall is off.',
+    table: { key: 'recalls', columns: ['timestamp', 'outcome', 'agentId', 'chunks', 'runId', 'reason'], empty: 'No twin recalls.' } },
+];
 
 export const TWIN_HELP = `Usage:
   openwop twin get <agentId> [--json]
@@ -15,6 +22,7 @@ export const TWIN_HELP = `Usage:
   openwop twin grants [--json]
   openwop twin grant --agent <agentId> --scopes <a,b,...> [--json]
   openwop twin revoke <agentId> [--yes]
+${routesHelp('twin', TWIN_ROUTES)}
 
 An agent's digital-twin config + your twin GRANTS (which agents may act as your twin,
 with which scopes). \`set\` configures an agent's twin; \`grant\`/\`revoke\` manage grants.`;
@@ -22,6 +30,8 @@ with which scopes). \`set\` configures an agent's twin; \`grant\`/\`revoke\` man
 export async function runTwin(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'get';
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, TWIN_HELP); return 0; }
+  const declared = await dispatchRoutes(ctx, 'twin', TWIN_ROUTES, argv);
+  if (declared !== undefined) return declared;
   const args = argv.slice(['get', 'set', 'clear', 'grants', 'grant', 'revoke'].includes(sub) ? 1 : 0);
   const { options, positionals } = parseOptions(args, { bool: ['--help', '--yes'], value: ['--scopes', '--agent'] });
   if (options.help) { write(ctx.io.stdout, TWIN_HELP); return 0; }
