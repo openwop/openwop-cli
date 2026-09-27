@@ -4,6 +4,11 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
+## [1.2.3] — 2026-09-27
+
+### Fixed
+- **A local base URL never follows an advertised stream origin off the machine.** With `--base-url` on a loopback host, a discovery `streamBase` is now accepted only if it is also loopback. Before, a local host (or a local proxy in front of a real one) advertising an `https:` origin sent the event stream — and the CLI's automatic localhost development key, chosen because the base is local — to that remote origin. Found when the reference host started advertising `streamBase`; `scripts/live-sse-resume.mjs` now also pins the stream origin to its own proxy.
+
 ## [1.2.2] — 2026-09-27 — one command engine, no quirks
 
 A blank number flag no longer silently sends 0, and the 15 spec-table groups now print, help and hint like every other group. Exit codes and `--json` output are unchanged for every command (verified across 7,274 snapshot invocations).

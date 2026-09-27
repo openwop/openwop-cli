@@ -250,10 +250,10 @@ export function explicitStreamBase(raw: unknown): string | undefined {
  * The stream origin a HOST advertised (`extensions.<org>.<name>.streamBase`,
  * versioning.md §5 — host-proprietary; the reference host's
  * `openwop-app.host.streamBase`, openwop-app ADR 0761). The bearer is sent to
- * it, so it is accepted only when it cannot downgrade the connection: `https:`,
- * no credentials, query or fragment — or plain `http:` on a loopback host when
- * the base URL is itself loopback (local development). Anything else → undefined
- * (streams stay on the base URL).
+ * it, so it is accepted only when it cannot downgrade the connection or leave
+ * the machine: from an `https:` base, an `https:` origin; from a loopback base,
+ * only a loopback origin (local development). Never credentials, a query or a
+ * fragment. Anything else → undefined (streams stay on the base URL).
  */
 export function streamBaseFrom(extensions: unknown, baseUrl: string): string | undefined {
   if (!extensions || typeof extensions !== 'object' || Array.isArray(extensions)) return undefined;
@@ -265,9 +265,11 @@ export function streamBaseFrom(extensions: unknown, baseUrl: string): string | u
     let url: URL;
     try { url = new URL(raw); } catch { continue; }
     if (url.username !== '' || url.password !== '' || url.search !== '' || url.hash !== '') continue;
-    const secure = url.protocol === 'https:' && (base.protocol === 'https:' || isLoopback(base));
-    const localDev = url.protocol === 'http:' && isLoopback(url) && isLoopback(base);
-    if (!secure && !localDev) continue;
+    // A loopback base is a local host: its streams stay local. (Off-machine
+    // would also carry the CLI's automatic localhost development key, chosen
+    // BECAUSE the base is local, to a host the user never named.)
+    if (isLoopback(base)) { if (!isLoopback(url)) continue; }
+    else if (url.protocol !== 'https:' || base.protocol !== 'https:') continue;
     return raw.replace(/\/+$/, '');
   }
   return undefined;
