@@ -13,13 +13,17 @@ import type { Ctx } from '../context.js';
  * renders the host's response verbatim (`--json`) or as a table / pretty JSON.
  * It never computes a policy, a price, or a total — money fields are passed
  * through in the host's own minor units, exactly as given.
+ *
+ * This module is only the concise DECLARATION syntax + its help renderer.
+ * Execution is routeKit's one pipeline: `toRouteCmd` translates a spec into a
+ * `RouteCmd`, setting every behaviour this syntax promises explicitly (the
+ * `:org` binding, valued booleans, `--body` acceptance, the `--yes` gate,
+ * rendering, error pass-through, messages), and `runRoute` executes it. The
+ * group behaviour is pinned by test/command-behaviour-snapshot.test.mjs.
  */
-import { readFileSync } from 'node:fs';
 import { CliError } from '../errors.js';
-import { write, writeLine, writeJson, formatTable } from '../io.js';
-import { parseOptions } from '../options.js';
-import { requestJson } from '../api.js';
-import { requireOrg } from './shared.js';
+import { write } from '../io.js';
+import { matchRoute, runRoute, type FieldType, type FieldSpec as RouteField, type RouteCmd } from './routeKit.js';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
@@ -83,28 +87,6 @@ function parseField(spec: FieldSpec): ParsedField {
   return { key, flag, type, required };
 }
 
-function coerce(field: ParsedField, raw: string): unknown {
-  switch (field.type) {
-    case 'number': {
-      const n = Number(raw);
-      if (raw.trim() === '' || !Number.isFinite(n)) throw new CliError(`${field.flag} must be a number, got: ${raw}`);
-      return n;
-    }
-    case 'bool':
-      if (raw === 'true' || raw === 'yes' || raw === '1') return true;
-      if (raw === 'false' || raw === 'no' || raw === '0') return false;
-      throw new CliError(`${field.flag} must be true or false, got: ${raw}`);
-    case 'json':
-      try { return JSON.parse(raw); } catch { throw new CliError(`${field.flag} must be valid JSON`); }
-    case 'list':
-      return raw.split(',').map((v) => v.trim()).filter((v) => v.length > 0);
-    case 'file':
-      try { return readFileSync(raw, 'utf8').replace(/\r?\n$/, ''); } catch { throw new CliError(`Cannot read ${field.flag} ${raw}`); }
-    default:
-      return raw;
-  }
-}
-
 /** True when the route binds `:org` exactly (not `:orgId`). */
 function hasOrg(route: string): boolean {
   return /:org(?![A-Za-z0-9_])/.test(route);
@@ -148,130 +130,61 @@ permitted (HTTP 401/403) · 1 server error.
 ${footer ? `\n${footer.trim()}\n` : ''}`;
 }
 
-function matchSpec(specs: CommandSpec[], argv: string[]): { spec: CommandSpec; rest: string[] } | null {
-  let best: { spec: CommandSpec; rest: string[] } | null = null;
-  for (const spec of specs) {
-    if (spec.cmd.length > argv.length) continue;
-    if (spec.cmd.every((w, i) => argv[i] === w) && (!best || spec.cmd.length > best.spec.cmd.length)) {
-      best = { spec, rest: argv.slice(spec.cmd.length) };
-    }
-  }
-  return best;
+const TYPES: Record<string, FieldType> = { string: 'string', number: 'number', bool: 'bool', json: 'json', list: 'csv', file: 'file' };
+
+function toField(spec: FieldSpec): RouteField {
+  const f = parseField(spec);
+  // An unrecognised type has always been read as a plain string.
+  return { flag: f.flag, key: f.key, type: TYPES[f.type] ?? 'string', required: f.required };
 }
 
-function readBodyOption(options: Record<string, any>): Record<string, unknown> {
-  let raw: string | undefined;
-  if (options.bodyFile) {
-    try { raw = readFileSync(String(options.bodyFile), 'utf8'); } catch { throw new CliError(`Cannot read --body-file ${options.bodyFile}`); }
-  } else if (options.body !== undefined) {
-    raw = String(options.body);
-  }
-  if (raw === undefined) return {};
-  let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { throw new CliError('--body/--body-file must be valid JSON'); }
-  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new CliError('--body/--body-file must be a JSON object');
-  return parsed as Record<string, unknown>;
-}
-
-/** Execute one resolved command spec. Exported for groups that wrap a spec. */
-export async function runSpec(ctx: Ctx, group: string, spec: CommandSpec, argv: string[]): Promise<number> {
-  const queryFields = (spec.query ?? []).map(parseField);
-  const bodyFields = (spec.body ?? []).map(parseField);
-  const allowBody = Boolean(spec.body || spec.rawBody);
-  const valueFlags = [...queryFields, ...bodyFields].map((f) => f.flag);
-  if (hasOrg(spec.route)) valueFlags.push('--org');
-  if (allowBody) valueFlags.push('--body', '--body-file');
-  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'], value: valueFlags });
+/** Translate a spec into routeKit's command shape — every default set explicitly. */
+export function toRouteCmd(group: string, spec: CommandSpec): RouteCmd {
   const usage = `Usage: ${usageLine(group, spec)}\n  ${spec.method} ${spec.route} — ${spec.summary}\n`;
-  if (options.help) { write(ctx.io.stdout, usage); return 0; }
-  const params = paramsOf(spec.route);
-  if (positionals.length !== params.length) { write(ctx.io.stderr, usage); return 2; }
-
-  const optionValue = (f: ParsedField) => options[f.flag.slice(2).replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase())];
-  const fill = (route: string) => {
-    let i = 0;
-    return route.replace(/:[A-Za-z][A-Za-z0-9_]*/g, (m) => {
-      if (m === ':org') return encodeURIComponent(requireOrg(options.org));
-      return encodeURIComponent(positionals[i++] ?? '');
-    });
-  };
-  let path = fill(spec.route);
-
-  const qs = new URLSearchParams();
-  for (const f of queryFields) {
-    const v = optionValue(f);
-    if (v === undefined) {
-      if (f.required) throw new CliError(`${f.flag} is required.\n${usage}`);
-      continue;
-    }
-    const c = coerce(f, String(v));
-    qs.set(f.key, Array.isArray(c) ? c.join(',') : typeof c === 'object' ? JSON.stringify(c) : String(c));
-  }
-  const q = qs.toString();
-  if (q) path += `${path.includes('?') ? '&' : '?'}${q}`;
-
-  let body: Record<string, unknown> | undefined;
-  if (allowBody || spec.method === 'POST' || spec.method === 'PUT' || spec.method === 'PATCH') {
-    body = allowBody ? readBodyOption(options) : {};
-    for (const f of bodyFields) {
-      const v = optionValue(f);
-      if (v !== undefined) body[f.key] = coerce(f, String(v));
-      else if (f.required && body[f.key] === undefined) throw new CliError(`${f.flag} is required.\n${usage}`);
-    }
-    if (spec.method === 'DELETE' && Object.keys(body).length === 0) body = undefined;
-  }
-
-  if (spec.confirm && !options.yes) {
-    throw new CliError(`Refusing to ${spec.summary.charAt(0).toLowerCase()}${spec.summary.slice(1).replace(/\.$/, '')} without --yes.`, 2);
-  }
-
-  if (spec.rmw) {
-    const current = await requestJson(ctx, fill(spec.rmw), { auth: spec.auth });
-    const base = spec.rmwKey ? current.body?.[spec.rmwKey] : current.body;
-    body = { ...(base && typeof base === 'object' && !Array.isArray(base) ? base : {}), ...(body ?? {}) };
-  }
-
-  if (spec.notice) writeLine(ctx.io.stderr, spec.notice);
-  const res = await requestJson(ctx, path, {
+  const rmwKey = spec.rmwKey;
+  return {
+    words: spec.cmd,
     method: spec.method,
-    ...(body !== undefined ? { body } : {}),
-    ...(spec.auth === false ? { auth: false } : {}),
-  });
-  return render(ctx, spec, res.status, res.body);
+    path: spec.route,
+    summary: spec.summary,
+    query: (spec.query ?? []).map(toField),
+    body: (spec.body ?? []).map(toField),
+    orgFlag: true,
+    bodyFlags: Boolean(spec.body || spec.rawBody),
+    emptyBody: true,
+    confirm: Boolean(spec.confirm),
+    anonymous: spec.auth === false,
+    ...(spec.list ? { table: { key: spec.list.key, columns: spec.list.columns, empty: spec.list.empty ?? 'None.', anyArray: true } } : {}),
+    ...(spec.rmw ? { rmw: { from: spec.rmw, pick: (body: any) => (rmwKey ? body?.[rmwKey] : body) } } : {}),
+    ...(spec.notice !== undefined ? { notice: spec.notice } : {}),
+    rawText: true, // every spec, as before — `text` only documents the route
+    noContent: spec.method === 'DELETE' ? 'Deleted.' : 'Done (HTTP {status}).',
+    writeOutput: 'json',
+    hostErrors: false,
+    validateFirst: true,
+    strictNumbers: true,
+    usageText: usage,
+    messages: {
+      required: (flag, usageText) => `${flag} is required.\n${usageText}`,
+      refusal: () => `Refusing to ${spec.summary.charAt(0).toLowerCase()}${spec.summary.slice(1).replace(/\.$/, '')} without --yes.`,
+      invalidNumber: (flag, raw) => `${flag} must be a number, got: ${raw}`,
+      invalidBool: (flag, raw) => `${flag} must be true or false, got: ${raw}`,
+      invalidJson: (flag) => `${flag} must be valid JSON`,
+      unreadable: (flag, path) => `Cannot read ${flag} ${path}`,
+      unreadableBody: (path) => `Cannot read --body-file ${path}`,
+      invalidBodyJson: '--body/--body-file must be valid JSON',
+      bodyNotObject: '--body/--body-file must be a JSON object',
+    },
+  };
 }
 
-function render(ctx: Ctx, spec: CommandSpec, status: number, body: any): number {
-  if (ctx.json) {
-    writeJson(ctx.io.stdout, body ?? { ok: true, status });
-    return 0;
-  }
-  if (body && typeof body === 'object' && typeof body.raw === 'string' && Object.keys(body).length === 1) {
-    write(ctx.io.stdout, body.raw.endsWith('\n') ? body.raw : `${body.raw}\n`);
-    return 0;
-  }
-  if (body === null || body === undefined) {
-    writeLine(ctx.io.stdout, spec.method === 'DELETE' ? 'Deleted.' : `Done (HTTP ${status}).`);
-    return 0;
-  }
-  if (spec.list) {
-    const items = Array.isArray(body)
-      ? body
-      : spec.list.key && Array.isArray(body?.[spec.list.key])
-        ? body[spec.list.key]
-        : (Object.values(body ?? {}).find((v) => Array.isArray(v)) as any[] | undefined) ?? [];
-    if (items.length === 0) { writeLine(ctx.io.stdout, spec.list.empty ?? 'None.'); return 0; }
-    writeLine(ctx.io.stdout, formatTable(items.map((row: any) => {
-      const out: Record<string, string> = {};
-      for (const col of spec.list!.columns) {
-        const v = row?.[col];
-        out[col] = v === undefined || v === null ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v);
-      }
-      return out;
-    }), spec.list.columns));
-    return 0;
-  }
-  writeJson(ctx.io.stdout, body);
-  return 0;
+function matchSpec(specs: CommandSpec[], argv: string[]): CommandSpec | undefined {
+  return matchRoute(specs.map((spec) => ({ words: spec.cmd, spec })), argv)?.spec;
+}
+
+/** Execute one resolved command spec (`argv` excludes the spec's words) on routeKit's runner. */
+async function runSpec(ctx: Ctx, group: string, spec: CommandSpec, argv: string[]): Promise<number> {
+  return runRoute(ctx, group, toRouteCmd(group, spec), [...spec.cmd, ...argv]);
 }
 
 /**
@@ -280,8 +193,8 @@ function render(ctx: Ctx, spec: CommandSpec, status: number, body: any): number 
  * falls through to its own switch for the rest.
  */
 export async function dispatchSpecs(ctx: Ctx, group: string, specs: CommandSpec[], argv: string[]): Promise<number | undefined> {
-  const match = matchSpec(specs, argv);
-  return match ? runSpec(ctx, group, match.spec, match.rest) : undefined;
+  const spec = matchSpec(specs, argv);
+  return spec ? runSpec(ctx, group, spec, argv.slice(spec.cmd.length)) : undefined;
 }
 
 /** One usage + route line per spec — the generated block a hand-written group appends to its help. */
@@ -295,9 +208,9 @@ export async function runResourceGroup(ctx: Ctx, group: string, help: string, sp
     write(ctx.io.stdout, help);
     return 0;
   }
-  const match = matchSpec(specs, argv);
-  if (!match) {
+  const spec = matchSpec(specs, argv);
+  if (!spec) {
     throw new CliError(`Unknown ${group} command: ${argv.filter((a) => !a.startsWith('-')).slice(0, 2).join(' ')}\nRun \`openwop ${group} --help\` for usage.`);
   }
-  return runSpec(ctx, group, match.spec, match.rest);
+  return runSpec(ctx, group, spec, argv.slice(spec.cmd.length));
 }

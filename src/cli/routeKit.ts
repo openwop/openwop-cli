@@ -24,15 +24,19 @@ import { CliError, HttpError, describeHttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requireOrg } from './shared.js';
 
 /**
+ * `boolean` is a presence flag (`--x` / `--no-x`); `bool` is a VALUED boolean
+ * (`--x true|false|yes|no|1|0`). `csv` is one comma-separated value → string[]
+ * (sent back comma-joined when it is a query field); `list` is a repeatable flag.
  * `file` reads a local file's text into the field (one trailing newline dropped, so
  * a token file works); `map` is a repeatable `key=value` flag collected into an
  * object (numeric values become numbers); `file64` reads a local file as base64
  * (for hosts that take an upload inline in a JSON body); `json-file` reads and
  * parses a local JSON file.
  */
-export type FieldType = 'string' | 'number' | 'boolean' | 'json' | 'list' | 'csv' | 'file' | 'file64' | 'json-file' | 'map';
+export type FieldType = 'string' | 'number' | 'boolean' | 'bool' | 'json' | 'list' | 'csv' | 'file' | 'file64' | 'json-file' | 'map';
 
 /** A flag that maps onto a body (or query) field. `key` may be dotted (`a.b`). */
 export interface FieldSpec {
@@ -62,7 +66,11 @@ export interface RouteCmd {
   /** Send without the bearer (public / anonymous visitor surfaces). */
   anonymous?: boolean;
   /** Table rendering for reads: which body key holds the rows + the columns to show. */
-  table?: { key?: string; columns: string[]; empty?: string };
+  table?: {
+    key?: string; columns: string[]; empty?: string;
+    /** Rows are the body when it is an array, else `body[key]` when that is one, else the first array-valued field (none → `empty`). */
+    anyArray?: boolean;
+  };
   /**
    * Read-modify-write for routes that REPLACE a document on write: GET `from`
    * (default: the same path), take `pick(body)` as the base, overlay the flags.
@@ -81,7 +89,76 @@ export interface RouteCmd {
   human?: (body: any) => string;
   /** Extra usage hint (positional names are derived from the path). */
   usage?: string;
+  // ── Adapter-compatibility options ─────────────────────────────────────────
+  // Everything from here to the end of the interface exists so the
+  // `resourceCommands` spec-table groups run on THIS pipeline with their
+  // behaviour byte-identical (pinned by test/command-behaviour-snapshot). They
+  // are set by `resourceCommands.ts`'s adapter. A NEW group should declare its
+  // routes with the options above and take the defaults; converging the
+  // adapter onto the defaults is a follow-up, not a license to add more.
+  /**
+   * Bind an exact `:org` path param (not `:orgId`) to a required `--org <orgId>`
+   * flag (via `requireOrg`) instead of a positional. Default: false.
+   */
+  orgFlag?: boolean;
+  /** Accept `--body <json>` / `--body-file <path>`; when true the body is built even for GET/DELETE. Default: accepted, built for writes + body flags. */
+  bodyFlags?: boolean;
+  /** Printed to stderr (one line) just before the request — e.g. a secret-reveal warning. */
+  notice?: string;
+  /** Human mode: a non-JSON response (`{ raw }`, e.g. CSV) is written verbatim. Default: false. */
+  rawText?: boolean;
+  /**
+   * The host answered with no body: print this line (`{status}` is replaced) in
+   * human mode, and `{ ok: true, status }` under `--json`. Default: unset
+   * (null is rendered like any other body).
+   */
+  noContent?: string;
+  /** Human rendering of a write with no table/human renderer: `summary` (the OK line + body, default) or `json` (the body only). */
+  writeOutput?: 'summary' | 'json';
+  /** Wrap host errors with a hint + exit-code mapping (`hostError`). `false` rethrows the HttpError as-is. Default: true. */
+  hostErrors?: boolean;
+  /**
+   * Validate every input (query, body flags, required fields) BEFORE the `--yes`
+   * gate and before any read-modify-write GET, field by field in declaration
+   * order; required body fields are satisfied by the flags + `--body` only (not
+   * by the read-modify-write base). Default: false (gate first, required checked
+   * after the merge).
+   */
+  validateFirst?: boolean;
+  /** `number` fields reject a blank value (`--n=`) instead of reading it as 0. Default: false. */
+  strictNumbers?: boolean;
+  /** Printed verbatim for `--help` (stdout) and a positional-count mismatch (stderr) instead of the generated usage. */
+  usageText?: string;
+  /** Override individual user-facing error messages (defaults: `DEFAULT_MESSAGES`). */
+  messages?: Partial<RouteMessages>;
 }
+
+/** Every user-facing error message the runner can raise (each a usage error, exit 2). */
+export interface RouteMessages {
+  required: (flag: string, usage: string) => string;
+  refusal: (words: string[], positionals: string[]) => string;
+  invalidNumber: (flag: string, raw: string) => string;
+  invalidBool: (flag: string, raw: string) => string;
+  invalidJson: (flag: string, raw: string) => string;
+  unreadable: (flag: string, path: string, err: unknown) => string;
+  unreadableBody: (path: string, err: unknown) => string;
+  invalidBodyJson: string;
+  bodyNotObject: string;
+}
+
+const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
+export const DEFAULT_MESSAGES: RouteMessages = {
+  required: (flag, usage) => `${usage}\n${flag} is required.`,
+  refusal: (words, positionals) => `Refusing to ${words.join(' ')} ${positionals.join(' ')} without --yes.`.replace(/\s+/g, ' ').trim(),
+  invalidNumber: (flag, raw) => `${flag} must be a number (got "${raw}").`,
+  invalidBool: (flag, raw) => `${flag} must be true or false (got "${raw}").`,
+  invalidJson: (flag) => `${flag} must be valid JSON.`,
+  unreadable: (flag, path, err) => `Could not read ${path} for ${flag}: ${errText(err)}`,
+  unreadableBody: (path, err) => `Could not read ${path}: ${errText(err)}`,
+  invalidBodyJson: '--body / --body-file must be a JSON object.',
+  bodyNotObject: '--body / --body-file must be a JSON object.',
+};
 
 const COMMON_BOOL = ['--help', '--yes'];
 
@@ -93,20 +170,38 @@ function paramNames(path: string): string[] {
   return [...path.matchAll(/:([A-Za-z][A-Za-z0-9_]*)/g)].map((m) => m[1] as string);
 }
 
+/** The params a positional fills (an `orgFlag` command's exact `:org` is a flag). */
+function positionalNames(cmd: RouteCmd, path: string): string[] {
+  return paramNames(path).filter((p) => !(cmd.orgFlag && p === 'org'));
+}
+
+function bindsOrg(cmd: RouteCmd): boolean {
+  return Boolean(cmd.orgFlag) && templates(cmd).some((p) => paramNames(p).includes('org'));
+}
+
+/** Fill a template's params in ONE pass (a value can never be re-substituted), each encoded. */
+function fillPath(cmd: RouteCmd, template: string, positionals: string[], org: unknown): string {
+  let i = 0;
+  return template.replace(/:([A-Za-z][A-Za-z0-9_]*)/g, (_m, name: string) => {
+    if (cmd.orgFlag && name === 'org') return encodeURIComponent(requireOrg(org));
+    return encodeURIComponent(positionals[i++] ?? '');
+  });
+}
+
 function flagHint(f: FieldSpec): string {
   const t = f.type ?? 'string';
-  const v = t === 'boolean' ? '' : t === 'file' || t === 'file64' || t === 'json-file' ? ' <path>' : t === 'map' ? ' <key=value>...' : t === 'list' ? ` <${f.key}>...` : t === 'json' ? ` <json>` : ` <${f.key.split('.').pop()}>`;
+  const v = t === 'boolean' ? '' : t === 'bool' ? ' <true|false>' : t === 'file' || t === 'file64' || t === 'json-file' ? ' <path>' : t === 'map' ? ' <key=value>...' : t === 'list' ? ` <${f.key}>...` : t === 'json' ? ` <json>` : ` <${f.key.split('.').pop()}>`;
   return f.required ? `${f.flag}${v}` : `[${f.flag}${v}]`;
 }
 
 /** One usage line per command: `openwop <group> <words> <params> [flags]`. */
 export function usageLine(group: string, cmd: RouteCmd): string {
   const paths = templates(cmd);
-  const longest = paths.reduce((a, b) => (paramNames(b).length > paramNames(a).length ? b : a));
-  const shortest = paths.reduce((a, b) => (paramNames(b).length < paramNames(a).length ? b : a));
-  const req = paramNames(shortest);
-  const params = paramNames(longest).map((p, i) => (i < req.length ? `<${p}>` : `[<${p}>]`));
-  const flags = [...(cmd.query ?? []), ...(cmd.body ?? [])].map(flagHint);
+  const longest = paths.reduce((a, b) => (positionalNames(cmd, b).length > positionalNames(cmd, a).length ? b : a));
+  const shortest = paths.reduce((a, b) => (positionalNames(cmd, b).length < positionalNames(cmd, a).length ? b : a));
+  const req = positionalNames(cmd, shortest);
+  const params = positionalNames(cmd, longest).map((p, i) => (i < req.length ? `<${p}>` : `[<${p}>]`));
+  const flags = [...(bindsOrg(cmd) ? ['--org <orgId>'] : []), ...[...(cmd.query ?? []), ...(cmd.body ?? [])].map(flagHint)];
   if (cmd.body?.some((f) => f.type === 'json')) flags.push('[--body <json>|--body-file <path>]');
   if (cmd.confirm ?? cmd.method === 'DELETE') flags.push('--yes');
   if (cmd.method === 'GET') flags.push('[--json]');
@@ -123,8 +218,8 @@ export function routesHelp(group: string, cmds: RouteCmd[]): string {
 }
 
 /** The command whose `words` are the longest prefix of `argv`, or undefined. */
-export function matchRoute(cmds: RouteCmd[], argv: string[]): RouteCmd | undefined {
-  let best: RouteCmd | undefined;
+export function matchRoute<T extends { words: string[] }>(cmds: T[], argv: string[]): T | undefined {
+  let best: T | undefined;
   for (const cmd of cmds) {
     if (cmd.words.length > argv.length) continue;
     if (!cmd.words.every((w, i) => argv[i] === w)) continue;
@@ -143,9 +238,15 @@ function setPath(target: Record<string, any>, key: string, value: unknown): void
   node[parts[parts.length - 1] as string] = value;
 }
 
-function coerce(f: FieldSpec, raw: unknown): unknown {
+function coerce(f: FieldSpec, raw: unknown, cmd: RouteCmd, msg: RouteMessages): unknown {
   const t = f.type ?? 'string';
   if (t === 'boolean') return raw;
+  if (t === 'bool') {
+    const s = String(raw);
+    if (s === 'true' || s === 'yes' || s === '1') return true;
+    if (s === 'false' || s === 'no' || s === '0') return false;
+    throw new CliError(msg.invalidBool(f.flag, s), 2);
+  }
   if (t === 'list') return Array.isArray(raw) ? raw.map(String) : [String(raw)];
   if (t === 'map') {
     const out: Record<string, string | number> = {};
@@ -161,42 +262,44 @@ function coerce(f: FieldSpec, raw: unknown): unknown {
   const s = String(raw);
   if (t === 'number') {
     const n = Number(s);
-    if (!Number.isFinite(n)) throw new CliError(`${f.flag} must be a number (got "${s}").`, 2);
+    if (!Number.isFinite(n) || (cmd.strictNumbers && s.trim() === '')) throw new CliError(msg.invalidNumber(f.flag, s), 2);
     return n;
   }
   if (t === 'json-file') {
     let text: string;
     try { text = readFileSync(s, 'utf8'); }
-    catch (err) { throw new CliError(`Could not read ${s} for ${f.flag}: ${err instanceof Error ? err.message : String(err)}`, 2); }
+    catch (err) { throw new CliError(msg.unreadable(f.flag, s, err), 2); }
     try { return JSON.parse(text); } catch { throw new CliError(`${s} (${f.flag}) is not valid JSON.`, 2); }
   }
   if (t === 'file64') {
     try { return readFileSync(s).toString('base64'); }
-    catch (err) { throw new CliError(`Could not read ${s} for ${f.flag}: ${err instanceof Error ? err.message : String(err)}`, 2); }
+    catch (err) { throw new CliError(msg.unreadable(f.flag, s, err), 2); }
   }
   if (t === 'file') {
     try { return readFileSync(s, 'utf8').replace(/\r?\n$/, ''); }
-    catch (err) { throw new CliError(`Could not read ${s} for ${f.flag}: ${err instanceof Error ? err.message : String(err)}`, 2); }
+    catch (err) { throw new CliError(msg.unreadable(f.flag, s, err), 2); }
   }
   if (t === 'csv') return s.split(',').map((x) => x.trim()).filter(Boolean);
   if (t === 'json') {
-    try { return JSON.parse(s); } catch { throw new CliError(`${f.flag} must be valid JSON.`, 2); }
+    try { return JSON.parse(s); } catch { throw new CliError(msg.invalidJson(f.flag, s), 2); }
   }
   return s;
 }
 
-function readBodyOptions(options: Record<string, any>): Record<string, any> {
+function readBodyOptions(options: Record<string, any>, msg: RouteMessages): Record<string, any> {
   let raw: string | undefined;
   if (options.bodyFile !== undefined) {
+    // `--body-file=` with no path: say so, rather than "cannot read <nothing>".
+    if (String(options.bodyFile).trim() === '') throw new CliError('--body-file needs a path (got an empty value).', 2);
     try { raw = readFileSync(String(options.bodyFile), 'utf8'); }
-    catch (err) { throw new CliError(`Could not read ${String(options.bodyFile)}: ${err instanceof Error ? err.message : String(err)}`, 2); }
+    catch (err) { throw new CliError(msg.unreadableBody(String(options.bodyFile), err), 2); }
   } else if (options.body !== undefined) {
     raw = String(options.body);
   }
   if (raw === undefined) return {};
   let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { throw new CliError('--body / --body-file must be a JSON object.', 2); }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new CliError('--body / --body-file must be a JSON object.', 2);
+  try { parsed = JSON.parse(raw); } catch { throw new CliError(msg.invalidBodyJson, 2); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new CliError(msg.bodyNotObject, 2);
   return parsed as Record<string, any>;
 }
 
@@ -216,19 +319,28 @@ export function hostError(err: HttpError): CliError {
 
 /** Parse + send + render one declared command. `argv` still includes the words. */
 export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: string[]): Promise<number> {
+  const msg: RouteMessages = { ...DEFAULT_MESSAGES, ...(cmd.messages ?? {}) };
   const rest = argv.slice(cmd.words.length);
   const fields = [...(cmd.query ?? []), ...(cmd.body ?? [])];
   const bool = [...COMMON_BOOL, ...fields.filter((f) => f.type === 'boolean').flatMap((f) => [f.flag, f.flag.replace(/^--/, '--no-')])];
   const isMulti = (f: FieldSpec) => f.type === 'list' || f.type === 'map';
-  const value = ['--body', '--body-file', ...fields.filter((f) => f.type !== 'boolean' && !isMulti(f)).map((f) => f.flag)];
+  const value = [
+    ...(cmd.bodyFlags !== false ? ['--body', '--body-file'] : []),
+    ...(bindsOrg(cmd) ? ['--org'] : []),
+    ...fields.filter((f) => f.type !== 'boolean' && !isMulti(f)).map((f) => f.flag),
+  ];
   const multi = fields.filter(isMulti).map((f) => f.flag);
   const { options, positionals } = parseOptions(rest, { bool, value, multi });
-  if (options.help) { writeLine(ctx.io.stdout, `Usage: ${usageLine(group, cmd)}\n\n${cmd.summary}\nEndpoint: ${cmd.method} ${templates(cmd).join(' | ')}`); return 0; }
+  if (options.help) {
+    if (cmd.usageText !== undefined) write(ctx.io.stdout, cmd.usageText);
+    else writeLine(ctx.io.stdout, `Usage: ${usageLine(group, cmd)}\n\n${cmd.summary}\nEndpoint: ${cmd.method} ${templates(cmd).join(' | ')}`);
+    return 0;
+  }
 
-  const template = templates(cmd).find((p) => paramNames(p).length === positionals.length);
-  if (!template) { write(ctx.io.stderr, `Usage: ${usageLine(group, cmd)}\n`); return 2; }
-  let path = template;
-  paramNames(template).forEach((name, i) => { path = path.replace(`:${name}`, encodeURIComponent(positionals[i] as string)); });
+  const template = templates(cmd).find((p) => positionalNames(cmd, p).length === positionals.length);
+  if (!template) { write(ctx.io.stderr, cmd.usageText ?? `Usage: ${usageLine(group, cmd)}\n`); return 2; }
+  const path = fillPath(cmd, template, positionals, options.org);
+  const requiredError = (f: FieldSpec) => new CliError(msg.required(f.flag, cmd.usageText ?? usageLine(group, cmd)), 2);
 
   const optionOf = (f: FieldSpec): unknown => {
     const name = f.flag.replace(/^--/, '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
@@ -244,30 +356,38 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
   const qs = new URLSearchParams();
   for (const f of cmd.query ?? []) {
     const v = optionOf(f);
-    if (v === undefined) { if (f.required) throw new CliError(`${usageLine(group, cmd)}\n${f.flag} is required.`, 2); continue; }
-    const c = coerce(f, v);
-    if (Array.isArray(c)) c.forEach((x) => qs.append(f.key, String(x))); else qs.set(f.key, String(c));
+    if (v === undefined) { if (f.required) throw requiredError(f); continue; }
+    const c = coerce(f, v, cmd, msg);
+    if (f.type === 'csv') qs.set(f.key, (c as string[]).join(','));
+    else if (Array.isArray(c)) c.forEach((x) => qs.append(f.key, String(x)));
+    else qs.set(f.key, c !== null && typeof c === 'object' ? JSON.stringify(c) : String(c));
   }
   const url = qs.size ? `${path}${path.includes('?') ? '&' : '?'}${qs.toString()}` : path;
 
   const confirm = cmd.confirm ?? cmd.method === 'DELETE';
-  if (confirm && !options.yes) throw new CliError(`Refusing to ${cmd.words.join(' ')} ${positionals.join(' ')} without --yes.`.replace(/\s+/g, ' ').trim(), 2);
+  const gate = () => { if (confirm && !options.yes) throw new CliError(msg.refusal(cmd.words, positionals), 2); };
+  if (!cmd.validateFirst) gate();
 
-  let body: Record<string, any> | undefined;
   const isWrite = cmd.method !== 'GET' && cmd.method !== 'DELETE';
-  if (isWrite || cmd.body?.length) {
-    const explicit = readBodyOptions(options);
-    const overlay: Record<string, any> = {};
+  const takesBody = isWrite || Boolean(cmd.body?.length) || cmd.bodyFlags === true;
+  let explicit: Record<string, any> = {};
+  const overlay: Record<string, any> = {};
+  if (takesBody) {
+    explicit = readBodyOptions(options, msg);
     for (const f of cmd.body ?? []) {
       const v = optionOf(f);
-      if (v === undefined) continue;
-      setPath(overlay, f.key, coerce(f, v));
+      if (v !== undefined) setPath(overlay, f.key, coerce(f, v, cmd, msg));
+      else if (cmd.validateFirst && f.required && getPath(explicit, f.key) === undefined) throw requiredError(f);
     }
+  }
+  if (cmd.validateFirst) gate();
+
+  let body: Record<string, any> | undefined;
+  if (takesBody) {
     let base: Record<string, any> = {};
     if (cmd.rmw) {
-      let from = cmd.rmw.from ?? template;
-      paramNames(from).forEach((name, i) => { from = from.replace(`:${name}`, encodeURIComponent(positionals[i] as string)); });
-      const current = await send(ctx, from, { method: 'GET' }, cmd.anonymous);
+      const from = fillPath(cmd, cmd.rmw.from ?? template, positionals, options.org);
+      const current = await send(ctx, cmd, from, { method: 'GET' });
       const picked = cmd.rmw.pick ? cmd.rmw.pick(current.body) : current.body;
       base = picked && typeof picked === 'object' && !Array.isArray(picked) ? { ...picked } : {};
     }
@@ -278,13 +398,16 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
       const v = getPath(overlay, f.key);
       if (v !== undefined) setPath(body, f.key, v);
     }
-    for (const f of cmd.body ?? []) {
-      if (f.required && getPath(body, f.key) === undefined) throw new CliError(`${usageLine(group, cmd)}\n${f.flag} is required.`, 2);
+    if (!cmd.validateFirst) {
+      for (const f of cmd.body ?? []) {
+        if (f.required && getPath(body, f.key) === undefined) throw requiredError(f);
+      }
     }
     if (!isWrite && Object.keys(body).length === 0) body = undefined;
     if (isWrite && body && Object.keys(body).length === 0 && cmd.emptyBody === false) body = undefined;
   }
 
+  if (cmd.notice !== undefined) writeLine(ctx.io.stderr, cmd.notice);
   try {
     const res = await requestJson(ctx, url, { method: cmd.method, ...(body !== undefined ? { body } : {}), ...(cmd.anonymous ? { auth: false } : {}) });
     render(ctx, cmd, positionals, res.status, res.body);
@@ -294,7 +417,7 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
       render(ctx, { ...cmd, method: 'GET' }, positionals, err.status, err.body);
       return 1;
     }
-    if (err instanceof HttpError) throw hostError(err);
+    if (err instanceof HttpError && cmd.hostErrors !== false) throw hostError(err);
     throw err;
   }
 }
@@ -303,21 +426,36 @@ function getPath(obj: Record<string, any>, key: string): unknown {
   return key.split('.').reduce<any>((node, part) => (node && typeof node === 'object' ? node[part] : undefined), obj);
 }
 
-async function send(ctx: Ctx, url: string, init: { method: string; body?: unknown }, anonymous?: boolean) {
+async function send(ctx: Ctx, cmd: RouteCmd, url: string, init: { method: string; body?: unknown }) {
   try {
-    return await requestJson(ctx, url, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), ...(anonymous ? { auth: false } : {}) });
+    return await requestJson(ctx, url, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), ...(cmd.anonymous ? { auth: false } : {}) });
   } catch (err) {
-    if (err instanceof HttpError) throw hostError(err);
+    if (err instanceof HttpError && cmd.hostErrors !== false) throw hostError(err);
     throw err;
   }
 }
 
+/** The rows of a list response: the body itself, `body[key]`, or (`anyArray`) its first array-valued field. */
+function tableRows(table: NonNullable<RouteCmd['table']>, body: any): unknown {
+  if (!table.anyArray) return table.key ? getPath(body ?? {}, table.key) : body;
+  if (Array.isArray(body)) return body;
+  const keyed = table.key ? getPath(body ?? {}, table.key) : undefined;
+  if (Array.isArray(keyed)) return keyed;
+  return Object.values(body ?? {}).find((v) => Array.isArray(v)) ?? [];
+}
+
 function render(ctx: Ctx, cmd: RouteCmd, positionals: string[], status: number, rawBody: any): void {
   const body = cmd.transform ? cmd.transform(rawBody) : rawBody;
-  if (ctx.json) { writeJson(ctx.io.stdout, body); return; }
+  const noContent = body === null || body === undefined ? cmd.noContent : undefined;
+  if (ctx.json) { writeJson(ctx.io.stdout, noContent !== undefined ? { ok: true, status } : body); return; }
+  if (cmd.rawText && body && typeof body === 'object' && typeof body.raw === 'string' && Object.keys(body).length === 1) {
+    write(ctx.io.stdout, body.raw.endsWith('\n') ? body.raw : `${body.raw}\n`);
+    return;
+  }
+  if (noContent !== undefined) { writeLine(ctx.io.stdout, noContent.replace('{status}', String(status))); return; }
   if (cmd.human) { writeLine(ctx.io.stdout, cmd.human(body)); return; }
   if (cmd.table) {
-    const rows = cmd.table.key ? getPath(body ?? {}, cmd.table.key) : body;
+    const rows = tableRows(cmd.table, body);
     if (rows === null || rows === undefined) { writeLine(ctx.io.stdout, cmd.table.empty ?? 'None.'); return; }
     if (Array.isArray(rows)) {
       if (rows.length === 0) { writeLine(ctx.io.stdout, cmd.table.empty ?? 'None.'); return; }
@@ -329,7 +467,7 @@ function render(ctx: Ctx, cmd: RouteCmd, positionals: string[], status: number, 
       return;
     }
   }
-  if (cmd.method === 'GET') { writeJson(ctx.io.stdout, body); return; }
+  if (cmd.method === 'GET' || cmd.writeOutput === 'json') { writeJson(ctx.io.stdout, body); return; }
   const target = positionals.length ? ` ${positionals.join(' ')}` : '';
   writeLine(ctx.io.stdout, `OK — ${cmd.words.join(' ')}${target} (HTTP ${status}).`);
   if (body !== null && body !== undefined && !(typeof body === 'object' && Object.keys(body).length === 0) && !ctx.quiet) writeJson(ctx.io.stdout, body);
