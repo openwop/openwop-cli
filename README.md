@@ -24,6 +24,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Commerce & sales** | `commerce` · `commerce-connect` · `promotions` · `recommendations` · `dealers` · `commissions` · `territories` · `sales-maps` (+ `crm` extensions) |
 | **Marketing** | `brand-kits` · `campaign-brief` · `campaign-connectors` · `campaign-intel` · `campaign-journeys` · `cdp` · `destination-sync` · `discovery` · `funnels` · `webinars` · `public` |
 | **Operator administration** | `vault` · `developer-keys` · `billing` · `environments` · `custom-domains` · `site-config` · `runtime-posture` · `maintenance` · `menu-config` |
+| **Operations & work management** | `operations` · `service-desk` · `job-search` · `kicktodo` · `dashboard` · `bi` · `insights-suite` · `intent-ledger` · `work-graph` · `work-selection` · `tasks` · `model-router` · `dev` (+ `strategy` / `priority-matrix` / `projects` / `goals` / `workforces` / `roster` / `profiles` / `twin` / `agent-ops` / `analytics` / `marketplace` / `connections` / `workspace` extensions) |
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 | **Protocol + run operations** | `content` (RFC 0103) · `dispatch` (RFC 0118) · `openapi` · `agent-knowledge` · `compat-endpoints` (RFC 0108) · `host-events` · `client-support` (+ `runs` / `interrupts` / `workflows` / `approvals` / `reviews` / `webhooks` / `prompts` / `catalog` extensions) |
 | **Conversations & messaging** | `chat` (sessions/messages/search/export/tools) · `assistant` · `channels` · `scheduled-chats` · `voice` · `ai` · `computer-use` · `whatsapp` · `agent-author` · `workflow-author` · `workflow-proposals` (+ `a2a`, `notifications` extensions) |
@@ -627,6 +628,49 @@ Not driven (browser or server-to-server legs): `POST /auth/saml/sso/acs` (IdP fo
 post), `POST /billing/webhook` (Stripe-signed), `POST /vault/secrets/:ref/reveal`
 (returns plaintext). Exit codes: `0` ok · `1` server error · `2` usage error / request
 rejected · `3` pending (approval queued, domain not yet live) · `4` not signed in / not permitted.
+
+## Operations & work management
+
+Host-extension groups over the reference host's operations and work surfaces:
+the operator console (`operations` — health, SLO, DLQ, dispatch outbox, webhook
+delivery, saga compensation), the help desk (`service-desk`, plus the anonymous
+`public` widget path), `job-search`, `kicktodo` readiness, your `dashboard`,
+org `bi` metrics, `insights-suite`, a conversation's `intent-ledger`, ambient
+`work-graph` suggestions, `work-selection` ranking, the run `tasks` deck, the
+`model-router` switch, and the demo-only `dev ucp-merchant`. It also fills out
+`strategy` (check-ins, versions, timeline, cadence, decisions, links),
+`priority-matrix` (ideas, scores, intake, evidence, schedules, sessions,
+scenarios, portfolio, federated peers), `projects` (knowledge, memory,
+schedules, visibility, group chat), `goals` (arm / evaluate / record-run),
+`workforces migration set`, `roster activity|check`, `profiles` (pins, avatar,
+personal knowledge), `analytics` (trend, nav telemetry), `marketplace` (feature
+bundles, pack enablement, certify, pack remove/restore) and `connections`
+(delete, inbound webhook binding, provider catalog).
+
+Each group's `--help` is generated from its route table and lists the exact
+method + path every command hits. Flags are the host's field names in kebab-case;
+writes also take `--body`/`--body-file`. Routes that REPLACE a whole document on
+write (job-search steering, strategy cadence, bi metric definitions,
+insights-suite config, profile contact) are read-modify-write, so flags you do not
+pass keep their saved values. Secrets (a federated peer's bearer, an inbound
+signing secret) are read from a file and never printed.
+
+```bash
+openwop operations health --json                       # superadmin
+openwop operations compensation run_42
+openwop service-desk tickets org_1 --status open
+openwop service-desk public send sdk_0123... --text "Hi"   # the anonymous widget path
+openwop strategy check-ins add s_1 kr_1 --value 42 --note "on track"
+openwop priority-matrix ideas score l_1 c_1 --score reach=8 --score effort=3
+openwop projects schedules add p_1 --cron-expr "0 9 * * 1" --workflow-id wf.weekly
+openwop job-search steering set org_1 --roles "Staff Engineer" --remote --daily-cap 5
+openwop bi metrics run org_1 open-deals --bucket week
+openwop tasks deck
+```
+
+Destructive commands refuse without `--yes`. Exit codes: `0` ok · `2` usage error /
+not found / rejected · `4` not signed in or not permitted · `1` server error
+(`kicktodo readiness` also exits `1` when the product reports `degraded`).
 
 ## Defaults
 
