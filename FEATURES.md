@@ -145,6 +145,26 @@ host route is what the subcommands hit.
 | **export** / **import** | RFC 0098 | `/v1/host/openwop-app/{export,import}` | Agent-platform portability: `export [--kinds --out]` → refs-only bundle; `import <file> [--dry-run]` → no-write plan then idempotent apply (re-owned host-side). Secrets are refs, never values (host 422s literal credentials; CLI redacts all output). Import exits `0` applied / `2` plan-has-conflicts / `1` error. |
 | **triggers** | RFC 0099 | `/v1/trigger-subscriptions` (normative) | External-event trigger subscriptions: `register --source <webhook\|email\|form> --workflow <id> [--dedup --verification]` / `list` / `get`. Binds a source→workflow; renders the created subscription + source binding (secret shown once, never persisted; re-reads show the fingerprint). Capability-gated on `triggerBridge` (+ `ingestion.externalSources` for register). Exit `0` active / `3` paused / `1` failed\|dead-lettered. |
 | **a2a** | RFC 0100 | `/v1/host/openwop-app/a2a/tasks/{taskId}` | Async/durable A2A tasks: `a2a status` (advertised `capabilities.a2a`) + `a2a task <id>` reads the durable `A2ATaskState` (taskId === runId; content-free projection). Gated on `capabilities.a2a.durableTasks`. Exit `0` completed / `3` in-progress / `1` failed\|canceled\|rejected. |
+| **documents** (extended) | ADR 0053/0057/0083 | `/v1/host/openwop-app/documents/orgs/:orgId/*`, `/documents/locate/:id`, `/artifacts/:id/*` | Documents + versions, templates (catalog/from-catalog/assemble/update), canvas sources, from-canvas, promote-html, ingest-to-kb, render `--format`; `documents artifacts` get/revisions/revision/diff. |
+| **docs** | ADR 0392 | `/v1/host/openwop-app/docs/orgs/:orgId/backfill` | Re-sync published product docs into the knowledge base; `public <orgId>` reads the published list. |
+| **notebooks** (extended) | ADR 0084 | `/v1/host/openwop-app/notebooks/*` | ensure; notes; sources (text/file/audio/YouTube as base64 JSON; summarize/transform/context-level); transformations + templates; grounded chat; search. |
+| **podcasts** (extended) | ADR 0086/0390 | `/v1/host/openwop-app/podcasts/*` | Episodes (publish/unpublish/retry), shows (CRUD + publish), episode-profiles, speaker-profiles. `list` now needs `--org` (the host requires `orgId`). |
+| **knowledge-sync** | ADR 0107 | `/v1/host/openwop-app/knowledge-sync/*` | Browse a connection's folders; create/get/update/pause/resume/sync/delete a sync source. |
+| **media** (extended) | ADR 0007/0352/0363/0401, RFC 0055 §C | `/v1/host/openwop-app/media/orgs/:orgId/*`, `/media/{upload,put}`, `/assets/:token` | Media library assets/collections/image-providers, AI generate/edit/upscale, alt-text/autotag proposals; local-file `upload`/`put` (base64 JSON) and `fetch <token> --output`. |
+| **entities** | ADR 0386/0406/0407 | `/v1/host/openwop-app/entities/*`, `/public-entities/:tenantId/*` | Custom entity types (query/export/import NDJSON), records, taxonomies + terms (reorder), relationships, locale context, anonymous `public` reads. |
+| **creative-briefs** | ADR 0353/0399/0411 | `/v1/host/openwop-app/creative-briefs/orgs/:orgId/*` | Briefs CRUD, transition, versions/diff, moodboard, `pdf --output`, async `reel`, render-templates, renders. |
+| **creative-video** | ADR 0404 | `/v1/host/openwop-app/creative-video/orgs/:orgId/*` | Video jobs list/get, avatar `generate`, `text-to-video`. |
+| **production** | ADR 0172/0643 | `/v1/host/openwop-app/production/orgs/:orgId/*` | Plans list/get/status; vendors CRUD + portfolio (add/remove read-modify-write); reindex-kb. |
+| **tutorials** | ADR 0488 | `/v1/host/openwop-app/tutorials*` | Tutorial library + your progress. |
+| **walkthroughs** | ADR 0378 | `/v1/host/openwop-app/walkthroughs/{progress,funnel}` | Walkthrough progress get/set + the run-derived funnel. |
+| **widgets** | reference example domain | `/v1/host/openwop-app/widgets*` | list/summary/create/archive/seed; mounted only with `OPENWOP_EXAMPLE_WIDGETS_ENABLED=true`. |
+| **ui-state** | ADR 0071 | `/v1/host/openwop-app/ui-state` | Per-resource saved UI preferences: list/get/set/delete. |
+| **ui-plugin** | RFC 0117 / ADR 0367 | `/v1/host/openwop-app/ui-plugin/*`, `/v1/host/sample/ui-plugin/rpc` | Plugin packs, sandboxed/trusted entry bundles (`--output`), demo artifact, `ui-plugin/1` rpc. |
+| **canvas-collab** | ADR 0359 | `/v1/host/openwop-app/canvas-collab/*` | Collaboration ticket (shown once), seeder claim, room debug (super-admin). |
+| **workflow-collab** | ADR 0481 | `/v1/host/openwop-app/workflow-collab/*` | Workflow-builder multiplayer ticket + seeder claim. |
+| **canvas-packs** | ADR 0314 | `/v1/host/openwop-app/canvas-packs/orgs/:orgId/types` | Editable canvas types from installed canvas packs. |
+| **present** | ADR 0328 | `/v1/host/openwop-app/present/:token/*` | Presentation remote by token: outline/command/state + follow the `nav` event stream. |
+| **sharing** (extended) | ADR 0328 P7 | `/v1/host/openwop-app/shared/:token/{card,frame-view}` | Public `card` / `frame-view` (no auth) + owner `frame-views` analytics. |
 
 > **Channel plugins** (used by `relay` + `messaging`): the inbound/outbound
 > normalizers for **Signal, iMessage, WhatsApp, and Discord** live in
