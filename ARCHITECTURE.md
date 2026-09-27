@@ -202,13 +202,25 @@ routing change live (`scripts/live-sse-resume.mjs` for streams).
 ### The command-table engine
 
 Declarative groups run on ONE pipeline, `src/cli/routeKit.ts` (parse → coerce →
-read-modify-write → confirm → request → render). `src/cli/resourceCommands.ts`
-keeps a terser declaration syntax (`key:type!=flag` field specs) as an
-**adapter** onto that pipeline; its behaviour is pinned by
-`test/command-behaviour-snapshot.test.mjs` (regenerate the fixture with
-`scripts/snapshot-commands.mjs` only for an intended, reviewed change). The
-`RouteCmd` options below the adapter-compatibility marker exist for that
-adapter — a new group uses the defaults. `marketingShared.dispatchTable` is a
+read-modify-write → confirm → request → render). A group declares a `RouteCmd[]`
+table; `src/cli/resourceCommands.ts` keeps a terser declaration syntax
+(`key:type!=flag` field specs) that translates onto the same `RouteCmd` shape,
+so both syntaxes share one set of options, one human output, one help/usage
+format and one set of error hints and exit codes. Options such as `orgFlag`,
+`bodyFlags`, `notice`, `rawText`, `noContent` and `validateFirst` (fail-fast:
+validate every input before the `--yes` gate and any read-modify-write GET) are
+ordinary features any group may use; there are no adapter-only options.
+
+Every table group — native and spec syntax alike — is pinned by
+`test/command-behaviour-snapshot.test.mjs`: `scripts/snapshot-commands.mjs`
+discovers the tables from source and records what a generated matrix of
+invocations sends and prints. Regenerate the fixture only for an intended
+change, and classify the diff mechanically rather than by reading it:
+`node scripts/diff-command-snapshot.mjs <old-fixture> --expect <profile>`
+(`additive` | `blank-number` | `presentation`) checks every changed invocation
+against the profile — e.g. `presentation` proves exit codes, requests, `--json`
+stdout and which check refused an invocation are all unchanged.
+`marketingShared.dispatchTable` is a
 different thing: a dispatcher for hand-written handlers, not a route engine.
 
 ## The messaging/relay channel subsystem

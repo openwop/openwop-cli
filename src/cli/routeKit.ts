@@ -89,19 +89,17 @@ export interface RouteCmd {
   human?: (body: any) => string;
   /** Extra usage hint (positional names are derived from the path). */
   usage?: string;
-  // ── Adapter-compatibility options ─────────────────────────────────────────
-  // Everything from here to the end of the interface exists so the
-  // `resourceCommands` spec-table groups run on THIS pipeline with their
-  // behaviour byte-identical (pinned by test/command-behaviour-snapshot). They
-  // are set by `resourceCommands.ts`'s adapter. A NEW group should declare its
-  // routes with the options above and take the defaults; converging the
-  // adapter onto the defaults is a follow-up, not a license to add more.
   /**
    * Bind an exact `:org` path param (not `:orgId`) to a required `--org <orgId>`
-   * flag (via `requireOrg`) instead of a positional. Default: false.
+   * flag (via `requireOrg`, so the configured default org applies) instead of a
+   * positional. Default: false.
    */
   orgFlag?: boolean;
-  /** Accept `--body <json>` / `--body-file <path>`; when true the body is built even for GET/DELETE. Default: accepted, built for writes + body flags. */
+  /**
+   * `--body <json>` / `--body-file <path>`: `false` rejects them (an unknown
+   * flag), `true` builds a body even for a GET/DELETE. Default: accepted, and a
+   * body is built for writes and for commands that declare body flags.
+   */
   bodyFlags?: boolean;
   /** Printed to stderr (one line) just before the request — e.g. a secret-reveal warning. */
   notice?: string;
@@ -113,49 +111,30 @@ export interface RouteCmd {
    * (null is rendered like any other body).
    */
   noContent?: string;
-  /** Human rendering of a write with no table/human renderer: `summary` (the OK line + body, default) or `json` (the body only). */
-  writeOutput?: 'summary' | 'json';
-  /** Wrap host errors with a hint + exit-code mapping (`hostError`). `false` rethrows the HttpError as-is. Default: true. */
-  hostErrors?: boolean;
   /**
-   * Validate every input (query, body flags, required fields) BEFORE the `--yes`
-   * gate and before any read-modify-write GET, field by field in declaration
-   * order; required body fields are satisfied by the flags + `--body` only (not
-   * by the read-modify-write base). Default: false (gate first, required checked
-   * after the merge).
+   * Fail-fast mode: validate every input — query flags, body flags, `--body`,
+   * required fields — BEFORE the `--yes` gate and before any read-modify-write
+   * GET, field by field in declaration order, so a bad invocation is refused
+   * without a round-trip or a confirmation prompt it could never pass.
+   * Required body fields must then be satisfied by the flags + `--body` alone
+   * (not by the read-modify-write base). Default: false (the `--yes` gate
+   * first; required fields checked after the read-modify-write merge, so a
+   * field the current document already holds is not required again).
    */
   validateFirst?: boolean;
-  /** `number` fields reject a blank value (`--n=`) instead of reading it as 0. Default: false. */
-  strictNumbers?: boolean;
-  /** Printed verbatim for `--help` (stdout) and a positional-count mismatch (stderr) instead of the generated usage. */
-  usageText?: string;
-  /** Override individual user-facing error messages (defaults: `DEFAULT_MESSAGES`). */
-  messages?: Partial<RouteMessages>;
-}
-
-/** Every user-facing error message the runner can raise (each a usage error, exit 2). */
-export interface RouteMessages {
-  required: (flag: string, usage: string) => string;
-  refusal: (words: string[], positionals: string[]) => string;
-  invalidNumber: (flag: string, raw: string) => string;
-  invalidBool: (flag: string, raw: string) => string;
-  invalidJson: (flag: string, raw: string) => string;
-  unreadable: (flag: string, path: string, err: unknown) => string;
-  unreadableBody: (path: string, err: unknown) => string;
-  invalidBodyJson: string;
-  bodyNotObject: string;
 }
 
 const errText = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-export const DEFAULT_MESSAGES: RouteMessages = {
-  required: (flag, usage) => `${usage}\n${flag} is required.`,
-  refusal: (words, positionals) => `Refusing to ${words.join(' ')} ${positionals.join(' ')} without --yes.`.replace(/\s+/g, ' ').trim(),
-  invalidNumber: (flag, raw) => `${flag} must be a number (got "${raw}").`,
-  invalidBool: (flag, raw) => `${flag} must be true or false (got "${raw}").`,
-  invalidJson: (flag) => `${flag} must be valid JSON.`,
-  unreadable: (flag, path, err) => `Could not read ${path} for ${flag}: ${errText(err)}`,
-  unreadableBody: (path, err) => `Could not read ${path}: ${errText(err)}`,
+/** Every user-facing input error the runner raises (each a usage error, exit 2). */
+const MSG = {
+  required: (flag: string, usage: string) => `${usage}\n${flag} is required.`,
+  refusal: (words: string[], positionals: string[]) => `Refusing to ${words.join(' ')} ${positionals.join(' ')} without --yes.`.replace(/\s+/g, ' ').trim(),
+  invalidNumber: (flag: string, raw: string) => `${flag} must be a number (got "${raw}").`,
+  invalidBool: (flag: string, raw: string) => `${flag} must be true or false (got "${raw}").`,
+  invalidJson: (flag: string) => `${flag} must be valid JSON.`,
+  unreadable: (flag: string, path: string, err: unknown) => `Could not read ${path} for ${flag}: ${errText(err)}`,
+  unreadableBody: (path: string, err: unknown) => `Could not read ${path}: ${errText(err)}`,
   invalidBodyJson: '--body / --body-file must be a JSON object.',
   bodyNotObject: '--body / --body-file must be a JSON object.',
 };
@@ -238,14 +217,14 @@ function setPath(target: Record<string, any>, key: string, value: unknown): void
   node[parts[parts.length - 1] as string] = value;
 }
 
-function coerce(f: FieldSpec, raw: unknown, cmd: RouteCmd, msg: RouteMessages): unknown {
+function coerce(f: FieldSpec, raw: unknown): unknown {
   const t = f.type ?? 'string';
   if (t === 'boolean') return raw;
   if (t === 'bool') {
     const s = String(raw);
     if (s === 'true' || s === 'yes' || s === '1') return true;
     if (s === 'false' || s === 'no' || s === '0') return false;
-    throw new CliError(msg.invalidBool(f.flag, s), 2);
+    throw new CliError(MSG.invalidBool(f.flag, s), 2);
   }
   if (t === 'list') return Array.isArray(raw) ? raw.map(String) : [String(raw)];
   if (t === 'map') {
@@ -261,45 +240,46 @@ function coerce(f: FieldSpec, raw: unknown, cmd: RouteCmd, msg: RouteMessages): 
   }
   const s = String(raw);
   if (t === 'number') {
+    // A blank value (`--limit=`) is a usage error, never `Number('')` === 0.
     const n = Number(s);
-    if (!Number.isFinite(n) || (cmd.strictNumbers && s.trim() === '')) throw new CliError(msg.invalidNumber(f.flag, s), 2);
+    if (s.trim() === '' || !Number.isFinite(n)) throw new CliError(MSG.invalidNumber(f.flag, s), 2);
     return n;
   }
   if (t === 'json-file') {
     let text: string;
     try { text = readFileSync(s, 'utf8'); }
-    catch (err) { throw new CliError(msg.unreadable(f.flag, s, err), 2); }
+    catch (err) { throw new CliError(MSG.unreadable(f.flag, s, err), 2); }
     try { return JSON.parse(text); } catch { throw new CliError(`${s} (${f.flag}) is not valid JSON.`, 2); }
   }
   if (t === 'file64') {
     try { return readFileSync(s).toString('base64'); }
-    catch (err) { throw new CliError(msg.unreadable(f.flag, s, err), 2); }
+    catch (err) { throw new CliError(MSG.unreadable(f.flag, s, err), 2); }
   }
   if (t === 'file') {
     try { return readFileSync(s, 'utf8').replace(/\r?\n$/, ''); }
-    catch (err) { throw new CliError(msg.unreadable(f.flag, s, err), 2); }
+    catch (err) { throw new CliError(MSG.unreadable(f.flag, s, err), 2); }
   }
   if (t === 'csv') return s.split(',').map((x) => x.trim()).filter(Boolean);
   if (t === 'json') {
-    try { return JSON.parse(s); } catch { throw new CliError(msg.invalidJson(f.flag, s), 2); }
+    try { return JSON.parse(s); } catch { throw new CliError(MSG.invalidJson(f.flag), 2); }
   }
   return s;
 }
 
-function readBodyOptions(options: Record<string, any>, msg: RouteMessages): Record<string, any> {
+function readBodyOptions(options: Record<string, any>): Record<string, any> {
   let raw: string | undefined;
   if (options.bodyFile !== undefined) {
     // `--body-file=` with no path: say so, rather than "cannot read <nothing>".
     if (String(options.bodyFile).trim() === '') throw new CliError('--body-file needs a path (got an empty value).', 2);
     try { raw = readFileSync(String(options.bodyFile), 'utf8'); }
-    catch (err) { throw new CliError(msg.unreadableBody(String(options.bodyFile), err), 2); }
+    catch (err) { throw new CliError(MSG.unreadableBody(String(options.bodyFile), err), 2); }
   } else if (options.body !== undefined) {
     raw = String(options.body);
   }
   if (raw === undefined) return {};
   let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { throw new CliError(msg.invalidBodyJson, 2); }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new CliError(msg.bodyNotObject, 2);
+  try { parsed = JSON.parse(raw); } catch { throw new CliError(MSG.invalidBodyJson, 2); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new CliError(MSG.bodyNotObject, 2);
   return parsed as Record<string, any>;
 }
 
@@ -319,7 +299,6 @@ export function hostError(err: HttpError): CliError {
 
 /** Parse + send + render one declared command. `argv` still includes the words. */
 export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: string[]): Promise<number> {
-  const msg: RouteMessages = { ...DEFAULT_MESSAGES, ...(cmd.messages ?? {}) };
   const rest = argv.slice(cmd.words.length);
   const fields = [...(cmd.query ?? []), ...(cmd.body ?? [])];
   const bool = [...COMMON_BOOL, ...fields.filter((f) => f.type === 'boolean').flatMap((f) => [f.flag, f.flag.replace(/^--/, '--no-')])];
@@ -332,15 +311,14 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
   const multi = fields.filter(isMulti).map((f) => f.flag);
   const { options, positionals } = parseOptions(rest, { bool, value, multi });
   if (options.help) {
-    if (cmd.usageText !== undefined) write(ctx.io.stdout, cmd.usageText);
-    else writeLine(ctx.io.stdout, `Usage: ${usageLine(group, cmd)}\n\n${cmd.summary}\nEndpoint: ${cmd.method} ${templates(cmd).join(' | ')}`);
+    writeLine(ctx.io.stdout, `Usage: ${usageLine(group, cmd)}\n\n${cmd.summary}\nEndpoint: ${cmd.method} ${templates(cmd).join(' | ')}`);
     return 0;
   }
 
   const template = templates(cmd).find((p) => positionalNames(cmd, p).length === positionals.length);
-  if (!template) { write(ctx.io.stderr, cmd.usageText ?? `Usage: ${usageLine(group, cmd)}\n`); return 2; }
+  if (!template) { write(ctx.io.stderr, `Usage: ${usageLine(group, cmd)}\n`); return 2; }
   const path = fillPath(cmd, template, positionals, options.org);
-  const requiredError = (f: FieldSpec) => new CliError(msg.required(f.flag, cmd.usageText ?? usageLine(group, cmd)), 2);
+  const requiredError = (f: FieldSpec) => new CliError(MSG.required(f.flag, usageLine(group, cmd)), 2);
 
   const optionOf = (f: FieldSpec): unknown => {
     const name = f.flag.replace(/^--/, '').replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
@@ -357,7 +335,7 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
   for (const f of cmd.query ?? []) {
     const v = optionOf(f);
     if (v === undefined) { if (f.required) throw requiredError(f); continue; }
-    const c = coerce(f, v, cmd, msg);
+    const c = coerce(f, v);
     if (f.type === 'csv') qs.set(f.key, (c as string[]).join(','));
     else if (Array.isArray(c)) c.forEach((x) => qs.append(f.key, String(x)));
     else qs.set(f.key, c !== null && typeof c === 'object' ? JSON.stringify(c) : String(c));
@@ -365,7 +343,7 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
   const url = qs.size ? `${path}${path.includes('?') ? '&' : '?'}${qs.toString()}` : path;
 
   const confirm = cmd.confirm ?? cmd.method === 'DELETE';
-  const gate = () => { if (confirm && !options.yes) throw new CliError(msg.refusal(cmd.words, positionals), 2); };
+  const gate = () => { if (confirm && !options.yes) throw new CliError(MSG.refusal(cmd.words, positionals), 2); };
   if (!cmd.validateFirst) gate();
 
   const isWrite = cmd.method !== 'GET' && cmd.method !== 'DELETE';
@@ -373,10 +351,10 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
   let explicit: Record<string, any> = {};
   const overlay: Record<string, any> = {};
   if (takesBody) {
-    explicit = readBodyOptions(options, msg);
+    explicit = readBodyOptions(options);
     for (const f of cmd.body ?? []) {
       const v = optionOf(f);
-      if (v !== undefined) setPath(overlay, f.key, coerce(f, v, cmd, msg));
+      if (v !== undefined) setPath(overlay, f.key, coerce(f, v));
       else if (cmd.validateFirst && f.required && getPath(explicit, f.key) === undefined) throw requiredError(f);
     }
   }
@@ -417,7 +395,7 @@ export async function runRoute(ctx: Ctx, group: string, cmd: RouteCmd, argv: str
       render(ctx, { ...cmd, method: 'GET' }, positionals, err.status, err.body);
       return 1;
     }
-    if (err instanceof HttpError && cmd.hostErrors !== false) throw hostError(err);
+    if (err instanceof HttpError) throw hostError(err);
     throw err;
   }
 }
@@ -430,7 +408,7 @@ async function send(ctx: Ctx, cmd: RouteCmd, url: string, init: { method: string
   try {
     return await requestJson(ctx, url, { method: init.method, ...(init.body !== undefined ? { body: init.body } : {}), ...(cmd.anonymous ? { auth: false } : {}) });
   } catch (err) {
-    if (err instanceof HttpError && cmd.hostErrors !== false) throw hostError(err);
+    if (err instanceof HttpError) throw hostError(err);
     throw err;
   }
 }
@@ -467,7 +445,7 @@ function render(ctx: Ctx, cmd: RouteCmd, positionals: string[], status: number, 
       return;
     }
   }
-  if (cmd.method === 'GET' || cmd.writeOutput === 'json') { writeJson(ctx.io.stdout, body); return; }
+  if (cmd.method === 'GET') { writeJson(ctx.io.stdout, body); return; }
   const target = positionals.length ? ` ${positionals.join(' ')}` : '';
   writeLine(ctx.io.stdout, `OK — ${cmd.words.join(' ')}${target} (HTTP ${status}).`);
   if (body !== null && body !== undefined && !(typeof body === 'object' && Object.keys(body).length === 0) && !ctx.quiet) writeJson(ctx.io.stdout, body);
