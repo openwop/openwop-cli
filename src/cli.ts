@@ -204,6 +204,7 @@ import { runDev, DEV_HELP } from './cli/dev.js';
 // Public surface re-exported for the test suite + bin (they import the bundle).
 export { VERSION, DEFAULT_BASE_URL, DEFAULT_REGISTRY_URL, PROVIDER_CATALOG, HOST_PRESETS };
 export { submitTurn, streamRunEvents, consumeSse, renderEvent, extractAssistantText };
+export { parseStreamStart, STREAM_MODE_PATTERN } from './sse.js';
 export { summarizeCapabilities };
 export { V1_TO_V2_EVENT_TYPES, canonicalEventType, isTerminalRunEvent } from './eventTypes.js';
 export { projectTenantBoundId, projectRunIdsInPath } from './ids.js';
