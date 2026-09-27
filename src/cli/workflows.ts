@@ -6,6 +6,7 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { runWorkflowOps, WORKFLOW_OPS_HELP, WORKFLOW_OPS_SUBS } from './workflowOps.js';
 
 export const WORKFLOWS_HELP = `Usage:
   openwop workflows list [--json]
@@ -19,7 +20,8 @@ export const WORKFLOWS_HELP = `Usage:
 \`chains\` lists the host's workflow-chain templates (ADR 0163 / RFC 0013);
 \`from-chain\` expands one into a registered workflow you can run; \`chain-pack-install\`
 installs a signed workflow-chain pack.
-`;
+
+${WORKFLOW_OPS_HELP}`;
 
 export async function runWorkflows(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
@@ -28,6 +30,7 @@ export async function runWorkflows(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, WORKFLOWS_HELP);
     return 0;
   }
+  if (WORKFLOW_OPS_SUBS.includes(sub)) return runWorkflowOps(ctx, sub, argv.slice(1));
   switch (sub) {
     case 'list':
       return runWorkflowsList(ctx, args);

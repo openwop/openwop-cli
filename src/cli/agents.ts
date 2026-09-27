@@ -4,22 +4,39 @@ import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
+import { requestNormativeOrHost, failClosedOn404 } from './requestHelpers.js';
+import { readBodyOption } from './contentHelpers.js';
 
 export const AGENTS_HELP = `Usage:
-  openwop agents list [--json]
-  openwop agents info <agentId> [--json]
+  openwop agents list [--host] [--json]
+  openwop agents info <agentId> [--host] [--json]
   openwop agents run <agentId> [--task-json '{...}'] [--tool <id>]... [--threshold <n>] [--no-validate] [--json]
   openwop agents create --persona <name> [--label <t>] [--description <t>] [--model-class <c>] [--system-prompt <t>] [--tool <id>]... [--threshold <n>] [--json]
   openwop agents update <agentId> [--persona <n>] [--label <t>] [--description <t>] [--model-class <c>] [--system-prompt <t>] [--tool <id>]... [--threshold <n>] [--json]
   openwop agents delete <agentId> [--yes]
+  openwop agents eval-run (--body '{"tasks":[...],"results":[...]}' | --body-file <f>) [--json]
+  openwop agents verify-run [--verdict pass|fail|revise] [--task <text>] [--json]
 
 Manifest agents (RFC 0070). The host loads pack agents[] (RFC 0003) into an
 AgentRegistry and advertises capabilities.agents.manifestRuntime. 'list'/'info'
-render that registry-backed inventory; 'run' dispatches one agent turn via
+render that registry-backed inventory from the NORMATIVE read (RFC 0072 §A):
+GET /v1/agents and GET /v1/agents/{agentId}. When the host does not serve the
+normative read (404/405/501) they fall back to the host-extension alias
+GET /v1/host/openwop-app/agents[/{agentId}]; --host forces the alias (which also
+reports the host's runtime posture); --verbose names the path that answered.
+'run' dispatches one agent turn via
 POST /v1/host/openwop-app/agents/{agentId}/dispatch — the tool surface is filtered to
 the agent's toolAllowlist (RFC 0002 §A14), task/return payloads are validated
 against the agent's handoff schemas (RFC 0003 §D, unless --no-validate), and a
 sub-threshold decision escalates rather than proceeding (RFC 0002 §F).
+
+'eval-run' grades a batch of agent results against typed criteria (RFC 0081,
+POST /v1/host/openwop-app/agents/eval-run; parallel tasks[]/results[] arrays;
+404 when the host's eval suite is off; exits 0 only when every task passed).
+'verify-run' drives the RFC 0090
+verifier commit gate with a simulated verdict (POST
+/v1/host/openwop-app/agents/verify-run; 404 when verifier gating is off) and
+exits 0 when the result was committed, 1 when it was withheld.
 
 'create'/'update'/'delete' manage tenant-scoped user-defined agents on the demo
 host (POST/PATCH/DELETE /v1/host/openwop-app/agents) — distinct from the pack-loaded
@@ -45,7 +62,7 @@ Examples:
 
 export async function runAgents(ctx: Ctx, argv: string[]) {
   const sub = argv[0] ?? 'list';
-  const args = argv.slice(['list', 'info', 'run', 'create', 'update', 'delete'].includes(sub) ? 1 : 0);
+  const args = argv.slice(['list', 'info', 'run', 'create', 'update', 'delete', 'eval-run', 'verify-run'].includes(sub) ? 1 : 0);
   if (sub === '--help' || sub === '-h') {
     write(ctx.io.stdout, AGENTS_HELP);
     return 0;
@@ -63,6 +80,10 @@ export async function runAgents(ctx: Ctx, argv: string[]) {
       return await runAgentsUpdate(ctx, args);
     case 'delete':
       return await runAgentsDelete(ctx, args);
+    case 'eval-run':
+      return await runAgentsEvalRun(ctx, args);
+    case 'verify-run':
+      return await runAgentsVerifyRun(ctx, args);
     default:
       throw new CliError(`Unknown agents command: ${sub}\nRun \`openwop agents --help\` for usage.`);
   }
@@ -136,12 +157,12 @@ async function runAgentsDelete(ctx: Ctx, argv: string[]) {
 }
 
 async function runAgentsList(ctx: Ctx, argv: string[]) {
-  const { options } = parseOptions(argv, { bool: ['--help'] });
+  const { options } = parseOptions(argv, { bool: ['--help', '--host'] });
   if (options.help) {
     write(ctx.io.stdout, AGENTS_HELP);
     return 0;
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/agents');
+  const res = await requestNormativeOrHost(ctx, '/v1/agents', '/v1/host/openwop-app/agents', { forceHost: options.host });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -163,13 +184,13 @@ async function runAgentsList(ctx: Ctx, argv: string[]) {
 }
 
 async function runAgentsInfo(ctx: Ctx, argv: string[]) {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--host'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, 'Usage: openwop agents info <agentId> [--json]\n');
+    write(ctx.io.stdout, 'Usage: openwop agents info <agentId> [--host] [--json]\n');
     return options.help ? 0 : 2;
   }
   const agentId = encodeURIComponent(positionals[0]);
-  const res = await requestJson(ctx, `/v1/host/openwop-app/agents/${agentId}`);
+  const res = await requestNormativeOrHost(ctx, `/v1/agents/${agentId}`, `/v1/host/openwop-app/agents/${agentId}`, { forceHost: options.host });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -240,4 +261,65 @@ async function runAgentsRun(ctx: Ctx, argv: string[]) {
   if (r.result !== undefined) writeLine(ctx.io.stdout, `result: ${JSON.stringify(r.result)}`);
   // Non-zero exit when the agent did not complete, so scripts can branch.
   return r.status === 'completed' ? 0 : (r.status === 'escalated' ? 3 : 1);
+}
+
+// `openwop agents eval-run` — RFC 0081 grader seam (content-free EvalSummary).
+async function runAgentsEvalRun(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { bool: ['--help'], value: ['--body', '--body-file'] });
+  const body = options.help ? undefined : readBodyOption(ctx, options);
+  if (options.help || !body) {
+    write(ctx.io.stdout, 'Usage: openwop agents eval-run (--body \'{"tasks":[...],"results":[...]}\' | --body-file <f>) [--json]\n');
+    return options.help ? 0 : 2;
+  }
+  if (!Array.isArray(body.tasks) || !Array.isArray(body.results)) {
+    throw new CliError('The eval-run body needs tasks[] and results[] arrays of equal length.', 2);
+  }
+  let res;
+  try {
+    res = await requestJson(ctx, '/v1/host/openwop-app/agents/eval-run', { method: 'POST', body: { tasks: body.tasks, results: body.results } });
+  } catch (err) {
+    failClosedOn404(err, 'agents eval-run');
+  }
+  const s = res.body ?? {};
+  // Exit 0 only when every task passed its threshold, so CI can gate on it.
+  const allPassed = typeof s.total === 'number' && s.passed === s.total;
+  if (ctx.json) { writeJson(ctx.io.stdout, s); return allPassed ? 0 : 1; }
+  for (const key of ['total', 'passed', 'passRate', 'meanScore']) {
+    if (s[key] !== undefined) writeLine(ctx.io.stdout, `${key}: ${s[key]}`);
+  }
+  const tasks = Array.isArray(s.tasks) ? s.tasks : [];
+  if (tasks.length) {
+    writeLine(ctx.io.stdout, formatTable(tasks.map((t: any) => ({ taskId: t.taskId ?? '', score: t.score ?? '', passed: t.passed === undefined ? '' : String(t.passed) })), ['taskId', 'score', 'passed']));
+  }
+  return allPassed ? 0 : 1;
+}
+
+// `openwop agents verify-run` — RFC 0090 verifier gate over a simulated verdict.
+async function runAgentsVerifyRun(ctx: Ctx, argv: string[]) {
+  const { options } = parseOptions(argv, { bool: ['--help'], value: ['--verdict', '--task'] });
+  if (options.help) {
+    write(ctx.io.stdout, 'Usage: openwop agents verify-run [--verdict pass|fail|revise] [--task <text>] [--json]\n');
+    return 0;
+  }
+  if (options.verdict !== undefined && !['pass', 'fail', 'revise'].includes(options.verdict)) {
+    throw new CliError('--verdict must be one of: pass, fail, revise', 2);
+  }
+  const body: Record<string, unknown> = {};
+  if (options.verdict) body.simulateVerdict = options.verdict;
+  if (options.task) body.task = options.task;
+  let res;
+  try {
+    res = await requestJson(ctx, '/v1/host/openwop-app/agents/verify-run', { method: 'POST', body });
+  } catch (err) {
+    failClosedOn404(err, 'agents verify-run');
+  }
+  const r = res.body ?? {};
+  if (ctx.json) writeJson(ctx.io.stdout, r);
+  else {
+    writeLine(ctx.io.stdout, `verdict: ${r.verdict ?? ''}`);
+    writeLine(ctx.io.stdout, `status: ${r.status ?? ''}`);
+    writeLine(ctx.io.stdout, `outcome: ${r.outcome ?? ''}`);
+    if (Array.isArray(r.events)) writeLine(ctx.io.stdout, `agent.verified events: ${r.events.length}`);
+  }
+  return r.committed === true ? 0 : 1;
 }

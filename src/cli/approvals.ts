@@ -24,8 +24,15 @@ import { requestJson, safeRequest } from '../api.js';
 export const APPROVALS_HELP = `Usage:
   openwop approvals list [--status pending|approved|rejected] [--json]
   openwop approvals get <approvalId> [--json]
-  openwop approvals claim <approvalId> [--note <text>] [--json]
-  openwop approvals reject <approvalId> [--note <text>] [--json]
+  openwop approvals claim <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--json]
+  openwop approvals reject <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--json]
+  openwop approvals sla-policy [--json]
+  openwop approvals sla-policy set (--enabled | --disabled) [--remind-after-ms n] [--escalate-after-ms n] [--expire-after-ms n] [--json]
+  openwop approvals email-pref [--json]
+  openwop approvals email-pref set --email <addr> (--enabled | --disabled) [--json]
+  openwop approvals delegations list [--all] [--json]
+  openwop approvals delegations create --to <subject> --starts-at <iso> --ends-at <iso> [--from <subject>] [--reason <t>] [--json]
+  openwop approvals delegations revoke <delegationId> [--json]
 
 The approval inbox — the human side of "agents propose, humans dispose". A
 review-mode roster member's heartbeat queues a proposal instead of starting the
@@ -44,7 +51,18 @@ Endpoints:
           the host exposes no single-approval GET)
   claim   POST /v1/host/openwop-app/approvals/{id}/claim
   reject  POST /v1/host/openwop-app/approvals/{id}/reject
+  sla-policy        GET/PUT /v1/host/openwop-app/approvals/sla-policy (ADR 0478; the tenant's
+                    remind → escalate → expire timers. PUT needs an admin role — exit 4 otherwise.
+                    'set' reads the current policy first and sends it back with your changes.)
+  email-pref        GET/PUT /v1/host/openwop-app/approvals/email-pref (your own opt-in to decide
+                    approvals from email; needs a signed-in user)
+  delegations       GET/POST /v1/host/openwop-app/approval-delegations and
+                    POST …/approval-delegations/{id}/revoke (ADR 0198; you delegate YOUR
+                    approvals to someone for a window; --all and --from are operator-only)
 
+  --acted-for <s>      (claim/reject) As a delegate covering several people, whose approval this is.
+  --expected-hash <h>  (claim/reject) The definition hash you reviewed (composed-workflow proposals;
+                       the host refuses the decision if the proposal changed since).
   --status <s>   (list) Filter the queue: pending | approved | rejected (default: all).
   --note <text>  (claim/reject) Optional human note recorded with the decision.
   --json         Print the raw host response instead of the rendered view.
@@ -64,7 +82,7 @@ Examples:
   openwop approvals reject appr_123 --note "out of policy"
 `;
 
-const SUBCOMMANDS = ['list', 'get', 'claim', 'reject', 'approve', 'deny'];
+const SUBCOMMANDS = ['list', 'get', 'claim', 'reject', 'approve', 'deny', 'sla-policy', 'email-pref', 'delegations'];
 
 export async function runApprovals(ctx: Ctx, argv: string[]): Promise<number> {
   const sub = argv[0] ?? 'list';
@@ -85,6 +103,12 @@ export async function runApprovals(ctx: Ctx, argv: string[]): Promise<number> {
     case 'reject':
     case 'deny':
       return await runApprovalsResolve(ctx, args, 'reject');
+    case 'sla-policy':
+      return await runApprovalsSlaPolicy(ctx, args);
+    case 'email-pref':
+      return await runApprovalsEmailPref(ctx, args);
+    case 'delegations':
+      return await runApprovalsDelegations(ctx, args);
     default:
       throw new CliError(`Unknown approvals command: ${sub}\nRun \`openwop approvals --help\` for usage.`);
   }
@@ -209,14 +233,18 @@ async function runApprovalsGet(ctx: Ctx, argv: string[]): Promise<number> {
 }
 
 async function runApprovalsResolve(ctx: Ctx, argv: string[], verb: 'claim' | 'reject'): Promise<number> {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--note'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--note', '--acted-for', '--expected-hash'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, `Usage: openwop approvals ${verb} <approvalId> [--note <text>] [--json]\n`);
+    write(ctx.io.stdout, `Usage: openwop approvals ${verb} <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--json]\n`);
     return options.help ? 0 : 2;
   }
   await ensureApprovalsAdvertised(ctx);
   const path = `/v1/host/openwop-app/approvals/${encodeURIComponent(positionals[0])}/${verb}`;
-  const body = options.note !== undefined ? { note: options.note } : undefined;
+  const decision: Record<string, string> = {};
+  if (options.note !== undefined) decision.note = options.note;
+  if (options.actedFor !== undefined) decision.actedFor = options.actedFor;
+  if (options.expectedHash !== undefined) decision.expectedDefinitionHash = options.expectedHash;
+  const body = Object.keys(decision).length ? decision : undefined;
   let res;
   try {
     res = await requestJson(ctx, path, { method: 'POST', ...(body !== undefined ? { body } : {}) });
@@ -247,4 +275,125 @@ async function runApprovalsResolve(ctx: Ctx, argv: string[], verb: 'claim' | 're
 
 function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
+}
+
+// ── ADR 0478 — approval SLA policy (tenant) ──
+async function runApprovalsSlaPolicy(ctx: Ctx, argv: string[]): Promise<number> {
+  const setting = argv[0] === 'set';
+  const { options } = parseOptions(setting ? argv.slice(1) : argv, {
+    bool: ['--help', '--enabled', '--disabled'],
+    value: ['--remind-after-ms', '--escalate-after-ms', '--expire-after-ms'],
+  });
+  if (options.help) { write(ctx.io.stdout, APPROVALS_HELP); return 0; }
+  const path = '/v1/host/openwop-app/approvals/sla-policy';
+  if (!setting) {
+    let res;
+    try { res = await requestJson(ctx, path); } catch (err) { gate404(err); }
+    const p = res!.body ?? {};
+    if (ctx.json) { writeJson(ctx.io.stdout, p); return 0; }
+    writeLine(ctx.io.stdout, `enabled: ${p.enabled ? 'yes' : 'no'}`);
+    for (const k of ['remindAfterMs', 'escalateAfterMs', 'expireAfterMs', 'updatedBy', 'updatedAt']) {
+      if (p[k] !== undefined && p[k] !== null) writeLine(ctx.io.stdout, `${k}: ${p[k]}`);
+    }
+    return 0;
+  }
+  if (options.enabled && options.disabled) throw new CliError('Pass only one of --enabled / --disabled', 2);
+  // The PUT replaces the policy — read the current one and merge so an unpassed timer is kept.
+  let current: Record<string, any> = {};
+  try { current = (await requestJson(ctx, path)).body ?? {}; } catch (err) { gate404(err); }
+  const ms = (flag: string, v: unknown) => {
+    if (v === undefined) return undefined;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n <= 0) throw new CliError(`${flag} must be a positive integer (milliseconds).`, 2);
+    return n;
+  };
+  const body: Record<string, unknown> = {
+    enabled: options.enabled ? true : options.disabled ? false : current.enabled === true,
+  };
+  const timers: Array<[string, string, unknown]> = [
+    ['remindAfterMs', '--remind-after-ms', options.remindAfterMs],
+    ['escalateAfterMs', '--escalate-after-ms', options.escalateAfterMs],
+    ['expireAfterMs', '--expire-after-ms', options.expireAfterMs],
+  ];
+  for (const [key, flag, value] of timers) {
+    const v = ms(flag, value) ?? current[key];
+    if (v !== undefined && v !== null) body[key] = v;
+  }
+  const res = await requestJson(ctx, path, { method: 'PUT', body });
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, `Approval SLA policy ${res.body?.enabled ? 'enabled' : 'disabled'}.`);
+  return 0;
+}
+
+// ── ADR 0478 §2 — your email-decide opt-in ──
+async function runApprovalsEmailPref(ctx: Ctx, argv: string[]): Promise<number> {
+  const setting = argv[0] === 'set';
+  const { options } = parseOptions(setting ? argv.slice(1) : argv, { bool: ['--help', '--enabled', '--disabled'], value: ['--email'] });
+  if (options.help) { write(ctx.io.stdout, APPROVALS_HELP); return 0; }
+  const path = '/v1/host/openwop-app/approvals/email-pref';
+  if (!setting) {
+    let res;
+    try { res = await requestJson(ctx, path); } catch (err) { gate404(err); }
+    if (ctx.json) { writeJson(ctx.io.stdout, res!.body); return 0; }
+    writeLine(ctx.io.stdout, `enabled: ${res!.body?.enabled ? 'yes' : 'no'}`);
+    if (res!.body?.email) writeLine(ctx.io.stdout, `email: ${res!.body.email}`);
+    return 0;
+  }
+  if (options.enabled && options.disabled) throw new CliError('Pass only one of --enabled / --disabled', 2);
+  if (!options.enabled && !options.disabled) throw new CliError('email-pref set needs --enabled or --disabled.', 2);
+  if (!options.email) throw new CliError('email-pref set needs --email <addr>.', 2);
+  const res = await requestJson(ctx, path, { method: 'PUT', body: { email: options.email, enabled: Boolean(options.enabled) } });
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, `Email approvals ${res.body?.enabled ? 'enabled' : 'disabled'}${res.body?.email ? ` for ${res.body.email}` : ''}.`);
+  return 0;
+}
+
+// ── ADR 0198 — approval delegations ──
+async function runApprovalsDelegations(ctx: Ctx, argv: string[]): Promise<number> {
+  const sub = argv[0] ?? 'list';
+  const { options, positionals } = parseOptions(argv.slice(['list', 'create', 'revoke'].includes(sub) ? 1 : 0), {
+    bool: ['--help', '--all'],
+    value: ['--to', '--from', '--starts-at', '--ends-at', '--reason'],
+  });
+  if (options.help) { write(ctx.io.stdout, APPROVALS_HELP); return 0; }
+  const base = '/v1/host/openwop-app/approval-delegations';
+  switch (sub) {
+    case 'list': {
+      const res = await requestJson(ctx, options.all ? `${base}?all=1` : base);
+      if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+      const items = Array.isArray(res.body?.delegations) ? res.body.delegations : [];
+      if (items.length === 0) { writeLine(ctx.io.stdout, 'No approval delegations involve you.'); return 0; }
+      writeLine(ctx.io.stdout, formatTable(items.map((d: any) => ({
+        delegationId: d.delegationId ?? d.id ?? '',
+        from: d.fromSubject ?? '',
+        to: d.toSubject ?? '',
+        startsAt: d.startsAt ?? '',
+        endsAt: d.endsAt ?? '',
+        revoked: d.revokedAt ? 'yes' : 'no',
+      })), ['delegationId', 'from', 'to', 'startsAt', 'endsAt', 'revoked']));
+      return 0;
+    }
+    case 'create': {
+      if (!options.to || !options.startsAt || !options.endsAt) {
+        throw new CliError('delegations create needs --to <subject>, --starts-at <iso>, --ends-at <iso>.', 2);
+      }
+      const body: Record<string, string> = { toSubject: options.to, startsAt: options.startsAt, endsAt: options.endsAt };
+      if (options.from) body.fromSubject = options.from;
+      if (options.reason) body.reason = options.reason;
+      const res = await requestJson(ctx, base, { method: 'POST', body });
+      if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+      const d = res.body?.delegation ?? {};
+      writeLine(ctx.io.stdout, `Created delegation ${d.delegationId ?? d.id ?? ''}: ${d.fromSubject ?? 'you'} → ${d.toSubject ?? options.to} (${d.startsAt ?? options.startsAt} – ${d.endsAt ?? options.endsAt}).`);
+      return 0;
+    }
+    case 'revoke': {
+      if (positionals.length !== 1) throw new CliError('Usage: openwop approvals delegations revoke <delegationId> [--json]', 2);
+      const res = await requestJson(ctx, `${base}/${encodeURIComponent(positionals[0])}/revoke`, { method: 'POST' });
+      if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+      writeLine(ctx.io.stdout, `Revoked delegation ${positionals[0]}.`);
+      return 0;
+    }
+    default:
+      throw new CliError(`Unknown approvals delegations command: ${sub}`);
+  }
 }

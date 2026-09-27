@@ -26,7 +26,7 @@ describe('roster command (RFC 0086)', () => {
   it('lists roster entries as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/roster$/);
+      assert.match(new URL(url).pathname, /\/v1\/agents\/roster$/); // normative first (RFC 0086)
       return jsonResponse({ roster: [{ rosterId: 'r1', persona: 'Sally', label: 'Lead', workflows: ['w1'], enabled: true }] });
     };
     const code = await runCli(['roster', 'list'], opts(fetchImpl, cap));

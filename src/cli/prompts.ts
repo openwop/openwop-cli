@@ -5,20 +5,28 @@ import { requestJson } from '../api.js';
 import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
+import { runPromptLibrary } from './promptLibrary.js';
 import { idempotencyHeaders } from '../wire.js';
 
 export const PROMPTS_HELP = `Usage:
   openwop prompts list [--kind k] [--tag t] [--limit n] [--json]
   openwop prompts get <templateId> [--json]
-  openwop prompts render <ref> [--variables-json '{...}'] [--json]
+  openwop prompts render <ref> [--variables-json '{...}'] [--content-trust trusted|untrusted] [--json]
   openwop prompts create --template-id <id> --version <v> --kind <k> --text <t> [--json]
   openwop prompts update <templateId> [--version v] [--kind k] [--text t] [--json]
   openwop prompts delete <templateId> [--yes]
+  openwop prompts library <list|get|create|update|delete|render> --org <orgId> ...   (see \`openwop prompts library --help\`)
 
 Browse, render, and manage the host's prompt library (RFC 0029, /v1/prompts).
 \`render\` resolves a PromptRef (templateId[@version]) against the supplied
 variables. \`create\` posts a new PromptTemplate; \`update\` PUTs the fields you
-pass to an existing template; \`delete\` removes one.
+pass to an existing template; \`delete\` removes one. \`render\` posts
+POST /v1/prompts:render (/prompts:render under v2) with { ref, variables,
+contentTrust? } — the host returns 501 when it does not advertise
+prompts.endpointsSupported.
+
+\`library\` manages an org's curated prompt library (host-extension,
+/v1/host/openwop-app/prompts/orgs/{orgId}/entries).
 `;
 
 export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
@@ -26,6 +34,8 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, PROMPTS_HELP); return 0; }
   const rest = argv.slice(1);
   switch (sub) {
+    case 'library':
+      return runPromptLibrary(ctx, rest);
     case 'list': {
       const { options } = parseOptions(rest, { value: ['--kind', '--tag', '--limit'] });
       const q = new URLSearchParams();
@@ -49,13 +59,19 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
       return 0;
     }
     case 'render': {
-      const { options, positionals } = parseOptions(rest, { value: ['--variables-json'] });
-      if (positionals.length !== 1) { write(ctx.io.stdout, "Usage: openwop prompts render <ref> [--variables-json '{...}'] [--json]\n"); return 2; }
+      const { options, positionals } = parseOptions(rest, { value: ['--variables-json', '--content-trust'] });
+      if (positionals.length !== 1) { write(ctx.io.stdout, "Usage: openwop prompts render <ref> [--variables-json '{...}'] [--content-trust trusted|untrusted] [--json]\n"); return 2; }
+      if (options.contentTrust !== undefined && !['trusted', 'untrusted'].includes(options.contentTrust)) {
+        throw new CliError('--content-trust must be trusted or untrusted.');
+      }
       let variables = {};
       if (options.variablesJson) {
         try { variables = JSON.parse(options.variablesJson); } catch { throw new CliError('--variables-json must be valid JSON.'); }
       }
-      const res = await requestJson(ctx, '/v1/prompts:render', { method: 'POST', body: { ref: positionals[0], variables } });
+      const res = await requestJson(ctx, '/v1/prompts:render', {
+        method: 'POST',
+        body: { ref: positionals[0], variables, ...(options.contentTrust ? { contentTrust: options.contentTrust } : {}) },
+      });
       writeJson(ctx.io.stdout, res.body);
       return 0;
     }
