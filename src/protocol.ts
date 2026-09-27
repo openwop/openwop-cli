@@ -282,9 +282,33 @@ export async function resolveStreamRequest(
   headers: Record<string, string>,
 ): Promise<{ url: URL; headers: Record<string, string> }> {
   const resolved = await resolveRequest(ctx, requestedPath, { accept: 'text/event-stream', ...headers });
-  const origin = ctx.streamBaseUrl ?? ctx.discoveredStreamBase ?? ctx.baseUrl;
+  const { origin, source } = streamOrigin(ctx);
+  // The bearer goes wherever the stream goes, so a move off --base-url is never silent under --verbose.
+  if (ctx.verbose && source !== 'base') ctx.io.stderr.write(`openwop: reading the event stream from ${origin} (${STREAM_SOURCE_LABEL[source]})\n`);
   const url = new URL(resolved.path.replace(/^\//, ''), origin.endsWith('/') ? origin : `${origin}/`);
   const out = { ...resolved.headers };
   if (ctx.apiKey) out.authorization = `Bearer ${ctx.apiKey}`;
   return { url, headers: out };
+}
+
+export type StreamOriginSource = 'setting' | 'advertised' | 'base';
+
+/** How each source is named to the user (doctor + --verbose). */
+export const STREAM_SOURCE_LABEL: Readonly<Record<StreamOriginSource, string>> = {
+  setting: 'your --stream-base-url / OPENWOP_STREAM_BASE_URL / config setting',
+  advertised: "the host's advertised streamBase",
+  base: '--base-url',
+};
+
+/**
+ * Where event streams are read from, and why: the user's setting, else the
+ * host's accepted `streamBase` (valid after `negotiateMajor` has run), else the
+ * base URL. The one answer both `resolveStreamRequest` and `doctor` use. To keep
+ * streams on `--base-url` (e.g. an egress proxy), set `--stream-base-url` to
+ * the same value — a user setting always wins.
+ */
+export function streamOrigin(ctx: Ctx): { origin: string; source: StreamOriginSource } {
+  if (ctx.streamBaseUrl) return { origin: ctx.streamBaseUrl, source: 'setting' };
+  if (ctx.discoveredStreamBase) return { origin: ctx.discoveredStreamBase, source: 'advertised' };
+  return { origin: ctx.baseUrl, source: 'base' };
 }
