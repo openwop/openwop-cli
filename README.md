@@ -20,7 +20,6 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Automation & messaging** | `cron` · `webhooks` · `messaging` · `relay` · `notifications` · `notify` |
 | **Observability & admin** | `analytics` (`usage`) · `account` · `admin` · `brand` · `conformance` |
 | **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` · `docs` · `knowledge-sync` · `entities` · `creative-briefs` · `creative-video` · `production` · `tutorials` · `walkthroughs` · `widgets` · `ui-state` · `ui-plugin` · `canvas-collab` · `workflow-collab` · `canvas-packs` · `present` |
-| **Product surfaces** | `crm` · `csm` · `comments` · `sharing` · `forms` · `email` · `chat-widget` · `marketplace` · `kb` · `cms` · `documents` · `projects` · `strategy` · `advisors` · `campaigns-orchestration` · `notebooks` · `podcasts` · `priority-matrix` |
 | **Commerce & sales** | `commerce` · `commerce-connect` · `promotions` · `recommendations` · `dealers` · `commissions` · `territories` · `sales-maps` (+ `crm` extensions) |
 | **Marketing** | `brand-kits` · `campaign-brief` · `campaign-connectors` · `campaign-intel` · `campaign-journeys` · `cdp` · `destination-sync` · `discovery` · `funnels` · `webinars` · `public` |
 | **Operator administration** | `vault` · `developer-keys` · `billing` · `environments` · `custom-domains` · `site-config` · `runtime-posture` · `maintenance` · `menu-config` |
@@ -28,7 +27,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 | **Protocol surfaces (RFC)** | `a2a` · `triggers` · `goals` · `proposals` · `export` / `import` |
 | **Protocol + run operations** | `content` (RFC 0103) · `dispatch` (RFC 0118) · `openapi` · `agent-knowledge` · `compat-endpoints` (RFC 0108) · `host-events` · `client-support` (+ `runs` / `interrupts` / `workflows` / `approvals` / `reviews` / `webhooks` / `prompts` / `catalog` extensions) |
 | **Conversations & messaging** | `chat` (sessions/messages/search/export/tools) · `assistant` · `channels` · `scheduled-chats` · `voice` · `ai` · `computer-use` · `whatsapp` · `agent-author` · `workflow-author` · `workflow-proposals` (+ `a2a`, `notifications` extensions) |
-| **Residual host surfaces** | `capability-firewall` · `heartbeat` · `settings` (+ `cms` / `email` / `kb` / `forms` / `chat-widget` / `consent` / `approvals` / `profiles` / `advisors` / `campaigns-orchestration` / `notifications` / `workflows` / `kanban` / `job-search` extensions) |
+| **Settings & policy** | `capability-firewall` · `heartbeat` · `settings` (+ `cms` / `email` / `kb` / `forms` / `chat-widget` / `consent` / `approvals` / `profiles` / `advisors` / `campaigns-orchestration` / `notifications` / `workflows` / `kanban` / `job-search` extensions) |
 
 > **`0.18.x`:** the catalog now covers the full app feature surface — the agent
 > platform (`agent-profile`, `agent-packs`, `agent-allowlists`, `agent-ops`,
