@@ -129,8 +129,9 @@ export function buildGroupHelp(group: string, intro: string, specs: CommandSpec[
     lines.push(`      ${s.method} ${s.route}${s.auth === false ? '  (public, no auth)' : ''} — ${s.summary}`);
   }
   return `${lines.join('\n')}\n\n${intro.trim()}\n\nFlags take the host's field names in kebab-case (priceMinor → --price-minor).
-Money amounts are the host's minor units (e.g. cents), passed through exactly;
-the CLI never computes a price or a total. \`--body\`/\`--body-file\` supply the
+Money amounts are passed through exactly, in the unit the host's field names
+(e.g. priceMinor = cents, priceMajorUnits = whole units); the CLI never
+computes a price or a total. \`--body\`/\`--body-file\` supply the
 full JSON body; individual flags override keys in it.
 
 Exit codes: 0 ok · 2 usage error / request rejected · 4 not signed in or not
