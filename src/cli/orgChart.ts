@@ -22,7 +22,9 @@ field).
 GET /v1/agents/org-chart/{departmentId}. When the host does not serve it
 (404/405/501 on 'get'), or with --host, they read the host-extension
 GET /v1/host/openwop-app/org-chart[/{departmentId}] (--verbose names the path
-that answered). 'set'/'clear' drive the host-extension PUT/DELETE
+that answered). With no credential, a v2 host refuses the normative read (401);
+'get'/'dept' then show the host's anonymous view from the alias and say so on
+stderr. 'set'/'clear' drive the host-extension PUT/DELETE
 /v1/host/openwop-app/org-chart. 'set' replaces the whole chart from a JSON file
 with { "departments": [...], "members": [...] }.
 

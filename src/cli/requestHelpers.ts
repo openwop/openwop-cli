@@ -3,17 +3,19 @@ import type { Ctx } from '../context.js';
  * Request helpers shared by the protocol/run command groups:
  *
  *  - `requestNormativeOrHost` — prefer a normative `/v1/<op>` read and fall
- *    back to the host-extension `/v1/host/openwop-app/<op>` twin only when the
- *    host does not serve the normative operation (404 / 405 / 501). Golden
- *    rule 1: prefer normative, fall back for demo surfaces, and say which.
+ *    back to the host-extension `/v1/host/openwop-app/<op>` twin when the host
+ *    does not serve the normative operation (404 / 405 / 501), or refuses it
+ *    for want of ANY credential (RFC 0200 §B.1) while the demo twin still
+ *    admits anonymous callers. Golden rule 1: prefer normative, fall back for
+ *    demo surfaces, and say which.
  *  - `hostRunSegment` — a run id as one host-extension path segment (v2-projected).
  *  - `failClosedOn404` — translate a surface-absent 404/501 into a
  *    capability-honest CliError (exit 1) instead of a bare "HTTP 404".
  */
-import { CliError, HttpError, errorEnvelope } from '../errors.js';
+import { CliError, HttpError, errorEnvelope, isNoCredentialChallenge } from '../errors.js';
 import { writeLine } from '../io.js';
 import { requestJson, type RequestOptions } from '../api.js';
-import { negotiateMajor } from '../protocol.js';
+import { negotiateMajor, resolveRequest } from '../protocol.js';
 import { projectTenantBoundId } from '../ids.js';
 
 /** Statuses that mean "this host does not serve that operation" (not "that record is absent"). */
@@ -30,9 +32,34 @@ export interface NormativeResult {
 }
 
 /**
- * GET (or `options.method`) the normative path; when the host answers 404/405/501
- * retry the host-extension path. `forceHost` skips the normative attempt. Under
- * `--verbose` the path that answered is reported on stderr.
+ * True when this request presents a credential: the CLI's `--api-key` bearer
+ * (unless the caller opted out with `auth: false`), or an `authorization` /
+ * `cookie` header the caller supplied. A 401 on such a request is a REFUSAL of
+ * that credential, and must never be retried anonymously (a silent identity
+ * switch — openwop-app ADR 0434).
+ */
+function presentsCredential(ctx: Ctx, req: RequestOptions): boolean {
+  if (req.auth !== false && ctx.apiKey) return true;
+  return Object.keys(req.headers ?? {}).some((h) => /^(authorization|cookie)$/i.test(h));
+}
+
+/**
+ * GET (or `options.method`) the normative path, and retry the host-extension
+ * path when:
+ *
+ *  - the host does not serve the normative operation (404 / 405 / 501); or
+ *  - the request presented NO credential and the host answered the RFC 0200
+ *    §B.1 no-credential challenge (`401` + `Bearer`, no `error=`). A v2 host
+ *    MUST refuse an anonymous protocol read that way, while a host's demo
+ *    surface (the reference host's `/host/openwop-app/*`) still admits the
+ *    caller as an anonymous visitor. That answer comes from a throwaway
+ *    anonymous tenant, so it is ALWAYS announced on stderr, not only under
+ *    `--verbose`; stdout stays clean for `--json`.
+ *
+ * If a no-credential fallback itself fails as unserved (404/405/501) or
+ * unauthenticated (401), the ORIGINAL 401 is re-thrown — on a host with no such
+ * demo surface, "sign in" is the honest answer, not "not found".
+ * `forceHost` skips the normative attempt.
  */
 export async function requestNormativeOrHost(
   ctx: Ctx,
@@ -41,17 +68,32 @@ export async function requestNormativeOrHost(
   options: RequestOptions & { forceHost?: boolean } = {},
 ): Promise<NormativeResult> {
   const { forceHost, ...req } = options;
+  let anonymousRetryOf: HttpError | undefined;
   if (!forceHost) {
     try {
       const res = await requestJson(ctx, normativePath, req);
       if (ctx.verbose) writeLine(ctx.io.stderr, `openwop: served by the normative path ${normativePath}`);
       return { ...res, path: normativePath, via: 'normative' };
     } catch (err) {
-      if (!(err instanceof HttpError) || !NOT_SERVED.has(err.status)) throw err;
+      if (!(err instanceof HttpError)) throw err;
+      if (isNoCredentialChallenge(err) && !presentsCredential(ctx, req)) anonymousRetryOf = err;
+      else if (!NOT_SERVED.has(err.status)) throw err;
     }
   }
-  const res = await requestJson(ctx, hostPath, req);
-  if (ctx.verbose) writeLine(ctx.io.stderr, `openwop: served by the host-extension path ${hostPath}`);
+  let res;
+  try {
+    res = await requestJson(ctx, hostPath, req);
+  } catch (err) {
+    if (anonymousRetryOf && err instanceof HttpError && (NOT_SERVED.has(err.status) || err.status === 401)) throw anonymousRetryOf;
+    throw err;
+  }
+  if (anonymousRetryOf) {
+    // Name the path the request actually went to (under v2 the host root, not the /v1 twin).
+    const sent = (await resolveRequest(ctx, hostPath, {})).path;
+    writeLine(ctx.io.stderr, `openwop: no credential sent — showing this host's anonymous view (${sent}), not your workspace. Pass --api-key, or run \`openwop onboard\` to save one.`);
+  } else if (ctx.verbose) {
+    writeLine(ctx.io.stderr, `openwop: served by the host-extension path ${hostPath}`);
+  }
   return { ...res, path: hostPath, via: 'host' };
 }
 
