@@ -211,18 +211,24 @@ only the returned reference.
 ```bash
 openwop packs search ads                                   # filter the catalog
 openwop packs info community.openwop-team.demo             # metadata + versions
-openwop packs install community.openwop-team.demo@0.1.0    # download + verify
+openwop packs install community.openwop-team.demo@0.1.2    # download + verify (exact pin)
+openwop packs install core.openwop.ai@^1.3.0               # highest unyanked match
 openwop packs publish ./my-pack --key ~/key.pem --key-id me-1
 openwop packs yank community.openwop-team.demo@0.1.0       # local registry edit
 ```
 
 These talk to the signed node-pack registry — a **separate surface** from the host `--base-url`. The default registry is `https://packs.openwop.dev`; override with `--registry-url` or `OPENWOP_REGISTRY_URL`.
 
-- **search** reads `/v1/index.json` and filters the catalog client-side (the dynamic host `/v1/packs/-/search` only knows in-process nodes, not the published catalog).
-- **info** reads `/v1/packs/{name}/index.json`; `--version v` also fetches that version's manifest.
-- **install** downloads `/v1/packs/{name}/-/{version}.tgz`, checks its `sha256` against the manifest `integrity`, and verifies the detached Ed25519 `.sig` against the publisher key at `/keys/{keyId}.pub` (matching `signing.method` — `ed25519` signs the tarball, `manual` signs the in-tarball `pack.json`). Skip verification with `--no-verify`. Artifacts land under `~/.openwop/packs/{name}/{version}/` (override with `--dir`). Yanked versions are refused.
-- **publish** — the reference registry has **no write API** (`writeApi.supported=false`; publish is a GitHub pull request). This command performs the local **packaging + Ed25519 signing** flow (mirrors `scripts/build-pack-tarball.mjs --signed`): it emits a deterministic signed `.tgz`, a 64-byte `.sig`, and a sidecar manifest into `dist/packs/` (override with `--out`), ready to commit and PR. The private key comes from `--key <pem>`, else `~/.openwop-keys/{keyId}.private.pem`; if neither exists an ephemeral key is generated and its public half printed for pre-registration.
-- **yank** edits a **local registry checkout** — flips `"yanked": true` in the version manifest (`--undo` reverses), so the change is ready to commit, rerun `registry/scripts/build-index.mjs`, and PR. Run it from inside the repo.
+Every registry path is resolved through the registry's `/.well-known/openwop-registry.json` `endpoints` map (`spec/v2/core/packs.md` §"The registry tree"). The CLI prefers the v2 tree (`endpoints.v2`). It uses the v1 tree only when the registry names no v2 tree or publishes no discovery document, or when you pass `--tree v1`.
+
+- **search** reads the registry index (`/v2/index.json` on packs.openwop.dev) and filters the catalog client-side. The dynamic host `/v1/packs/-/search` only knows in-process nodes, not the published catalog.
+- **info** reads the pack index. `--version v` also fetches that version's manifest.
+- **install** resolves the version, downloads the tarball, checks its `sha256` against the manifest `integrity`, and verifies the signature. Skip verification with `--no-verify`. Artifacts land under `~/.openwop/packs/{name}/{version}/` (override with `--dir`).
+  - **v2 signature check:** `signing` must be exactly `{ keyId, scheme: "ed25519-canonical-json" }`. The detached 64-byte `.sig` must verify over the in-tarball `pack.json`, which must be RFC 8785 canonical JSON. The key is the registry's `signingKeys[]` entry for `keyId`, and its `permittedNamespaces` must cover the pack name. A key that is no longer `active` still verifies what it signed.
+  - **v1 signature check:** follows `signing.method` (`ed25519` signs the tarball, `manual` signs the in-tarball `pack.json`).
+  - **Lifecycle (RFC 0222):** no version means the latest *unyanked* version. A range (`^1.2.0`, `~1.2.0`, `1.x`, `>=1.0.0 <2.0.0`) means the highest unyanked match. An exact version is a pin and may install a yanked version, with a warning. A deprecated version installs with a warning.
+- **publish** — the reference registry has **no write API** (`writeApi.supported=false`; you publish by opening a pull request against `openwop/openwop-registry`). This command does the local **packaging + Ed25519 signing** step: it writes a deterministic signed `.tgz`, a 64-byte `.sig`, and a sidecar manifest into `dist/packs/` (override with `--out`), ready to commit and PR. By default it writes the v2 signing block `{ keyId, scheme: "ed25519-canonical-json" }`; `--tree v1` writes the legacy block. The private key comes from `--key <pem>`, else `~/.openwop-keys/{keyId}.private.pem`. If neither exists, it generates an ephemeral key and prints its public half for pre-registration.
+- **yank** edits a **local registry checkout**: it flips `"yanked": true` in the version manifest under `registry/v2/` (`--tree v1` for the frozen v1 tree; `--undo` reverses). Then run `registry/scripts/build-index.mjs --tree v2`, commit, and PR. Run it from inside the repo.
 
 ## Messaging & relay
 

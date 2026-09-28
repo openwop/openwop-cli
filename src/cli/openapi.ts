@@ -1,8 +1,9 @@
 import type { Ctx } from '../context.js';
 /**
- * `openwop openapi` — fetch the host's served OpenAPI document
- * (`GET /v1/openapi.json`, `api/openapi.yaml` operationId getOpenApi;
- * `/openapi.json` is the same name under both majors).
+ * `openwop openapi` — fetch the host's served OpenAPI document. Under major 2
+ * the request is `GET /openapi.json` + `OpenWOP-Version: 2.0` (spec/v2
+ * path-manifest getOpenApiSpec — the `/v1/openapi.json` key is a v1 operation);
+ * under major 1 it is `GET /v1/openapi.json` (src/protocol.ts `V2_RENAMED`).
  *
  * Golden rule 1 says commands are driven off `/.well-known/openwop` + the
  * OpenAPI document; this exposes the latter so an operator can see exactly
@@ -18,8 +19,10 @@ export const OPENAPI_HELP = `Usage:
   openwop openapi [--out <file>] [--json]
   openwop openapi paths [--filter <text>] [--json]
 
-Fetch the host's OpenAPI document (GET /v1/openapi.json — the document the
-host serves, which lists the operations it implements).
+Fetch the host's OpenAPI document — the document the host serves, which lists
+the operations it implements. A host that speaks protocol major 2 is asked for
+GET /openapi.json with OpenWOP-Version: 2.0 (its v2 document); a v1-only host
+for GET /v1/openapi.json.
 
   (default)  Prints the document's title, version and operation count; --json
              prints the whole document; --out <file> saves it.

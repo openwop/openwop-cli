@@ -4,6 +4,34 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
+## [1.3.0] — 2026-09-28 — the pack commands read the registry's v2 tree
+
+`openwop packs` resolves every registry path through the registry's discovery document and prefers the v2 tree, verifies v2 signatures, and resolves versions the way RFC 0222 requires. `openapi` and `workspace` now use their v2 homes on a host that speaks protocol major 2. **Read § Changed before upgrading scripts.** An exact pin of a yanked version now installs (with a warning) instead of being refused, and `publish` / `yank` now target the v2 tree.
+
+### Added
+- **`packs` resolves paths through `/.well-known/openwop-registry.json` `endpoints`** (spec/v2/core/packs.md §"The registry tree": a client MUST resolve every registry path through it). It prefers `endpoints.v2`. The v1 templates are used only when the registry names no v2 tree, or publishes no discovery document, or you pass the new `--tree v1`. `--tree v2` against a registry with no v2 tree fails closed (exit 1). `search --json` and `install --json` report the `tree`, and `info` prints it.
+- **v2 signature verification** (packs.md §Signing):
+  - `signing` must be exactly `{ keyId, scheme: "ed25519-canonical-json" }`. A v1 field (`method`, `publicKeyRef`, `signatureRef`) is refused.
+  - The detached 64-byte `.sig` must verify over the in-tarball `pack.json`, whose bytes must be RFC 8785 canonical and must name the requested `name@version`.
+  - The key is the registry's `signingKeys[]` entry for `keyId`, fetched from its `publicKeyUrl`, and its `permittedNamespaces` must cover the pack name.
+  - A key that is no longer `active` still verifies what it signed.
+  - Every failure reports `pack_signature_invalid` and exits 1. Measured against packs.openwop.dev: all 198 served v2 versions install and verify.
+- **Version ranges for `packs install`**: `^`, `~`, `x`-ranges, comparator sets (`>=1.0.0 <2.0.0`) and `||`. A range resolves to the highest *unyanked* match. If only a yanked version matches, the error says so and suggests pinning it.
+- A missing pack reads `No pack named <name> on <registry> (<tree> tree)` instead of `HTTP 404`.
+
+### Changed
+- **Behaviour change — yank semantics follow RFC 0222 §B / packs.md §"Version manifests".** `latest` (no version) never resolves a yanked version, even when the index names it `latest`; it falls back to the highest unyanked version. An **exact pin may install a yanked version**, with a stderr warning. 1.2.x refused every yanked install. A deprecated version (`versionDeprecated`) installs with a warning.
+- **`packs publish` writes the v2 signing block** `{ keyId, scheme }` by default. Its next-step hint names `registry/v2/` and `build-index.mjs --tree v2`. `--tree v1` keeps the legacy `{ method: "manual", publicKeyRef, signatureRef }` block.
+- **`packs yank` edits `registry/v2/…`** by default. `--tree v1` edits the frozen v1 tree.
+- **`openapi` on a major-2 host** requests `GET /openapi.json` with `OpenWOP-Version: 2.0` (the manifest's getOpenApiSpec). A v2 host answers `/v1/openapi.json` only at major 1.
+- **`workspace` on a major-2 host that advertises `conformance.seamsProfile: "openwop-conformance-seams-v2"`** uses `/conformance/seams/workspace/files[/{path}]` with `OpenWOP-Version: 2.0`. v2 names no canonical workspace operation; the seams profile is its only v2 home. Without that advertisement it keeps `/v1/host/workspace/files`.
+- Help text now says which commands stay on v1 and why:
+  - `catalog packs list|search|get|export`: v2 names no installed-packs operation.
+  - `ui-plugin rpc --conformance-alias`: the v2 seams profile defines no ui-plugin operation.
+
+### Fixed
+- **Piped output is no longer cut off at 64 KB.** The entry point called `process.exit()` before a piped stdout drained, so `packs search --json | jq` (131 KB against packs.openwop.dev) received truncated JSON. It now exits after stdout drains.
+
 ## [1.2.3] — 2026-09-27
 
 ### Fixed

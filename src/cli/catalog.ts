@@ -21,6 +21,10 @@ registry (\`openwop packs\` operates packs.openwop.dev):
   get     GET /v1/packs/{packName}   — one pack's node types (reverse-DNS name)
   export  GET /v1/packs/export       — the installed agent manifests (RFC 0003
           round-trip), re-installable elsewhere; --out writes them to a file.
+These four are v1 operations: protocol v2 names no installed-packs operation
+(spec/v2/path-manifest.json, api/v2/openapi.yaml), so they are sent as the v1
+paths whichever major the host speaks. To read the published catalog, use
+\`openwop packs\`, which resolves the registry's v2 tree.
 
 \`tools\` reads the portable tool catalog (RFC 0078 §B) — GET /v1/tools, or
 GET /v1/tools/<toolId> for one descriptor. This is the tools an agent/workflow

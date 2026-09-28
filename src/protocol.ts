@@ -7,14 +7,18 @@ import { projectRunIdsInPath } from './ids.js';
  * `spec/v2/core/versioning.md` §1.5: a client selects the highest major it
  * implements that the host advertises in `protocolVersions[]`. This CLI
  * implements 2 and 1. Every command keeps its `/v1/<op>` literal; at the
- * request boundary (`resolveRequest`) two rewrites apply under major 2 only:
+ * request boundary (`resolveRequest`) three rewrites apply under major 2 only:
  *
  *  1. A literal whose unversioned twin is an operation named in
  *     `spec/v2/path-manifest.json` is rewritten to that twin with
  *     `OpenWOP-Version: 2.0` (§1.2 — the `/v1/` keys are the same operations
  *     through the overlap; §1.3 — the header selects major 2 on an unversioned
  *     name).
- *  2. A host-proprietary `/v1/host/<org>/…` literal (e.g. the reference host's
+ *  2. A v1 seam literal with a seams-v2 operation (`V2_SEAM_PREFIXES`, e.g.
+ *     `/v1/host/workspace/files`) is rewritten to its `/conformance/seams/…`
+ *     twin with `OpenWOP-Version: 2.0` — only when the host advertises
+ *     `conformance.seamsProfile: "openwop-conformance-seams-v2"`.
+ *  3. A host-proprietary `/v1/host/<org>/…` literal (e.g. the reference host's
  *     `/v1/host/openwop-app/*`) is rewritten to the unversioned root the host
  *     advertises for that org under `extensions.*` (`{ root: "/host/<org>/",
  *     twin: "/v1/host/<org>/" }`, versioning.md §5), WITHOUT a version header —
@@ -99,6 +103,36 @@ export const V2_PATH_TEMPLATES: readonly string[] = [
 /** Manifest paths deliberately not embedded (no `/v1/` twin to rewrite). */
 export const V2_MANIFEST_OMITTED: readonly string[] = ['/.well-known/openwop', '/openapi.json'];
 
+/**
+ * v1 literals whose v2 operation has a different name. `/openapi.json` is in
+ * the manifest (getOpenApiSpec) but has no `/v1/` twin to strip: the v1 CLI
+ * reads the v1 key `/v1/openapi.json`, and a v2 host answers that key only at
+ * major 1 (a `/v1/` key is a v1 operation, versioning.md §1.2).
+ */
+export const V2_RENAMED: Readonly<Record<string, string>> = { '/v1/openapi.json': '/openapi.json' };
+
+/**
+ * v1 host-sample literals whose v2 home is the conformance seams profile
+ * (`api/seams-v2.yaml`, conformance.md §"The seams profile"): prefix → prefix.
+ * Rewritten only under major 2 AND when the host advertises
+ * `conformance.seamsProfile: "openwop-conformance-seams-v2"` — seams are a
+ * testing surface outside the canonical API, so no advertisement, no rewrite.
+ * A v1 seam with no seams-v2 operation (e.g. `/v1/host/sample/ui-plugin/rpc`)
+ * is deliberately absent and passes through unchanged.
+ */
+export const V2_SEAMS_PROFILE = 'openwop-conformance-seams-v2';
+export const V2_SEAM_PREFIXES: Readonly<Record<string, string>> = {
+  '/v1/host/workspace/files': '/conformance/seams/workspace/files',
+};
+
+/** The seams-v2 twin of a v1 seam literal, else null. */
+export function v2SeamTwin(path: string): string | null {
+  for (const [v1, v2] of Object.entries(V2_SEAM_PREFIXES)) {
+    if (path === v1 || path.startsWith(`${v1}/`) || path.startsWith(`${v1}?`)) return `${v2}${path.slice(v1.length)}`;
+  }
+  return null;
+}
+
 const V2_MATCHERS: readonly RegExp[] = V2_PATH_TEMPLATES.map(
   (t) => new RegExp(`^${t.replace(/[.:]/g, '\\$&').replace(/\{[A-Za-z]+\}/g, '[^/]+')}$`),
 );
@@ -112,6 +146,7 @@ export function v2Twin(path: string): string | null {
   const bare = q === -1 ? path : path.slice(0, q);
   const query = q === -1 ? '' : path.slice(q);
   if (!bare.startsWith('/v1/')) return null;
+  if (V2_RENAMED[bare] !== undefined) return `${V2_RENAMED[bare]}${query}`;
   const unversioned = bare.slice('/v1'.length);
   return V2_MATCHERS.some((m) => m.test(unversioned)) ? `${unversioned}${query}` : null;
 }
@@ -171,6 +206,7 @@ export async function negotiateMajor(ctx: Ctx): Promise<ProtocolMajor> {
   }
   let major: ProtocolMajor = 1;
   let roots: Record<string, string> = {};
+  let seams = false;
   try {
     const url = new URL('.well-known/openwop', ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
     const res = await ctx.fetchImpl(url, { method: 'GET', headers: { accept: 'application/json', 'openwop-version': '2' } });
@@ -185,7 +221,10 @@ export async function negotiateMajor(ctx: Ctx): Promise<ProtocolMajor> {
       ctx.discovery = { doc, servedVersion: res.headers?.get?.('openwop-version') ?? undefined };
       ctx.discoveredStreamBase = streamBaseFrom(doc?.extensions, ctx.baseUrl);
       major = selectMajor(doc?.protocolVersions);
-      if (major === 2) roots = hostRootsFrom(doc?.extensions);
+      if (major === 2) {
+        roots = hostRootsFrom(doc?.extensions);
+        seams = (doc as { conformance?: { seamsProfile?: unknown } } | null)?.conformance?.seamsProfile === V2_SEAMS_PROFILE;
+      }
     } else if (res.status === 406) {
       // §1.3: the host does not serve major 2 and echoes what it does serve.
       major = selectMajor(doc?.details?.protocolVersions);
@@ -196,6 +235,7 @@ export async function negotiateMajor(ctx: Ctx): Promise<ProtocolMajor> {
   }
   ctx.protocolMajor = major;
   ctx.hostRoots = roots;
+  ctx.seamsV2 = seams;
   return major;
 }
 
@@ -216,6 +256,8 @@ export async function resolveRequest(
   const twin = v2Twin(path);
   // Tenant-bound `{runId}` params travel projected (`~2F`, not `%2F`) — src/ids.ts.
   if (twin !== null) return { path: projectRunIdsInPath(twin), headers: { ...headers, 'openwop-version': '2.0' } };
+  const seam = ctx.seamsV2 ? v2SeamTwin(path) : null;
+  if (seam !== null) return { path: seam, headers: { ...headers, 'openwop-version': '2.0' } };
   const rooted = hostRootFor(path, ctx.hostRoots ?? {});
   if (rooted !== null) return { path: rooted, headers };
   return { path, headers };

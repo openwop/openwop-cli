@@ -103,7 +103,7 @@ host route is what the subcommands hit.
 | **health** | — | `/health`, `/readiness` | Liveness/readiness probe. |
 | **capabilities** (`caps`) | — | `/.well-known/openwop` | Read + summarize the host capability advertisement. **This is the gap-discovery entry point.** |
 | **catalog** | — | `/v1/host/openwop-app/node-catalog` | List the host node catalog + installed packs. |
-| **packs** (`pack`) | C-5 (signed registry) | registry @ `packs.openwop.dev` | Search/info/install (SRI + Ed25519 verify)/publish/yank signed node packs. |
+| **packs** (`pack`) | C-5 (signed registry) · packs.md §"The registry tree" · RFC 0222 | registry @ `packs.openwop.dev`, paths from `.well-known/openwop-registry.json` `endpoints` (v2 preferred) | Search/info/install (SRI + `ed25519-canonical-json` verify + `permittedNamespaces`; yank-aware `latest`/range resolution)/publish/yank signed node packs. |
 | **workflows** (`workflow`) | — | `/v1/host/openwop-app/workflows` | List/get/register/delete demo workflow definitions. |
 | **runs** (`run`) | RFC 0040 (ancestry) | `/v1/runs` (normative) | Create/list/inspect/annotate/debug-bundle; `ancestry` shows the cross-host parent chain. |
 | **chat** | — | `/v1/runs` + SSE | Interactive streaming REPL over a workflow (uses `src/sse.ts`). |

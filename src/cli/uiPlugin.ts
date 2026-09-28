@@ -41,7 +41,10 @@ pack's main-frame ES module (GET ${BASE}/trusted/<name>/plugins/<id>/entry.mjs �
 \`rpc\` sends one ui-plugin/1 request (POST ${RPC_PRODUCT}, body { message }); the
 message is { openwop: "ui-plugin/1", type: "request", id (integer,
 default 1), method, params } unless you pass a
-whole body with --body/--body-file.
+whole body with --body/--body-file. --conformance-alias posts to the test-seam
+alias ${RPC_CONFORMANCE} instead; that seam has no v2 equivalent (the v2
+seams profile, api/seams-v2.yaml, defines no ui-plugin operation), so it is
+always sent as the v1 path, on either protocol major.
 
 Exit codes: 0 ok · 2 usage / not found / rejected request · 4 forbidden.
 
