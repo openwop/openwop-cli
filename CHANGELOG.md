@@ -20,7 +20,7 @@ versioned on its own SemVer line.
 - A missing pack reads `No pack named <name> on <registry> (<tree> tree)` instead of `HTTP 404`.
 
 ### Changed
-- **Yank semantics follow RFC 0222 §B / packs.md §"Version manifests".** `latest` (no version) never resolves a yanked version, even when the index names it `latest`; it falls back to the highest unyanked version. An **exact pin may install a yanked version**, with a stderr warning. 1.2.x refused every yanked install. A deprecated version (`versionDeprecated`) installs with a warning.
+- **Behaviour change — yank semantics follow RFC 0222 §B / packs.md §"Version manifests".** `latest` (no version) never resolves a yanked version, even when the index names it `latest`; it falls back to the highest unyanked version. An **exact pin may install a yanked version**, with a stderr warning. 1.2.x refused every yanked install. A deprecated version (`versionDeprecated`) installs with a warning.
 - **`packs publish` writes the v2 signing block** `{ keyId, scheme }` by default. Its next-step hint names `registry/v2/` and `build-index.mjs --tree v2`. `--tree v1` keeps the legacy `{ method: "manual", publicKeyRef, signatureRef }` block.
 - **`packs yank` edits `registry/v2/…`** by default. `--tree v1` edits the frozen v1 tree.
 - **`openapi` on a major-2 host** requests `GET /openapi.json` with `OpenWOP-Version: 2.0` (the manifest's getOpenApiSpec). A v2 host answers `/v1/openapi.json` only at major 1.
