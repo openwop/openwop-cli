@@ -1244,7 +1244,7 @@ describe('packs install', () => {
     assert.match(cap.stderr, /Integrity mismatch/);
   });
 
-  it('refuses to install a yanked version', async () => {
+  it('installs a yanked version only when pinned exactly, with a warning', async () => {
     const fx = buildSignedPackFixture();
     fx.manifest = { ...fx.manifest, yanked: true };
     const cap = capture();
@@ -1252,8 +1252,20 @@ describe('packs install', () => {
       ['packs', 'install', 'community.test.demo@0.2.0', '--dir', tmp, '--registry-url', 'http://registry.local'],
       { io: cap.io, fetchImpl: registryFetch(fx), cwd: process.cwd(), repoRoot: process.cwd(), env: {} },
     );
+    assert.equal(code, 0);
+    assert.match(cap.stderr, /warning: community\.test\.demo@0\.2\.0 is yanked/);
+  });
+
+  it('refuses to resolve latest to a yanked version', async () => {
+    const fx = buildSignedPackFixture();
+    fx.packIndex = { ...fx.packIndex, versions: fx.packIndex.versions.map((v) => ({ ...v, yanked: true })) };
+    const cap = capture();
+    const code = await runCli(
+      ['packs', 'install', 'community.test.demo', '--dir', tmp, '--registry-url', 'http://registry.local'],
+      { io: cap.io, fetchImpl: registryFetch(fx), cwd: process.cwd(), repoRoot: process.cwd(), env: {} },
+    );
     assert.equal(code, 1);
-    assert.match(cap.stderr, /yanked/);
+    assert.match(cap.stderr, /no installable \(unyanked\) version/);
   });
 });
 
@@ -1281,6 +1293,8 @@ describe('packs publish', () => {
     assert.equal(parsed.name, 'community.test.pub');
     assert.equal(parsed.keyId, 'test-key-1');
     assert.equal(parsed.writeApi, false);
+    assert.equal(parsed.tree, 'v2');
+    assert.deepEqual(JSON.parse(readFileSync(join(outDir, 'community.test.pub-1.0.0.manifest.json'), 'utf8')).signing, { keyId: 'test-key-1', scheme: 'ed25519-canonical-json' });
     // Artifacts exist.
     assert.ok(readFileSync(join(outDir, 'community.test.pub-1.0.0.tgz')).length > 0);
     assert.equal(readFileSync(join(outDir, 'community.test.pub-1.0.0.sig')).length, 64);
@@ -1301,8 +1315,8 @@ describe('packs yank', () => {
   beforeEach(() => { tmp = mkdtempSync(join(tmpdir(), 'openwop-yank-')); });
   afterEach(() => { rmSync(tmp, { recursive: true, force: true }); });
 
-  it('flips yanked:true in a local registry-checkout manifest', async () => {
-    const manifestDir = join(tmp, 'registry', 'v1', 'packs', 'community.test.demo', '-');
+  it('flips yanked:true in a local registry-checkout manifest (v2 tree by default)', async () => {
+    const manifestDir = join(tmp, 'registry', 'v2', 'packs', 'community.test.demo', '-');
     mkdirSync(manifestDir, { recursive: true });
     const mfPath = join(manifestDir, '0.2.0.json');
     writeFileSync(mfPath, JSON.stringify({ name: 'community.test.demo', version: '0.2.0', yanked: false }, null, 2));
@@ -1312,6 +1326,20 @@ describe('packs yank', () => {
     });
     assert.equal(code, 0);
     assert.match(cap.stdout, /Yanked community\.test\.demo@0\.2\.0/);
+    assert.equal(JSON.parse(readFileSync(mfPath, 'utf8')).yanked, true);
+    assert.match(cap.stdout, /build-index\.mjs --tree v2/);
+  });
+
+  it('edits the frozen v1 tree only with --tree v1', async () => {
+    const manifestDir = join(tmp, 'registry', 'v1', 'packs', 'community.test.demo', '-');
+    mkdirSync(manifestDir, { recursive: true });
+    const mfPath = join(manifestDir, '0.2.0.json');
+    writeFileSync(mfPath, JSON.stringify({ name: 'community.test.demo', version: '0.2.0', yanked: false }, null, 2));
+    const cap = capture();
+    const code = await runCli(['packs', 'yank', 'community.test.demo@0.2.0', '--tree', 'v1'], {
+      io: cap.io, fetchImpl: async () => { throw new Error('no fetch'); }, cwd: process.cwd(), repoRoot: tmp, env: {},
+    });
+    assert.equal(code, 0);
     assert.equal(JSON.parse(readFileSync(mfPath, 'utf8')).yanked, true);
   });
 

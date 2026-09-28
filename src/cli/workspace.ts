@@ -38,8 +38,12 @@ ${routesHelp('workspace', WORKSPACE_ROUTES)}
 
 Agent workspace (RFC 0059 §C). A tenant-scoped file area an agent reads and
 writes during a run, with optimistic concurrency via ETag / If-Match (WCT-1
-cross-owner isolation is enforced host-side). Drives the real CRUD surface
-GET/PUT/DELETE /v1/host/workspace/files. (The /v1/host/openwop-app/workspace/op
+cross-owner isolation is enforced host-side). Drives GET/PUT/DELETE
+/v1/host/workspace/files. v2 names no canonical workspace operation: its only
+v2 home is the conformance seams profile, so on a host that speaks major 2 AND
+advertises conformance.seamsProfile "openwop-conformance-seams-v2" the same
+calls go to /conformance/seams/workspace/files (OpenWOP-Version: 2.0);
+otherwise the v1 path is used. (The /v1/host/openwop-app/workspace/op
 cross-owner seam is a conformance-only test seam — reachable here as
 \`workspace op\`, and only on a host started with OPENWOP_TEST_SEAM_ENABLED=true.)
 

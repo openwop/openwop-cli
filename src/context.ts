@@ -29,6 +29,8 @@ export interface Ctx {
    * Absent under an `OPENWOP_PROTOCOL_MAJOR` pin or when discovery failed.
    */
   discovery?: { doc: unknown; servedVersion: string | undefined };
+  /** The host advertises the v2 conformance seams profile (memoized by `negotiateMajor`; major 2 only). */
+  seamsV2?: boolean;
   /** Host-proprietary roots from discovery, `{ "/v1/host/<org>/": "/host/<org>/" }` (memoized by `negotiateMajor`). */
   hostRoots?: Readonly<Record<string, string>>;
   /** Advertised stream origin accepted from discovery (memoized by `negotiateMajor`); undefined = none/rejected. */
