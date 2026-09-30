@@ -24,7 +24,8 @@ import type { Ctx } from '../context.js';
 import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
-import { requestJson, safeRequest } from '../api.js';
+import { requestJson } from '../api.js';
+import { advertisedRecord } from './capabilities.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
 /**
@@ -138,10 +139,10 @@ function exitForState(state: unknown): number {
 }
 
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
-  const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
-  if (!wk.ok) return; // can't prove absence — let the real request decide
-  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
-  const advertised = !!(body.capabilities?.agents?.goals ?? body.agents?.goals);
+  // Either representation may carry the record (advertisedRecord).
+  const record = await advertisedRecord(ctx, (b) => b.capabilities?.agents?.goals ?? b.agents?.goals);
+  if (record === undefined) return; // can't prove absence — let the real request decide
+  const advertised = !!record;
   if (!advertised) {
     throw new CliError(
       'goals: this host does not advertise the standing-goals capability (capabilities.agents.goals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',

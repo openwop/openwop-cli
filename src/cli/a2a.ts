@@ -16,7 +16,8 @@ import type { Ctx } from '../context.js';
 import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
-import { requestJson, safeRequest } from '../api.js';
+import { requestJson } from '../api.js';
+import { advertisedRecord } from './capabilities.js';
 import { randomUUID } from 'node:crypto';
 
 export const A2A_HELP = `Usage:
@@ -107,10 +108,9 @@ function exitForState(state: unknown): number {
 }
 
 async function a2aCaps(ctx: Ctx): Promise<any | undefined> {
-  const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
-  if (!wk.ok) return undefined; // inconclusive — defer to the live call
-  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
-  return body.capabilities?.a2a ?? body.a2a ?? null;
+  // Either representation may carry the record (advertisedRecord); undefined
+  // is inconclusive — defer to the live call.
+  return advertisedRecord(ctx, (b) => b.capabilities?.a2a ?? b.a2a);
 }
 
 async function runStatus(ctx: Ctx, argv: string[]): Promise<number> {
@@ -128,7 +128,8 @@ async function runStatus(ctx: Ctx, argv: string[]): Promise<number> {
     writeLine(ctx.io.stdout, 'This host does not advertise A2A (capabilities.a2a absent).');
     return 1;
   }
-  writeLine(ctx.io.stdout, `a2a.supported: ${a2a.supported ? 'yes' : 'no'}`);
+  // v2 records carry no `supported` flag — presence is the claim (capabilities.md §2).
+  writeLine(ctx.io.stdout, `a2a.supported: ${(a2a.supported ?? true) ? 'yes' : 'no'}`);
   if (a2a.agentCardUrl) writeLine(ctx.io.stdout, `agentCardUrl: ${a2a.agentCardUrl}`);
   writeLine(ctx.io.stdout, `streaming: ${a2a.streaming ? 'yes' : 'no'}`);
   writeLine(ctx.io.stdout, `pushNotifications: ${a2a.pushNotifications ? 'yes' : 'no'}`);

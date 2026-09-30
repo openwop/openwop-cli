@@ -25,7 +25,8 @@ import { resolve } from 'node:path';
 import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
-import { requestJson, safeRequest } from '../api.js';
+import { requestJson } from '../api.js';
+import { advertisedRecord } from './capabilities.js';
 
 export const EXPORT_HELP = `Usage:
   openwop export [--kinds <kind>]... [--out <file>] [--json]
@@ -90,10 +91,10 @@ function redact<T>(value: T): T {
 }
 
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
-  const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
-  if (!wk.ok) return; // can't prove absence — let the real request decide
-  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
-  const advertised = !!(body.capabilities?.portability ?? body.portability);
+  // Either representation may carry the record (advertisedRecord).
+  const record = await advertisedRecord(ctx, (b) => b.capabilities?.portability ?? b.portability);
+  if (record === undefined) return; // can't prove absence — let the real request decide
+  const advertised = !!record;
   if (!advertised) {
     throw new CliError(
       'portability: this host does not advertise the export/import capability (capabilities.portability is absent from /.well-known/openwop). The host is the authority — refusing to guess.',

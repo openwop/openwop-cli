@@ -50,7 +50,23 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
   switch (sub) {
     case 'list': {
       if (rest.length !== 1) { write(ctx.io.stdout, 'Usage: openwop interrupts list <runId> [--json]\n'); return 2; }
-      const res = await requestJson(ctx, `/v1/host/openwop-app/runs/${encodeURIComponent(rest[0])}/interrupts`);
+      let res;
+      try {
+        res = await requestJson(ctx, `/v1/host/openwop-app/runs/${encodeURIComponent(rest[0])}/interrupts`);
+      } catch (err) {
+        // A host that does not serve the openwop-app extension answers "no
+        // operation at …" (not a missing run). Fail closed, legibly, and name
+        // what works on any host instead of printing a bare 404.
+        const env = err instanceof HttpError ? errorEnvelope(err.body) : {};
+        if (err instanceof HttpError && err.status === 404 && /^no operation at /i.test(env.message ?? '')) {
+          throw new CliError(
+            'interrupts: `list` reads the openwop-app host extension (GET /v1/host/openwop-app/runs/{runId}/interrupts), which this host does not serve. '
+              + 'On any host an open interrupt appears as interrupt.requested in the run\'s events; answer it with `openwop interrupts respond <runId> <nodeId>`.',
+            1,
+          );
+        }
+        throw err;
+      }
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       const items = Array.isArray(res.body?.interrupts) ? res.body.interrupts : [];
       if (items.length === 0) { writeLine(ctx.io.stdout, `No open interrupts for run ${rest[0]}.`); return 0; }

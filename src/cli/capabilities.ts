@@ -9,7 +9,7 @@ import type { Ctx } from '../context.js';
  * representation of the major the CLI negotiated (src/protocol.ts), and
  * renders whichever one the host actually returned.
  */
-import { requestJson } from '../api.js';
+import { requestJson, safeRequest } from '../api.js';
 import { write, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { negotiateMajor } from '../protocol.js';
@@ -71,6 +71,37 @@ export async function readDiscovery(ctx: Ctx): Promise<{ doc: any; servedVersion
   const servedVersion = res.headers?.get?.('openwop-version') ?? undefined;
   ctx.discovery = { doc: res.body, servedVersion };
   return { doc: res.body, servedVersion, major };
+}
+
+/**
+ * The capability record `pick` selects, from whichever discovery
+ * representation advertises it. A dual-stack host serves two documents at
+ * `/.well-known/openwop`, and they need not agree: one host keeps a family only
+ * in its v1 document, another only at its closed v2 root. Reading one of them
+ * mistakes "advertised in the other representation" for "absent". This looks
+ * in the header-less document first (unchanged behaviour), then in the
+ * negotiated one (`readDiscovery`). Returns the record, `null` when a document
+ * was read and neither advertises it, or `undefined` when no document could be
+ * read at all (inconclusive: defer to the live call).
+ */
+export async function advertisedRecord(ctx: Ctx, pick: (doc: any) => any): Promise<any> {
+  const doc = (d: any) => (d && typeof d === 'object' ? d : {});
+  let readAny = false;
+  const v1 = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
+  if (v1.ok) {
+    readAny = true;
+    const r = pick(doc(v1.body));
+    if (r) return r;
+  }
+  try {
+    const { doc: negotiated } = await readDiscovery(ctx);
+    readAny = true;
+    const r = pick(doc(negotiated));
+    if (r) return r;
+  } catch {
+    // Unreadable in the negotiated representation too: fall through.
+  }
+  return readAny ? null : undefined;
 }
 
 /** True when a discovery document is the closed v2 root (capabilities.md §3). */
