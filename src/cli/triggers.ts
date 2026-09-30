@@ -21,7 +21,8 @@ import type { Ctx } from '../context.js';
 import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
-import { requestJson, safeRequest } from '../api.js';
+import { requestJson } from '../api.js';
+import { advertisedRecord } from './capabilities.js';
 import { idempotencyHeaders } from '../wire.js';
 
 export const TRIGGERS_HELP = `Usage:
@@ -135,10 +136,9 @@ function exitForState(state: unknown): number {
 /** Read the discovery doc's capability block (capabilities.triggerBridge), per
  *  trigger-bridge.md §F.3 — advertised via capabilities.*, not a paths map. */
 async function triggerBridgeCaps(ctx: Ctx): Promise<any | undefined> {
-  const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
-  if (!wk.ok) return undefined; // inconclusive — let the live call decide
-  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
-  return body.capabilities?.triggerBridge ?? body.triggerBridge ?? null;
+  // Either representation may carry the record (advertisedRecord); undefined
+  // is inconclusive — let the live call decide.
+  return advertisedRecord(ctx, (b) => b.capabilities?.triggerBridge ?? b.triggerBridge);
 }
 
 async function ensureAdvertised(ctx: Ctx): Promise<void> {

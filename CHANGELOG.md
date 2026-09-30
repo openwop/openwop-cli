@@ -4,6 +4,13 @@ All notable changes to `@openwop/cli` are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); the CLI is independently
 versioned on its own SemVer line.
 
+## [Unreleased]
+
+### Fixed
+- **Capability checks read both discovery representations.** A dual-stack host serves two documents at `/.well-known/openwop`, selected by `OpenWOP-Version`, and they need not carry the same records. The v2 reference host (openwop-examples `examples/hosts/v2-reference`) keeps `a2a` only at its closed v2 root. app.openwop.dev keeps `a2a`, `portability` and `triggerBridge` only in its v1 document. `a2a`, `triggers`, `goals`, `proposals` and `portability` read only the header-less document, so `openwop a2a status` against the reference host reported "capabilities.a2a absent" while `openwop capabilities` listed `a2a`. They now look there first, then in the negotiated document (`advertisedRecord`). A record found in either counts as advertised, and nothing that passed before is refused now.
+- `a2a status` prints `a2a.supported: yes` for a v2 record, which has no `supported` flag: in v2, presence is the claim (capabilities.md §2).
+- **`interrupts list` fails closed on a host without the openwop-app extension.** It used to exit 2 with a bare `HTTP 404 not_found: no operation at …`. It now names the extension path it reads, says the host does not serve it, points to `interrupt.requested` in the run's events and `interrupts respond <runId> <nodeId>`, and exits 1. A 404 for a missing run on a host that does serve the route is unchanged.
+
 ## [1.3.0] — 2026-09-28 — the pack commands read the registry's v2 tree
 
 `openwop packs` resolves every registry path through the registry's discovery document and prefers the v2 tree, verifies v2 signatures, and resolves versions the way RFC 0222 requires. `openapi` and `workspace` now use their v2 homes on a host that speaks protocol major 2. **Read § Changed before upgrading scripts.** An exact pin of a yanked version now installs (with a warning) instead of being refused, and `publish` / `yank` now target the v2 tree.

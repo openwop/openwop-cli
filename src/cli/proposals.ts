@@ -28,7 +28,8 @@ import type { Ctx } from '../context.js';
 import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
-import { requestJson, safeRequest } from '../api.js';
+import { requestJson } from '../api.js';
+import { advertisedRecord } from './capabilities.js';
 
 export const PROPOSALS_HELP = `Usage:
   openwop proposals list [--state <s>] [--kind <k>] [--json]
@@ -126,10 +127,10 @@ function exitForState(state: unknown): number {
  *  inconclusive (not a denial) — defer to the live call's 404 translation rather
  *  than blocking a host that simply doesn't serve /.well-known/openwop. */
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
-  const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
-  if (!wk.ok) return; // can't prove absence — let the real request decide
-  const body = wk.body && typeof wk.body === 'object' ? wk.body : {};
-  const advertised = !!(body.capabilities?.agents?.proposals ?? body.agents?.proposals);
+  // Either representation may carry the record (advertisedRecord).
+  const record = await advertisedRecord(ctx, (b) => b.capabilities?.agents?.proposals ?? b.agents?.proposals);
+  if (record === undefined) return; // can't prove absence — let the real request decide
+  const advertised = !!record;
   if (!advertised) {
     throw new CliError(
       'proposals: this host does not advertise the reviewable-learning proposal capability (capabilities.agents.proposals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
