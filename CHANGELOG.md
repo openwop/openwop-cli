@@ -6,6 +6,10 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [1.4.0] — 2026-10-01 — sign in with a code; personal-workspace runs read back
+
+`openwop login` signs a terminal in to an openwop-app host without copying an API key, and a run created in a personal workspace can be read again.
+
 ### Added
 - **`openwop login` / `openwop logout`** — sign this terminal in to an openwop-app host without copying an API key (openwop-app ADR 0799, the host extension `/v1/host/openwop-app/cli-login`). `login` shows a short code; you type it on the host's Access → API keys page and approve; the host then issues the CLI a key once (30 days by default), which is saved to the config file (0600) and never printed. `logout` has that key revoke itself on the host, then removes it locally. Neither `start` nor `poll` carries a credential, even when a key is already configured. A host that does not serve the extension gets a legible refusal and exit 1.
 
