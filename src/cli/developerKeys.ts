@@ -35,12 +35,17 @@ A KEY CANNOT MANAGE KEYS: openwop-app refuses \`list\`, \`create\` and \`revoke\
 when the CLI is itself signed in with a developer key (owk_…). Create and revoke keys
 in the app (Access → API keys), or sign in with an operator key.
 
-SCOPES NARROW: a key that declares scopes is limited to exactly those. To start a run
-and read it back a key needs runs:create AND runs:read; omit --scope for a key with
-your full authority.
+SCOPES ARE REQUIRED AND NARROW: openwop-app refuses a key with no --scope, and a key is
+limited to exactly the scopes it declares. To start a run and read it back a key needs
+runs:create AND runs:read; reaching the rest of the workspace (agents, memory, BYOK)
+needs workspace:read / workspace:write. \`--scope '*'\` is a key with your full authority.
+A scope the host does not know is refused by name.
+
+EXPIRY: openwop-app gives a key 90 days unless --expires-at says otherwise, and refuses
+an expiry in the past or more than its maximum (366 days by default) away.
 
   --name <n>          (create) Display name. Required.
-  --scope <s>         (create) Scope granted to the key (repeatable).
+  --scope <s>         (create) Scope granted to the key (repeatable; at least one).
   --expires-at <iso>  (create) Expiry timestamp.
   --yes               (revoke) Required confirmation.
 
