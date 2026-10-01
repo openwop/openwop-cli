@@ -14,14 +14,21 @@
  * one every host MUST accept and every link is emitted in, so it is what the
  * CLI sends under major 2.
  *
- * Idempotent by construction: a host MUST NOT mint a tenant-bound id
- * containing `~` (identity.md §5), so a value already carrying `~` is taken to
- * be projected and passes through — projecting twice would send `~7E`.
+ * A projected id is ONE segment, so it never carries a raw `/`. A value with
+ * `~` and no `/` is taken to be projected already and passes through —
+ * projecting twice would send `~7E`. A value that still has its `/` is the
+ * unprojected `<tenantId>/<opaque>` form whatever else it carries, and is
+ * projected in full. That case is real: a host whose tenant ids fall outside
+ * the corpus grammar emits the tenant half already escaped
+ * (`user~3Ad4d0…/0c0f…`, measured on app.openwop.dev 2026-10-01), and the
+ * path form it links to — and answers on — is the full projection
+ * (`user~7E3Ad4d0…~2F0c0f…`). Passing that id through sent the raw `/` and
+ * every read of a personal-workspace run was a 404.
  */
 
 /** Project one tenant-bound id into its single-segment wire form. */
 export function projectTenantBoundId(id: string): string {
-  if (id.includes('~')) return id;
+  if (id.includes('~') && !id.includes('/')) return id;
   let out = '';
   for (const byte of new TextEncoder().encode(id)) {
     const ch = String.fromCharCode(byte);

@@ -110,6 +110,11 @@ describe('tenant-bound id wire form (identity.md §5)', () => {
     assert.equal(projectTenantBoundId('anon:abc/xyz'), 'anon~3Aabc~2Fxyz');
     assert.equal(projectTenantBoundId('acme~2Fr-9f3c'), 'acme~2Fr-9f3c', 'an already-projected id is not re-projected');
     assert.equal(projectTenantBoundId('plain-uuid.1_2'), 'plain-uuid.1_2');
+    assert.equal(
+      projectTenantBoundId('user~3Ad4d0/0c0f66dd'), 'user~7E3Ad4d0~2F0c0f66dd',
+      'an id that still has its `/` is projected in full even when its tenant half carries `~` — the form the host links to',
+    );
+    assert.equal(projectRunIdsInPath('/runs/user~3Ad4d0%2F0c0f66dd/events'), '/runs/user~7E3Ad4d0~2F0c0f66dd/events');
     assert.equal(projectRunIdsInPath('/runs/acme%2Fr1:diff?against=acme%2Fr2'), '/runs/acme~2Fr1:diff?against=acme~2Fr2');
     assert.equal(projectRunIdsInPath('/runs:bulk-cancel'), '/runs:bulk-cancel');
   });
