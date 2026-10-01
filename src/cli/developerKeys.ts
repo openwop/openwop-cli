@@ -31,9 +31,9 @@ ONE-TIME SECRET: \`create\` prints the new token exactly once, on stdout, with a
 Store it immediately — the host keeps only a hash and cannot show it again. The CLI does
 not save it anywhere.
 
-A KEY CANNOT MINT KEYS: openwop-app refuses \`create\` (403) when the CLI is itself
-signed in with a developer key (owk_…). Create your first key in the app
-(Access → API keys) or sign in with an operator key.
+A KEY CANNOT MANAGE KEYS: openwop-app refuses \`list\`, \`create\` and \`revoke\` (403)
+when the CLI is itself signed in with a developer key (owk_…). Create and revoke keys
+in the app (Access → API keys), or sign in with an operator key.
 
 SCOPES NARROW: a key that declares scopes is limited to exactly those. To start a run
 and read it back a key needs runs:create AND runs:read; omit --scope for a key with
