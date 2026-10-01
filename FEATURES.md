@@ -98,6 +98,7 @@ host route is what the subcommands hit.
 | Group (aliases) | Source | Host route(s) | Surface / notes |
 |---|---|---|---|
 | **onboard** | — | (local + provider probes) | Guided first-run wizard: host → provider → model → BYOK key. |
+| **login** / **logout** | openwop-app ADR 0799 | `/v1/host/openwop-app/cli-login/*` | Sign this terminal in by a code approved in the app (device flow); the host issues a key once, saved to the config file and never printed. `logout` has the key revoke itself. Fails closed on a host without the extension. |
 | **doctor** | — | `/health`, `/readiness` | Check local prerequisites + demo reachability. |
 | **demo** | — | (local process) | Run/inspect the workflow-engine demo app locally; `install` lays down a LaunchAgent/systemd/Scheduled-Task service (`src/daemon.ts`). |
 | **health** | — | `/health`, `/readiness` | Liveness/readiness probe. |
