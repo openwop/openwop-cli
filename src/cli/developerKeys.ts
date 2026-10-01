@@ -31,6 +31,14 @@ ONE-TIME SECRET: \`create\` prints the new token exactly once, on stdout, with a
 Store it immediately — the host keeps only a hash and cannot show it again. The CLI does
 not save it anywhere.
 
+A KEY CANNOT MINT KEYS: openwop-app refuses \`create\` (403) when the CLI is itself
+signed in with a developer key (owk_…). Create your first key in the app
+(Access → API keys) or sign in with an operator key.
+
+SCOPES NARROW: a key that declares scopes is limited to exactly those. To start a run
+and read it back a key needs runs:create AND runs:read; omit --scope for a key with
+your full authority.
+
   --name <n>          (create) Display name. Required.
   --scope <s>         (create) Scope granted to the key (repeatable).
   --expires-at <iso>  (create) Expiry timestamp.
@@ -40,7 +48,7 @@ Exit codes: 0 ok · 2 usage / not found · 4 not signed in.
 
 Examples:
   openwop developer-keys list
-  openwop developer-keys create --name "CI deploy" --scope runs:write
+  openwop developer-keys create --name "CI deploy" --scope runs:create --scope runs:read
   openwop developer-keys revoke dk:0123abcd --yes
 `;
 
