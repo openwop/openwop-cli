@@ -103,6 +103,7 @@ import { runRelay, RELAY_HELP, startInboundReceive } from './cli/relay.js';
 import { loadRelayConfig, detectChannelAvailability } from './cli/relayShared.js';
 export { startInboundReceive, detectChannelAvailability };
 import { runOnboard, ONBOARD_HELP } from './cli/onboard.js';
+import { runLogin, runLogout, LOGIN_HELP } from './cli/login.js';
 import { runProviders, PROVIDERS_HELP } from './cli/providers.js';
 import { runPacks, PACKS_HELP } from './cli/packs.js';
 import { runDoctor, DOCTOR_HELP } from './cli/doctor.js';
@@ -310,6 +311,10 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
         return await runConformance(ctx, commandArgs);
       case 'onboard':
         return await runOnboard(ctx, commandArgs);
+      case 'login':
+        return await runLogin(ctx, commandArgs);
+      case 'logout':
+        return await runLogout(ctx, commandArgs);
       case 'providers':
       case 'provider':
         return await runProviders(ctx, commandArgs);
@@ -642,6 +647,8 @@ const HELP_MAP: Record<string, string> = {
     packs: PACKS_HELP,
     pack: PACKS_HELP,
     onboard: ONBOARD_HELP,
+    login: LOGIN_HELP,
+    logout: LOGIN_HELP,
     providers: PROVIDERS_HELP,
     provider: PROVIDERS_HELP,
     agents: AGENTS_HELP,
@@ -1067,6 +1074,7 @@ Exit codes:
 
 Commands:
   onboard             Guided first-run setup (host + provider + model + BYOK key)
+  login | logout      Sign this terminal in to an openwop-app host by a code (no key to copy)
   providers list      List stored BYOK credential refs (never values)
   providers add       Store a credential ref against the configured host
   providers remove    Remove a credential ref

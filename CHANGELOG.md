@@ -6,6 +6,9 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Added
+- **`openwop login` / `openwop logout`** — sign this terminal in to an openwop-app host without copying an API key (openwop-app ADR 0799, the host extension `/v1/host/openwop-app/cli-login`). `login` shows a short code; you type it on the host's Access → API keys page and approve; the host then issues the CLI a key once (30 days by default), which is saved to the config file (0600) and never printed. `logout` has that key revoke itself on the host, then removes it locally. Neither `start` nor `poll` carries a credential, even when a key is already configured. A host that does not serve the extension gets a legible refusal and exit 1.
+
 ### Fixed
 - **Capability checks read both discovery representations.** A dual-stack host serves two documents at `/.well-known/openwop`, selected by `OpenWOP-Version`, and they need not carry the same records. The v2 reference host (openwop-examples `examples/hosts/v2-reference`) keeps `a2a` only at its closed v2 root. app.openwop.dev keeps `a2a`, `portability` and `triggerBridge` only in its v1 document. `a2a`, `triggers`, `goals`, `proposals` and `portability` read only the header-less document, so `openwop a2a status` against the reference host reported "capabilities.a2a absent" while `openwop capabilities` listed `a2a`. They now look there first, then in the negotiated document (`advertisedRecord`). A record found in either counts as advertised, and nothing that passed before is refused now.
 - `a2a status` prints `a2a.supported: yes` for a v2 record, which has no `supported` flag: in v2, presence is the claim (capabilities.md §2).

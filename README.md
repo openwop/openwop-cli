@@ -10,7 +10,7 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 
 | Area | Groups |
 |---|---|
-| **Setup & health** | `onboard` · `doctor` · `demo` · `health` · `capabilities` · `config` · `completion` · `upgrade` |
+| **Setup & health** | `onboard` · `login` · `logout` · `doctor` · `demo` · `health` · `capabilities` · `config` · `completion` · `upgrade` |
 | **Run lifecycle** | `runs` · `chat` · `interrupts` · `workflows` · `catalog` · `media` |
 | **Agents & orchestration** | `agents` · `roster` · `org-chart` · `kanban` (`boards`) · `workforces` (`fleet`) · `agent-profile` · `agent-packs` · `agent-allowlists` · `agent-ops` · `evals` · `twin` · `reviews` |
 | **Governance & safety** | `approvals` · `governance` (`policy`) · `consent` · `toggles` |
@@ -120,6 +120,7 @@ Or directly: `npm i -g @openwop/cli` (needs Node 22+), then `openwop onboard`.
 openwop --help
 openwop doctor                 # check prerequisites
 openwop onboard                # guided setup (host + provider + key + model)
+openwop login                  # sign this terminal in to an openwop-app host by a code (no key to copy)
 openwop demo start             # boot local backend + frontend (from inside an openwop checkout)
 openwop demo status
 openwop catalog nodes --search ai
