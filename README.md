@@ -628,7 +628,7 @@ openwop orgs decide --principal user:jo --action runs:read      # exit 0 allowed
 openwop users me security
 openwop vault list
 openwop vault set billing:stripe-key --scope host --value-file ./stripe.key
-openwop developer-keys create --name "CI deploy" --scope runs:write
+openwop developer-keys create --name "CI deploy" --scope runs:create --scope runs:read
 openwop environments promote --from dev                          # exit 3 when queued for approval
 openwop billing portal                                           # a Stripe-hosted URL; no card data
 openwop governance egress-rules set --mode allowlist --host api.stripe.com

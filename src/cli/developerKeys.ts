@@ -31,8 +31,21 @@ ONE-TIME SECRET: \`create\` prints the new token exactly once, on stdout, with a
 Store it immediately — the host keeps only a hash and cannot show it again. The CLI does
 not save it anywhere.
 
+A KEY CANNOT MANAGE KEYS: openwop-app refuses \`list\`, \`create\` and \`revoke\` (403)
+when the CLI is itself signed in with a developer key (owk_…). Create and revoke keys
+in the app (Access → API keys), or sign in with an operator key.
+
+SCOPES ARE REQUIRED AND NARROW: openwop-app refuses a key with no --scope, and a key is
+limited to exactly the scopes it declares. To start a run and read it back a key needs
+runs:create AND runs:read; reaching the rest of the workspace (agents, memory, BYOK)
+needs workspace:read / workspace:write. \`--scope '*'\` is a key with your full authority.
+A scope the host does not know is refused by name.
+
+EXPIRY: openwop-app gives a key 90 days unless --expires-at says otherwise, and refuses
+an expiry in the past or more than its maximum (366 days by default) away.
+
   --name <n>          (create) Display name. Required.
-  --scope <s>         (create) Scope granted to the key (repeatable).
+  --scope <s>         (create) Scope granted to the key (repeatable; at least one).
   --expires-at <iso>  (create) Expiry timestamp.
   --yes               (revoke) Required confirmation.
 
@@ -40,7 +53,7 @@ Exit codes: 0 ok · 2 usage / not found · 4 not signed in.
 
 Examples:
   openwop developer-keys list
-  openwop developer-keys create --name "CI deploy" --scope runs:write
+  openwop developer-keys create --name "CI deploy" --scope runs:create --scope runs:read
   openwop developer-keys revoke dk:0123abcd --yes
 `;
 
