@@ -6,6 +6,13 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [1.4.1] — 2026-10-04 — `catalog` keeps working when a host retires v1
+
+OpenWOP v1 end-of-support moved to 2026-10-04 (RFC 0234). Every other command already speaks v2 against a host that serves it.
+
+### Fixed
+- **`catalog packs search / get / export` read the `/v1/packs` Registry HTTP API**, a v1 surface that retires with v1 (`410`). They now read the host's vendor address `/host/openwop-app/packs/…` (openwop-app #4361) first, and fall back to `/v1/packs` only when the host answers `404` because it predates the vendor alias. Any other error is reported, not retried.
+
 ## [1.4.0] — 2026-10-01 — sign in with a code; personal-workspace runs read back
 
 `openwop login` signs a terminal in to an openwop-app host without copying an API key, and a run created in a personal workspace can be read again.

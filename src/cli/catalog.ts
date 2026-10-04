@@ -1,6 +1,6 @@
 import type { Ctx } from '../context.js';
 /** `openwop catalog ...` — list the host node catalog + installed packs. */
-import { CliError } from '../errors.js';
+import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
@@ -105,7 +105,7 @@ async function runCatalogPacks(ctx: Ctx, argv: string[] = []) {
     write(ctx.io.stdout, CATALOG_HELP);
     return 0;
   }
-  const res = await requestJson(ctx, '/v1/packs', { auth: false });
+  const res = await catalogRead(ctx, '', { auth: false });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -115,13 +115,31 @@ async function runCatalogPacks(ctx: Ctx, argv: string[] = []) {
   return 0;
 }
 
+/**
+ * The host's installed-pack reads. On openwop-app they live at the vendor
+ * address (`/v1/host/openwop-app/packs…`, which the protocol layer rewrites to
+ * the advertised unversioned `/host/openwop-app/` root under major 2) because
+ * the `/v1/packs` Registry HTTP API retires with v1 (end-of-support
+ * 2026-10-04). A host that predates the vendor alias answers it 404, and only
+ * then is the v1 path tried, so the command works against every host version on
+ * either side of the cut.
+ */
+async function catalogRead(ctx: Ctx, rest: string, options: { auth?: boolean } = {}) {
+  try {
+    return await requestJson(ctx, `/v1/host/openwop-app/packs${rest}`, options);
+  } catch (err) {
+    if (err instanceof HttpError && err.status === 404) return requestJson(ctx, `/v1/packs${rest}`, options);
+    throw err;
+  }
+}
+
 /** GET /v1/packs/-/search · /v1/packs/{name} · /v1/packs/export — the host's installed-pack reads. */
 async function runCatalogPacksVerb(ctx: Ctx, verb: 'search' | 'get' | 'export', argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--out'] });
   if (options.help) { write(ctx.io.stdout, CATALOG_HELP); return 0; }
   if (verb === 'search') {
     const q = positionals[0] ?? '';
-    const res = await requestJson(ctx, `/v1/packs/-/search${q ? `?q=${encodeURIComponent(q)}` : ''}`);
+    const res = await catalogRead(ctx, `/-/search${q ? `?q=${encodeURIComponent(q)}` : ''}`);
     if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
     const results = Array.isArray(res.body?.results) ? res.body.results : [];
     if (results.length === 0) { writeLine(ctx.io.stdout, q ? `No installed node types match "${q}".` : 'No installed node types.'); return 0; }
@@ -131,7 +149,7 @@ async function runCatalogPacksVerb(ctx: Ctx, verb: 'search' | 'get' | 'export', 
   }
   if (verb === 'get') {
     if (positionals.length !== 1) throw new CliError('Usage: openwop catalog packs get <packName> [--json]', 2);
-    const res = await requestJson(ctx, `/v1/packs/${encodeURIComponent(positionals[0])}`);
+    const res = await catalogRead(ctx, `/${encodeURIComponent(positionals[0])}`);
     if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
     const nodes = Array.isArray(res.body?.nodes) ? res.body.nodes : [];
     writeLine(ctx.io.stdout, `pack: ${res.body?.name ?? positionals[0]}`);
@@ -139,7 +157,7 @@ async function runCatalogPacksVerb(ctx: Ctx, verb: 'search' | 'get' | 'export', 
     for (const n of nodes) writeLine(ctx.io.stdout, `  ${n}`);
     return 0;
   }
-  const res = await requestJson(ctx, '/v1/packs/export');
+  const res = await catalogRead(ctx, '/export');
   if (options.out) {
     writeFileSync(String(options.out), `${JSON.stringify(res.body, null, 2)}\n`);
     if (!ctx.json) writeLine(ctx.io.stdout, `Wrote ${res.body?.total ?? 0} agent manifest(s) to ${options.out}.`);

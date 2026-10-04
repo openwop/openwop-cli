@@ -319,16 +319,29 @@ describe('webhooks rotate-secret / dead-letters', () => {
 });
 
 describe('catalog packs search / get / export (host)', () => {
-  it('search / get / export hit the host pack routes', async () => {
+  // v1 end-of-support (2026-10-04): the reads go to the host's vendor address
+  // first, because the /v1/packs Registry HTTP API retires with v1.
+  it('search / get / export hit the host vendor pack routes first', async () => {
     let r = await run(['catalog', 'packs', 'search', 'ai'], () => json({ results: [{ typeId: 'core.ai.call', version: 'in-process' }], total: 1, q: 'ai' }));
-    assert.deepEqual([r.calls[0].path, r.calls[0].search], ['/v1/packs/-/search', '?q=ai']);
+    assert.deepEqual([r.calls[0].path, r.calls[0].search], ['/v1/host/openwop-app/packs/-/search', '?q=ai']);
     assert.match(r.stdout, /core\.ai\.call\s+in-process/);
     r = await run(['catalog', 'packs', 'get', 'core.openwop.ai'], () => json({ name: 'core.openwop.ai', nodes: ['core.openwop.ai.call'] }));
-    assert.equal(r.calls[0].path, '/v1/packs/core.openwop.ai');
+    assert.equal(r.calls[0].path, '/v1/host/openwop-app/packs/core.openwop.ai');
     assert.match(r.stdout, /core\.openwop\.ai\.call/);
     r = await run(['--json', 'catalog', 'packs', 'export'], () => json({ manifests: [], total: 0 }));
-    assert.equal(r.calls[0].path, '/v1/packs/export');
+    assert.equal(r.calls[0].path, '/v1/host/openwop-app/packs/export');
     assert.deepEqual(JSON.parse(r.stdout), { manifests: [], total: 0 });
+  });
+  it('a host that predates the vendor alias (404) is read at /v1/packs, and only then', async () => {
+    const legacy = (_m, path) => (path.startsWith('/v1/host/') ? new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'content-type': 'application/json' } }) : json({ results: [], total: 0, q: 'x' }));
+    const r = await run(['catalog', 'packs', 'search', 'x'], legacy);
+    assert.deepEqual(r.calls.map((c) => c.path), ['/v1/host/openwop-app/packs/-/search', '/v1/packs/-/search']);
+    assert.equal(r.code, 0);
+  });
+  it('a non-404 error from the vendor address is the answer, not a fallback', async () => {
+    const r = await run(['catalog', 'packs', 'search', 'x'], () => new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { 'content-type': 'application/json' } }));
+    assert.equal(r.calls.length, 1);
+    assert.notEqual(r.code, 0);
   });
 });
 
