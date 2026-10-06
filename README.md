@@ -134,7 +134,7 @@ openwop packs search ads        # browse the signed pack registry
 
 The `onboard` wizard walks you through:
 
-1. **Host URL** — `https://app.openwop.dev/api` (shared demo), `http://localhost:8080` (local), or a custom URL.
+1. **Host URL** — `https://api.openwop.dev` (shared demo; `https://app.openwop.dev/api` also works), `http://localhost:8080` (local), or a custom URL.
 2. **AI provider** — `anthropic`, `openai`, `google`, or `minimax` (matches what the demo backend dispatches to).
 3. **API key** — auto-detects `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` / `MINIMAX_API_KEY`, or hidden-input via raw-mode stdin. The key is POSTed to `/v1/host/openwop-app/byok/secrets` on the configured host. **The key is never written to your local config file** — only a credential ref pointer is stored.
 4. **Model** — provider-specific recommended defaults plus a custom option.

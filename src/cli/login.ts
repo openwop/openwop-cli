@@ -45,7 +45,7 @@ Approve a code ONLY if you just ran \`openwop login\` yourself.
 Exit codes: 0 signed in / signed out · 1 denied, expired or not available on this host · 2 usage.
 
 Examples:
-  export OPENWOP_BASE_URL=https://app.openwop.dev/api
+  export OPENWOP_BASE_URL=https://api.openwop.dev
   openwop login
   openwop login --label "work laptop"
   openwop logout
