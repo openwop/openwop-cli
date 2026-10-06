@@ -53,8 +53,21 @@ Examples:
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
-/** The page a person opens: the host's web origin plus the path it named. */
-function approvalUrl(baseUrl: string, path: unknown): string {
+/**
+ * The page a person opens. A host that names its web origin outright
+ * (`verificationUri`, openwop-app ADR 0827) wins: its protocol origin may serve no
+ * web app, so base origin + path would land on a JSON error. Only an https URL
+ * (http on a loopback host) is taken; anything else falls back to the host's
+ * web origin plus the path it named.
+ */
+function approvalUrl(baseUrl: string, path: unknown, uri?: unknown): string {
+  if (typeof uri === 'string') {
+    try {
+      const u = new URL(uri);
+      const loopback = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]';
+      if (u.protocol === 'https:' || (u.protocol === 'http:' && loopback)) return u.toString();
+    } catch { /* fall through */ }
+  }
   const p = typeof path === 'string' && path.startsWith('/') ? path : '/access?tab=api-keys';
   try { return `${new URL(baseUrl).origin}${p}`; } catch { return p; }
 }
@@ -92,7 +105,7 @@ export async function runLogin(ctx: Ctx, argv: string[]): Promise<number> {
 
   // Human-facing instructions go to STDERR so `--json` stdout stays one document.
   writeLine(ctx.io.stderr, '');
-  writeLine(ctx.io.stderr, `  1. Open   ${approvalUrl(ctx.baseUrl, started.verificationPath)}`);
+  writeLine(ctx.io.stderr, `  1. Open   ${approvalUrl(ctx.baseUrl, started.verificationPath, started.verificationUri)}`);
   writeLine(ctx.io.stderr, `  2. Enter  ${userCode}   under "Sign in the OpenWOP CLI", and approve.`);
   writeLine(ctx.io.stderr, '');
   writeLine(ctx.io.stderr, 'Waiting for approval…');
