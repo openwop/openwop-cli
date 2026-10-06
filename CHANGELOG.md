@@ -6,6 +6,8 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+- `openwop login` opens the host-named approval page (`verificationUri`, openwop-app ADR 0827) when the host sends one over https, so a CLI pointed at a protocol-only origin such as `https://api.openwop.dev` no longer prints a link to a JSON 401. Without it, behaviour is unchanged.
+
 ## [1.4.1] — 2026-10-04 — `catalog` keeps working when a host retires v1
 
 OpenWOP v1 end-of-support moved to 2026-10-04 (RFC 0234). Every other command already speaks v2 against a host that serves it.
