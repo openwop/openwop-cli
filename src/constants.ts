@@ -58,6 +58,9 @@ export const PROVIDER_CATALOG = {
 // written to the config; `label` is what the user sees. The "custom" option
 // is appended at prompt time.
 export const HOST_PRESETS = [
-  { key: 'shared', label: 'Shared demo at https://app.openwop.dev/api (recommended for trying things out)', url: 'https://app.openwop.dev/api' },
+  // openwop-app ADR 0827: the protocol origin, served straight from Cloud Run with
+  // no CDN in front (`https://app.openwop.dev/api` still works; its edge drops
+  // conditional requests). `openwop login` opens the host-named web page.
+  { key: 'shared', label: 'Shared demo at https://api.openwop.dev (recommended for trying things out)', url: 'https://api.openwop.dev' },
   { key: 'local', label: 'Local demo at http://localhost:8080 (run `openwop demo start` to launch)', url: 'http://localhost:8080' },
 ];

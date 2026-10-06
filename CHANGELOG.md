@@ -6,6 +6,9 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-10-06 — the shared demo moves to its protocol origin
+
+- **The "shared demo" onboarding preset is now `https://api.openwop.dev`**, the reference host's protocol origin with no CDN in front (openwop-app ADR 0827). Through `https://app.openwop.dev/api` the edge dropped `If-None-Match` on about half of all conditional requests. Existing configs keep their saved URL; `https://app.openwop.dev/api` keeps working.
 - `openwop login` opens the host-named approval page (`verificationUri`, openwop-app ADR 0827) when the host sends one over https, so a CLI pointed at a protocol-only origin such as `https://api.openwop.dev` no longer prints a link to a JSON 401. Without it, behaviour is unchanged.
 
 ## [1.4.1] — 2026-10-04 — `catalog` keeps working when a host retires v1
