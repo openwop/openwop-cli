@@ -17,10 +17,10 @@ const env = (dir, extra = {}) => ({ OPENWOP_CONFIG_HOME: dir, OPENWOP_BASE_URL: 
 const authOf = (call) => call.headers.authorization ?? call.headers.Authorization;
 
 /** A host that answers `pending` `pendingPolls` times, then `final`. */
-function host(final, pendingPolls = 1) {
+function host(final, pendingPolls = 1, startExtra = {}) {
   let polls = 0;
   return mockHost((call) => {
-    if (call.path === START) return { status: 201, body: { deviceCode: 'owcl_device', userCode: 'BCDF-GHJK', expiresIn: 600, interval: 0, verificationPath: '/access?tab=api-keys' } };
+    if (call.path === START) return { status: 201, body: { deviceCode: 'owcl_device', userCode: 'BCDF-GHJK', expiresIn: 600, interval: 0, verificationPath: '/access?tab=api-keys', ...startExtra } };
     if (call.path === POLL) { polls += 1; return polls <= pendingPolls ? { body: { status: 'pending', interval: 0 } } : final; }
     return { status: 404, body: { error: 'not_found' } };
   });
@@ -43,6 +43,25 @@ describe('login', () => {
     assert.doesNotMatch(cap.stdout + cap.stderr, new RegExp(TOKEN));
     assert.match(cap.stdout, /Signed in/);
     assert.match(cap.stdout, /2026-10-31/);
+  });
+
+  it('opens the host-named web origin (verificationUri) when the base is a protocol-only origin', async () => {
+    const dir = home(); const cap = capture();
+    const approved = { body: { status: 'approved', token: TOKEN, key: { keyId: 'dk:1', name: 'CLI', expiresAt: '2026-10-31T00:00:00Z' } } };
+    const { fetchImpl } = host(approved, 1, { verificationUri: 'https://app.example/access?tab=api-keys' });
+    assert.equal(await runCli(['login'], opts(fetchImpl, cap, env(dir, { OPENWOP_BASE_URL: 'https://api.example/api' }))), 0, cap.stderr);
+    assert.match(cap.stderr, /Open {3}https:\/\/app\.example\/access\?tab=api-keys/);
+    assert.doesNotMatch(cap.stderr, /https:\/\/api\.example\/access/);
+  });
+
+  it('ignores a verificationUri that is not https (http only on loopback) and falls back to base origin + path', async () => {
+    for (const bad of ['javascript:alert(1)', 'http://evil.example/access', 'not a url']) {
+      const dir = home(); const cap = capture();
+      const approved = { body: { status: 'approved', token: TOKEN, key: { keyId: 'dk:1', name: 'CLI', expiresAt: '2026-10-31T00:00:00Z' } } };
+      const { fetchImpl } = host(approved, 1, { verificationUri: bad });
+      assert.equal(await runCli(['login'], opts(fetchImpl, cap, env(dir))), 0, cap.stderr);
+      assert.match(cap.stderr, /Open {3}https:\/\/host\.example\/access\?tab=api-keys/, bad);
+    }
   });
 
   it('sends NO credential to start or poll, even when a key is already configured', async () => {
