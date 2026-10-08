@@ -193,6 +193,23 @@ export function hostRootFor(path: string, roots: Readonly<Record<string, string>
 }
 
 /**
+ * Does a discovery document advertise the host-extension surface at `v1Prefix`
+ * (`/v1/host/<org>/<surface>`)? A major-1 document lists it in its `paths` map. A
+ * major-2 document has no `paths` map; it advertises the host's extension ROOT in
+ * `extensions` (versioning.md §5), which makes every route under that root
+ * reachable, and the route itself answers 404 for a surface it does not mount.
+ * Reading only `paths` refused every host-extension group against a v2-only host.
+ */
+export function hostSurfaceAdvertised(discovery: unknown, v1Prefix: string): boolean {
+  if (!discovery || typeof discovery !== 'object') return false;
+  const { paths, extensions } = discovery as { paths?: unknown; extensions?: unknown };
+  if (paths !== null && typeof paths === 'object') {
+    return Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith(v1Prefix));
+  }
+  return hostRootFor(v1Prefix, hostRootsFrom(extensions)) !== null;
+}
+
+/**
  * Read `/.well-known/openwop` once and memoize the selected major (and, under
  * major 2, the advertised host-proprietary roots) on ctx.
  */

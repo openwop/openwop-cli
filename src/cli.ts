@@ -218,7 +218,7 @@ export { redactSecrets, BASE_SECRET_KEY } from './redact.js';
 export { checkMinClientVersion, idempotencyHeaders, CLI_PROTOCOL_VERSION_BY_MAJOR } from './wire.js';
 export { formatTable };
 export { extractGlobalOptions };
-export { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, hostRootsFrom, hostRootFor, streamBaseFrom, resolveStreamRequest, explicitStreamBase } from './protocol.js';
+export { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, hostRootsFrom, hostRootFor, hostSurfaceAdvertised, streamBaseFrom, resolveStreamRequest, explicitStreamBase } from './protocol.js';
 import { explicitStreamBase } from './protocol.js';
 export { configPathFor, readConfigSafe, saveConfig, openwopHomeDir };
 

@@ -17,6 +17,7 @@ import type { Ctx } from '../context.js';
  * member's heartbeat queued a proposal that a human must claim before it runs).
  */
 import { CliError, HttpError } from '../errors.js';
+import { hostSurfaceAdvertised } from '../protocol.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, safeRequest } from '../api.js';
@@ -33,8 +34,8 @@ export const APPROVALS_ROUTES: RouteCmd[] = [
 export const APPROVALS_HELP = `Usage:
   openwop approvals list [--status pending|approved|rejected] [--json]
   openwop approvals get <approvalId> [--json]
-  openwop approvals claim <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--json]
-  openwop approvals reject <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--json]
+  openwop approvals claim <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--content-hash <h>] [--json]
+  openwop approvals reject <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--content-hash <h>] [--json]
   openwop approvals sla-policy [--json]
   openwop approvals sla-policy set (--enabled | --disabled) [--remind-after-ms n] [--escalate-after-ms n] [--expire-after-ms n] [--json]
   openwop approvals email-pref [--json]
@@ -72,6 +73,11 @@ Endpoints:
   --acted-for <s>      (claim/reject) As a delegate covering several people, whose approval this is.
   --expected-hash <h>  (claim/reject) The definition hash you reviewed (composed-workflow proposals;
                        the host refuses the decision if the proposal changed since).
+  --content-hash <h>   (claim/reject) The contentHash of the assistant-action card you reviewed
+                       (\`approvals get\` prints it under the card). REQUIRED to claim an
+                       assistant action (ADR 0862): the host refuses a claim without it (exit 2),
+                       and refuses one whose action changed since you read it (exit 1; re-read
+                       it with \`approvals get\` and review the new card).
   --status <s>   (list) Filter the queue: pending | approved | rejected (default: all).
   --note <text>  (claim/reject) Optional human note recorded with the decision.
   --json         Print the raw host response instead of the rendered view.
@@ -88,6 +94,8 @@ Examples:
   openwop approvals list --status pending
   openwop approvals get appr_123 --json
   openwop approvals claim appr_123 --note "LGTM, ship it"
+  openwop approvals get appr_456                      # an assistant action: read the card
+  openwop approvals claim appr_456 --content-hash 9f2c…   # …then approve exactly what you read
   openwop approvals reject appr_123 --note "out of policy"
 
 Teams approval delivery:
@@ -144,10 +152,7 @@ function exitForStatus(status: unknown): number {
 async function ensureApprovalsAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return; // can't prove absence — let the real request decide
-  const paths = wk.body && typeof wk.body === 'object' ? (wk.body as { paths?: unknown }).paths : undefined;
-  const advertised =
-    paths !== null && typeof paths === 'object' &&
-    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/openwop-app/approvals'));
+  const advertised = hostSurfaceAdvertised(wk.body, '/v1/host/openwop-app/approvals');
   if (!advertised) {
     throw new CliError(
       'approvals: this host does not advertise the approval-inbox surface (/v1/host/openwop-app/approvals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
@@ -243,13 +248,39 @@ async function runApprovalsGet(ctx: Ctx, argv: string[]): Promise<number> {
   if (approval.resolvedAt) writeLine(ctx.io.stdout, `resolvedAt: ${approval.resolvedAt}`);
   if (approval.runId) writeLine(ctx.io.stdout, `runId: ${approval.runId}`);
   if (approval.note) writeLine(ctx.io.stdout, `note: ${approval.note}`);
+  if (approval.action && typeof approval.action === 'object') renderActionCard(ctx, approval.action);
   return exitForStatus(approval.status);
 }
 
+/** ADR 0862 — an assistant-action approval carries the card the host projected for the
+ *  approver. Print what the action will send, and the `contentHash` a claim must echo:
+ *  the hash binds the approval to THESE bytes, so it is shown beside them, never fetched
+ *  and filled in behind the approver's back. */
+function renderActionCard(ctx: Ctx, action: any): void {
+  writeLine(ctx.io.stdout, 'action:');
+  if (action.actionId) writeLine(ctx.io.stdout, `  actionId: ${action.actionId}`);
+  if (action.kind) writeLine(ctx.io.stdout, `  kind: ${action.kind}`);
+  if (action.riskLevel) writeLine(ctx.io.stdout, `  riskLevel: ${action.riskLevel}`);
+  if (action.reason) writeLine(ctx.io.stdout, `  reason: ${action.reason}`);
+  if (typeof action.draft === 'string' && action.draft.length) writeLine(ctx.io.stdout, `  draft: ${action.draft}`);
+  if (action.payload && typeof action.payload === 'object') {
+    for (const [k, v] of Object.entries(action.payload)) {
+      writeLine(ctx.io.stdout, `  ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`);
+    }
+  }
+  if (action.contentHash) writeLine(ctx.io.stdout, `  contentHash: ${action.contentHash}   (claim with --content-hash ${action.contentHash})`);
+}
+
+/** The host's error `details` (`{ error, message, details }`), or `{}`. */
+function detailsOf(body: unknown): { reason?: string; contentHash?: string } {
+  const d = body && typeof body === 'object' ? (body as { details?: unknown }).details : undefined;
+  return d && typeof d === 'object' ? (d as { reason?: string; contentHash?: string }) : {};
+}
+
 async function runApprovalsResolve(ctx: Ctx, argv: string[], verb: 'claim' | 'reject'): Promise<number> {
-  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--note', '--acted-for', '--expected-hash'] });
+  const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--note', '--acted-for', '--expected-hash', '--content-hash'] });
   if (options.help || positionals.length !== 1) {
-    write(ctx.io.stdout, `Usage: openwop approvals ${verb} <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--json]\n`);
+    write(ctx.io.stdout, `Usage: openwop approvals ${verb} <approvalId> [--note <text>] [--acted-for <subject>] [--expected-hash <h>] [--content-hash <h>] [--json]\n`);
     return options.help ? 0 : 2;
   }
   await ensureApprovalsAdvertised(ctx);
@@ -258,11 +289,30 @@ async function runApprovalsResolve(ctx: Ctx, argv: string[], verb: 'claim' | 're
   if (options.note !== undefined) decision.note = options.note;
   if (options.actedFor !== undefined) decision.actedFor = options.actedFor;
   if (options.expectedHash !== undefined) decision.expectedDefinitionHash = options.expectedHash;
+  if (options.contentHash !== undefined) decision.expectedContentHash = options.contentHash;
   const body = Object.keys(decision).length ? decision : undefined;
   let res;
   try {
     res = await requestJson(ctx, path, { method: 'POST', ...(body !== undefined ? { body } : {}) });
   } catch (err) {
+    // ADR 0862 — the assistant action changed since the approver read it. The approval
+    // stays PENDING; this is not "already resolved", so it must not read like one.
+    if (err instanceof HttpError && err.status === 409 && detailsOf(err.body).reason === 'action_changed') {
+      const now = detailsOf(err.body).contentHash;
+      throw new CliError(
+        `approvals: the action behind ${positionals[0]} changed since you reviewed it — nothing was ${verb === 'claim' ? 'approved' : 'rejected'}. `
+          + `Re-read it with \`openwop approvals get ${positionals[0]}\`${now ? ` (its card now hashes to ${now})` : ''} and decide on what it says now.`,
+        1,
+      );
+    }
+    // ADR 0862 — claiming an assistant action needs the hash of the card you reviewed.
+    if (err instanceof HttpError && err.status === 400 && detailsOf(err.body).reason === 'content_hash_required') {
+      throw new CliError(
+        `approvals: ${positionals[0]} is an assistant action — read its card with \`openwop approvals get ${positionals[0]}\`, `
+          + 'then pass the contentHash it shows: --content-hash <hash>.',
+        2,
+      );
+    }
     // 409 = the host already resolved this proposal; surface its verdict legibly.
     if (err instanceof HttpError && err.status === 409) {
       const status = (err.body as { status?: string } | undefined)?.status;

@@ -123,6 +123,20 @@ describe('approvals get', () => {
     assert.equal(code, 0, cap.stderr);
   });
 
+  it('renders an assistant-action card with the contentHash to claim with', async () => {
+    const cap = capture();
+    const fetchImpl = host(async () => jsonResponse({ items: [
+      { approvalId: 'appr_a', status: 'pending', kind: 'assistant-action', actionId: 'act_1', createdAt: '2026-10-08',
+        action: { actionId: 'act_1', kind: 'email.send', contentHash: 'h1', payload: { to: 'a@b.test', subject: 'Hi' } } },
+    ] }));
+    const code = await runCli(['approvals', 'get', 'appr_a'], opts(fetchImpl, cap));
+    assert.equal(code, 3, cap.stderr);
+    assert.match(cap.stdout, /kind: email\.send/);
+    assert.match(cap.stdout, /to: a@b\.test/);
+    assert.match(cap.stdout, /subject: Hi/);
+    assert.match(cap.stdout, /contentHash: h1 .*--content-hash h1/);
+  });
+
   it('errors (exit 1) when the id is absent from the queue', async () => {
     const cap = capture();
     const fetchImpl = host(async () => jsonResponse({ items: [] }));
@@ -168,11 +182,77 @@ describe('approvals claim / reject', () => {
     assert.match(cap.stdout, /✓ Rejected approval appr_1 → rejected/);
   });
 
+  // ADR 0862 — an assistant action is approved against the card the approver read.
+  it('claim --content-hash sends expectedContentHash', async () => {
+    const cap = capture();
+    const fetchImpl = host(async (url, init) => {
+      assert.match(new URL(url).pathname, /\/approvals\/appr_a\/claim$/);
+      assert.deepEqual(JSON.parse(init.body), { expectedContentHash: 'h1' });
+      return jsonResponse({ approvalId: 'appr_a', status: 'approved', actionId: 'act_1' });
+    });
+    const code = await runCli(['approvals', 'claim', 'appr_a', '--content-hash', 'h1'], opts(fetchImpl, cap));
+    assert.equal(code, 0, cap.stderr);
+    assert.match(cap.stdout, /✓ Claimed approval appr_a → approved \(action act_1\)/);
+  });
+
+  it('a claim the host refuses for a missing hash names the flag (exit 2)', async () => {
+    const cap = capture();
+    const fetchImpl = host(async () => jsonResponse({ error: 'validation_error', message: 'This approval card is out of date.', details: { field: 'expectedContentHash', reason: 'content_hash_required', actionId: 'act_1' } }, 400));
+    const code = await runCli(['approvals', 'claim', 'appr_a'], opts(fetchImpl, cap));
+    assert.equal(code, 2);
+    assert.match(cap.stderr, /assistant action/);
+    assert.match(cap.stderr, /--content-hash <hash>/);
+  });
+
+  it('an action that changed since review is NOT reported as already resolved', async () => {
+    const cap = capture();
+    const fetchImpl = host(async () => jsonResponse({ error: 'conflict', message: 'This action changed since you reviewed it.', details: { reason: 'action_changed', actionId: 'act_1', contentHash: 'h2' } }, 409));
+    const code = await runCli(['approvals', 'claim', 'appr_a', '--content-hash', 'h1'], opts(fetchImpl, cap));
+    assert.equal(code, 1);
+    assert.match(cap.stderr, /changed since you reviewed it — nothing was approved/);
+    assert.match(cap.stderr, /now hashes to h2/);
+    assert.doesNotMatch(cap.stderr, /already/);
+  });
+
   it('surfaces a 409 already-resolved conflict legibly', async () => {
     const cap = capture();
     const fetchImpl = host(async () => jsonResponse({ status: 'approved' }, 409));
     const code = await runCli(['approvals', 'claim', 'appr_1'], opts(fetchImpl, cap));
     assert.equal(code, 1);
     assert.match(cap.stderr, /already approved/);
+  });
+});
+
+// A major-2 discovery document has no `paths` map: the host advertises its extension
+// ROOT instead (versioning.md §5). Reading only `paths` refused every approvals command
+// against a v2-only host — production since v1 was retired.
+describe('approvals against a v2-only host', () => {
+  function v2Host(handler, { extensions = { 'openwop-app.host': { root: '/host/openwop-app/' } } } = {}) {
+    return async (url, init) => {
+      const { pathname } = new URL(url);
+      if (pathname === '/.well-known/openwop') {
+        return jsonResponse({ protocolVersion: '2.0', protocolVersions: ['2.0'], preferredVersion: '2.0', ...(extensions ? { extensions } : {}) });
+      }
+      return handler(url, init);
+    };
+  }
+
+  it('the advertised extension root admits the group, and claims go to the unversioned root', async () => {
+    const cap = capture();
+    const fetchImpl = v2Host(async (url, init) => {
+      assert.equal(new URL(url).pathname, '/host/openwop-app/approvals/appr_a/claim');
+      assert.deepEqual(JSON.parse(init.body), { expectedContentHash: 'h1' });
+      return jsonResponse({ approvalId: 'appr_a', status: 'approved', actionId: 'act_1' });
+    });
+    const code = await runCli(['approvals', 'claim', 'appr_a', '--content-hash', 'h1'], opts(fetchImpl, cap));
+    assert.equal(code, 0, cap.stderr);
+  });
+
+  it('still fails closed when the v2 document advertises no host-extension root', async () => {
+    const cap = capture();
+    const fetchImpl = v2Host(async () => { throw new Error('must not be called'); }, { extensions: null });
+    const code = await runCli(['approvals', 'list'], opts(fetchImpl, cap));
+    assert.equal(code, 1);
+    assert.match(cap.stderr, /does not advertise the approval-inbox surface/);
   });
 });
