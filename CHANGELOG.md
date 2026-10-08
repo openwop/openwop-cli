@@ -6,6 +6,8 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-10-08 — approve assistant actions from the CLI; host surfaces on v2-only hosts
+
 ### Added
 - **`openwop approvals claim|reject --content-hash <h>`** sends `expectedContentHash` (openwop-app ADR 0862). An assistant-action approval now binds to the card the approver read: the host refuses a claim without the hash, and refuses one whose action changed since. Before this release, `approvals claim` could not approve an assistant action at all; only `openwop assistant pending approve` could.
 - `openwop approvals get` prints an assistant-action approval's card: kind, draft, payload fields, and the `contentHash` to claim with. The CLI never fetches the hash and fills it in for you, because the hash certifies what you read.
