@@ -194,3 +194,18 @@ describe('protocol negotiation', () => {
     assert.equal(h.seen.filter((r) => r.path === '/.well-known/openwop').length, 1);
   });
 });
+
+describe('hostSurfaceAdvertised', async () => {
+  const { hostSurfaceAdvertised } = await import('../dist/cli.js');
+  const P = '/v1/host/openwop-app/workforces';
+  it('major 1: reads the paths map', () => {
+    assert.equal(hostSurfaceAdvertised({ paths: { '/v1/host/openwop-app/workforces': {} } }, P), true);
+    assert.equal(hostSurfaceAdvertised({ paths: { '/v1/runs': {} } }, P), false);
+  });
+  it('major 2 (no paths map): reads the advertised extension root', () => {
+    assert.equal(hostSurfaceAdvertised({ extensions: { 'openwop-app.host': { root: '/host/openwop-app/' } } }, P), true);
+    assert.equal(hostSurfaceAdvertised({ extensions: { 'other.host': { root: '/host/other/' } } }, P), false);
+    assert.equal(hostSurfaceAdvertised({}, P), false);
+    assert.equal(hostSurfaceAdvertised(null, P), false);
+  });
+});

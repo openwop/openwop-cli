@@ -19,6 +19,7 @@ import type { Ctx } from '../context.js';
  * its advertisement, and fail closed legibly when the surface isn't offered.
  */
 import { CliError, HttpError } from '../errors.js';
+import { hostSurfaceAdvertised } from '../protocol.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, safeRequest } from '../api.js';
@@ -142,10 +143,7 @@ export async function runConnections(ctx: Ctx, argv: string[]): Promise<number> 
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return;
-  const paths = wk.body && typeof wk.body === 'object' ? (wk.body as { paths?: unknown }).paths : undefined;
-  const advertised =
-    paths !== null && typeof paths === 'object' &&
-    Object.keys(paths as Record<string, unknown>).some((p) => p.startsWith('/v1/host/openwop-app/connections'));
+  const advertised = hostSurfaceAdvertised(wk.body, '/v1/host/openwop-app/connections');
   if (!advertised) {
     throw new CliError(
       'connections: this host does not advertise the connections surface (/v1/host/openwop-app/connections is absent from /.well-known/openwop). The host is the authority — refusing to guess.',

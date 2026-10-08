@@ -6,6 +6,14 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Added
+- **`openwop approvals claim|reject --content-hash <h>`** sends `expectedContentHash` (openwop-app ADR 0862). An assistant-action approval now binds to the card the approver read: the host refuses a claim without the hash, and refuses one whose action changed since. Before this release, `approvals claim` could not approve an assistant action at all; only `openwop assistant pending approve` could.
+- `openwop approvals get` prints an assistant-action approval's card: kind, draft, payload fields, and the `contentHash` to claim with. The CLI never fetches the hash and fills it in for you, because the hash certifies what you read.
+
+### Fixed
+- **`approvals`, `connections` and `workforces` refused every command against a v2-only host**, including the reference host since it retired v1. Their advertisement check read the v1 `paths` map, which a major-2 discovery document does not have. They now accept the host's advertised extension root (`extensions.*.root`, versioning.md §5) through the shared `hostSurfaceAdvertised`. They still fail closed when neither is present, and still read `paths` on a major-1 host.
+- A claim refused because the action changed (`409 action_changed`) used to read "already approved". It now says the action changed, that nothing was decided, and what the card hashes to now. A claim missing the hash (`400 content_hash_required`) now names the flag (exit 2).
+
 ## [1.5.0] — 2026-10-06 — the shared demo moves to its protocol origin
 
 - **The "shared demo" onboarding preset is now `https://api.openwop.dev`**, the reference host's protocol origin with no CDN in front (openwop-app ADR 0827). Through `https://app.openwop.dev/api` the edge dropped `If-None-Match` on about half of all conditional requests. Existing configs keep their saved URL; `https://app.openwop.dev/api` keeps working.
