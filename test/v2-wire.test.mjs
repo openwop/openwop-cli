@@ -119,6 +119,24 @@ describe('tenant-bound id wire form (identity.md §5)', () => {
     assert.equal(projectRunIdsInPath('/runs:bulk-cancel'), '/runs:bulk-cancel');
   });
 
+  it('the /runs/{runId} split matches the regex it replaced on every edge, and is linear on a hostile path', () => {
+    const legacy = (path) => {
+      const q = path.indexOf('?');
+      const bare = q === -1 ? path : path.slice(0, q);
+      const m = /^\/runs\/([^/:]+)(.*)$/.exec(bare);
+      return m ? [m[1], m[2]] : null;
+    };
+    for (const p of ['/runs/r1', '/runs/r1/events', '/runs/r1:fork', '/runs/', '/runs//x', '/runs/:x', '/runs', '/run/r1', 'runs/r1', '/runs/a\nb/c', '/runs/r1/a\nb', '/runs/r1\r', '/runs/r1:\u2028', '/runs/a%2Fb:diff?against=x']) {
+      const l = legacy(p);
+      const want = l ? `/runs/${projectTenantBoundId(decodeURIComponent(l[0]))}${l[1]}` : p.split('?')[0];
+      assert.equal(projectRunIdsInPath(p).split('?')[0], want, JSON.stringify(p));
+    }
+    const hostile = `/runs/.${'..'.repeat(200_000)}\n`;
+    const t0 = Date.now();
+    projectRunIdsInPath(hostile);
+    assert.ok(Date.now() - t0 < 1000, 'linear in the path length');
+  });
+
   it('under major 2 a bound runId travels projected on every /runs/{runId} op; under major 1 as %2F on /v1', async () => {
     const ok = () => json({ runId: 'acme/r1', workflowId: 'w', status: 'completed' });
     const h2 = dualStack(ok);

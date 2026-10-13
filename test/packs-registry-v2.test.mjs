@@ -111,7 +111,7 @@ function v2Registry({ versions = [{ version: '0.2.0' }], latest, key = {}, packJ
     const tree = withV2 ? '/t2' : '/old';
     if (p === `${tree}/index.json`) return ok(index);
     if (p === `${tree}/p/${enc}/index.json`) return ok(packIndex);
-    const m = new RegExp(`^${tree}/p/${enc.replace(/\./g, '\\.')}/-/(.+)\\.(json|tgz|sig)$`).exec(p);
+    const m = new RegExp(`^${tree}/p/${enc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/-/(.+)\\.(json|tgz|sig)$`).exec(p);
     if (m && art[m[1]]) return ok(m[2] === 'json' ? art[m[1]].manifest : m[2] === 'tgz' ? art[m[1]].tgz : art[m[1]].sig);
     if (p === `/k/${KEY_ID}.pub`) return ok(pubPem);
     return new Response(JSON.stringify({ error: 'not_found' }), { status: 404 });

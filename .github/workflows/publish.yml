@@ -19,9 +19,15 @@ on:
     tags:
       - 'v*'
 
+# Least privilege by default; the publish job widens only what it needs.
+permissions:
+  contents: read
+
 jobs:
   validate-tag:
     runs-on: ubuntu-latest
+    # Only inspects GITHUB_REF; needs no token scope.
+    permissions: {}
     steps:
       - name: Validate tag format
         run: |

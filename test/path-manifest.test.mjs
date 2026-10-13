@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
-import { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, hostRootsFrom, hostRootFor } from '../dist/cli.js';
+import { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, v2TemplatePattern, hostRootsFrom, hostRootFor } from '../dist/cli.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/v2-path-manifest-paths.json', import.meta.url), 'utf8'));
 
@@ -15,6 +15,18 @@ describe('v2 path manifest', () => {
   it('the embedded templates + the deliberate omissions equal the manifest path set exactly', () => {
     const embedded = [...V2_PATH_TEMPLATES, ...V2_MANIFEST_OMITTED].sort();
     assert.deepEqual(embedded, [...fixture.paths].sort(), 'run scripts/sync-path-manifest.mjs against the corpus');
+  });
+
+  it('the fully-escaped template matcher is identical to the [.:]-escaping one it replaced, for every template', () => {
+    // The old source escaped `.` and `:` only (`\:` is an identity escape, so it
+    // matched exactly what `:` matches). The templates carry no other
+    // metacharacter, so the full escape must leave each source unchanged bar `\:`.
+    const legacy = (t) => `^${t.split('.').join('\\.').replace(/\{[A-Za-z]+\}/g, '[^/]+')}$`;
+    for (const t of V2_PATH_TEMPLATES) {
+      assert.match(t, /^[A-Za-z0-9/_.:{}-]+$/, t);
+      assert.equal(v2TemplatePattern(t), legacy(t), t);
+    }
+    assert.equal(v2TemplatePattern('/a\\b/{id}(x)+'), '^/a\\\\b/[^/]+\\(x\\)\\+$', 'every metacharacter outside a placeholder is escaped');
   });
 
   it('no path is both embedded and omitted, and nothing is embedded twice', () => {

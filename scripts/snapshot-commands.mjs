@@ -48,7 +48,7 @@ function discoverGroups() {
     const src = readFileSync(join(CLI_DIR, file), 'utf8');
     for (const m of src.matchAll(/export const ([A-Z0-9_]+)\s*:\s*CommandSpec\[\]/g)) exporters.set(m[1], { file, kind: 'spec' });
     for (const m of src.matchAll(/export const ([A-Z0-9_]+)\s*:\s*RouteCmd\[\]/g)) exporters.set(m[1], { file, kind: 'route' });
-    for (const m of src.matchAll(/export const ([A-Z0-9_]+)\s*:\s*(?:CommandSpec|RouteCmd)\[\]\s*=\s*\[((?:\s*\.\.\.[A-Za-z0-9_]+\s*,?)+)\]/g)) {
+    for (const m of src.matchAll(/export const ([A-Z0-9_]+)\s*:\s*(?:CommandSpec|RouteCmd)\[\]\s*=\s*\[(\s*\.\.\.[A-Za-z0-9_]+(?:\s*(?:,\s*)?\.\.\.[A-Za-z0-9_]+)*\s*,?)\]/g)) {
       composedOf.set(m[1], [...m[2].matchAll(/\.\.\.([A-Za-z0-9_]+)/g)].map((x) => x[1]));
     }
     for (const m of src.matchAll(/runResourceGroup\(\s*ctx,\s*'([^']+)',\s*[A-Za-z0-9_]+,\s*([A-Z0-9_]+)/g)) out.push({ group: m[1], specsId: m[2], via: 'spec' });

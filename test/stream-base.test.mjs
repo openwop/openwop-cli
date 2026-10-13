@@ -120,6 +120,8 @@ describe('stream origin (openwop-app ADR 0761) — only event streams move; ever
 
   it('explicitStreamBase: any parseable URL (the user chose it); garbage is a usage error', () => {
     assert.equal(explicitStreamBase('http://anything.example/'), 'http://anything.example');
+    assert.equal(explicitStreamBase('  https://s.example/p///  '), 'https://s.example/p', 'every trailing slash goes, after the trim');
+    assert.equal(explicitStreamBase('https://s.example/a/b'), 'https://s.example/a/b');
     assert.equal(explicitStreamBase(undefined), undefined);
     assert.throws(() => explicitStreamBase('nope'), /not a URL/);
     assert.throws(() => explicitStreamBase('https://u:p@s.example'), /must not carry credentials.*--api-key/);

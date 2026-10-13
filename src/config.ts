@@ -3,6 +3,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { CliError } from './errors.js';
 
 /** Path to the config file for a profile (OPENWOP_CONFIG_HOME overrides the parent). */
 export function configPathFor(profile: string | undefined, env = process.env): string {
@@ -39,22 +40,38 @@ export function getByPath(obj: any, path: string): any {
   return path.split('.').reduce((acc, key) => (acc == null ? acc : acc[key]), obj);
 }
 
-export function setByPath(obj: any, path: string, value: unknown): void {
+/**
+ * Segments that would walk off the config object onto a prototype
+ * (`__proto__.x`, `constructor.prototype.x`) and pollute every object.
+ */
+const UNSAFE_PATH_SEGMENTS = new Set(['__proto__', 'prototype', 'constructor']);
+
+function safePathParts(path: string): string[] {
   const parts = path.split('.');
+  for (const part of parts) {
+    if (UNSAFE_PATH_SEGMENTS.has(part)) throw new CliError(`Config key segment '${part}' is not allowed: ${path}`);
+  }
+  return parts;
+}
+
+export function setByPath(obj: any, path: string, value: unknown): void {
+  const parts = safePathParts(path);
   let cur = obj;
   for (let i = 0; i < parts.length - 1; i++) {
-    if (typeof cur[parts[i]] !== 'object' || cur[parts[i]] === null) cur[parts[i]] = {};
-    cur = cur[parts[i]];
+    const key = parts[i];
+    if (!Object.hasOwn(cur, key) || typeof cur[key] !== 'object' || cur[key] === null) cur[key] = {};
+    cur = cur[key];
   }
   cur[parts[parts.length - 1]] = value;
 }
 
 export function unsetByPath(obj: any, path: string): void {
-  const parts = path.split('.');
+  const parts = safePathParts(path);
   let cur = obj;
   for (let i = 0; i < parts.length - 1; i++) {
-    if (typeof cur[parts[i]] !== 'object' || cur[parts[i]] === null) return;
-    cur = cur[parts[i]];
+    const key = parts[i];
+    if (!Object.hasOwn(cur, key) || typeof cur[key] !== 'object' || cur[key] === null) return;
+    cur = cur[key];
   }
   delete cur[parts[parts.length - 1]];
 }
