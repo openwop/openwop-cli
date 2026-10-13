@@ -6,6 +6,11 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Security
+- **`openwop config set|unset` refuse a key segment of `__proto__`, `prototype` or `constructor`** (exit 2). `config set __proto__.x 1` used to write onto `Object.prototype`. Walking a dotted key now follows own properties only, so an inherited name such as `toString` is replaced rather than followed.
+- Three regexes that could backtrack polynomially or exponentially on hostile input were rewritten with the same results on every input: the `/runs/{runId}` split in v2 id projection, the trailing-slash trim of `--stream-base-url`, and the composed-group scan in `scripts/snapshot-commands.mjs`. The v2 path-template matcher now escapes every regex metacharacter, not only `.` and `:`; each embedded template compiles to the same matcher as before.
+- The CI and publish workflows declare least-privilege `permissions:` (`contents: read`; the tag check gets none; publish keeps `id-token: write`).
+
 ## [1.6.0] — 2026-10-08 — approve assistant actions from the CLI; host surfaces on v2-only hosts
 
 ### Added

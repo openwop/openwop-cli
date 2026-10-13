@@ -133,9 +133,16 @@ export function v2SeamTwin(path: string): string | null {
   return null;
 }
 
-const V2_MATCHERS: readonly RegExp[] = V2_PATH_TEMPLATES.map(
-  (t) => new RegExp(`^${t.replace(/[.:]/g, '\\$&').replace(/\{[A-Za-z]+\}/g, '[^/]+')}$`),
-);
+/**
+ * The anchored matcher source for a path template: every literal run is
+ * regex-escaped, and each `{param}` placeholder becomes one path segment.
+ */
+export function v2TemplatePattern(template: string): string {
+  const literals = template.split(/\{[A-Za-z]+\}/);
+  return `^${literals.map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[^/]+')}$`;
+}
+
+const V2_MATCHERS: readonly RegExp[] = V2_PATH_TEMPLATES.map((t) => new RegExp(v2TemplatePattern(t)));
 
 /**
  * The unversioned twin of a `/v1/<op>` path when `<op>` is a manifest-named
@@ -302,7 +309,10 @@ export function explicitStreamBase(raw: unknown): string | undefined {
   if (url.username !== '' || url.password !== '') {
     throw new CliError('--stream-base-url / OPENWOP_STREAM_BASE_URL must not carry credentials (user:pass@); pass them with --api-key.');
   }
-  return raw.trim().replace(/\/+$/, '');
+  const base = raw.trim();
+  let end = base.length;
+  while (end > 0 && base[end - 1] === '/') end--;
+  return base.slice(0, end);
 }
 
 /**

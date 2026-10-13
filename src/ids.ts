@@ -46,6 +46,23 @@ function decodeSegment(segment: string): string {
 }
 
 /**
+ * `[segment, rest]` for a `/runs/<segment><rest>` path, where `<segment>` is the
+ * non-empty run of characters up to the first `/` or `:`, else null. Same
+ * result as `/^\/runs\/([^/:]+)(.*)$/` (including its refusal of a line
+ * terminator in `<rest>`), without that regex's quadratic backtracking.
+ */
+function splitRunSegment(bare: string): [string, string] | null {
+  const PREFIX = '/runs/';
+  if (!bare.startsWith(PREFIX)) return null;
+  let end = PREFIX.length;
+  while (end < bare.length && bare[end] !== '/' && bare[end] !== ':') end++;
+  if (end === PREFIX.length) return null;
+  const rest = bare.slice(end);
+  if (/[\n\r\u2028\u2029]/.test(rest)) return null;
+  return [bare.slice(PREFIX.length, end), rest];
+}
+
+/**
  * Re-encode the tenant-bound `{runId}` parameters of an UNVERSIONED (major-2)
  * manifest path into the projected wire form: the segment after `/runs/`
  * (every manifest template carrying `{runId}` is `/runs/{runId}…`, with an
@@ -58,8 +75,8 @@ export function projectRunIdsInPath(path: string): string {
   const q = path.indexOf('?');
   const bare = q === -1 ? path : path.slice(0, q);
   let query = q === -1 ? '' : path.slice(q);
-  const m = /^\/runs\/([^/:]+)(.*)$/.exec(bare);
-  const projectedBare = m ? `/runs/${projectTenantBoundId(decodeSegment(m[1]))}${m[2]}` : bare;
+  const m = splitRunSegment(bare);
+  const projectedBare = m ? `/runs/${projectTenantBoundId(decodeSegment(m[0]))}${m[1]}` : bare;
   if (m && query) {
     query = query.replace(/([?&]against=)([^&]*)/, (_all, key: string, value: string) => `${key}${projectTenantBoundId(decodeSegment(value))}`);
   }

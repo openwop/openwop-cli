@@ -810,6 +810,40 @@ describe('config subcommand', () => {
     const config = readConfigSafe(configPathFor(undefined, { OPENWOP_CONFIG_HOME: getTmp() }));
     assert.ok(!('defaultModel' in config));
   });
+
+  for (const key of ['__proto__.polluted', 'constructor.prototype.polluted', 'host.__proto__.polluted']) {
+    for (const sub of ['set', 'unset']) {
+      it(`${sub} refuses the prototype-walking key ${key} as a usage error`, async () => {
+        const cap = capture();
+        const argv = sub === 'set' ? ['config', 'set', key, '1'] : ['config', 'unset', key];
+        const code = await runCli(argv, {
+          io: cap.io,
+          fetchImpl: async () => { throw new Error('unused'); },
+          cwd: process.cwd(),
+          repoRoot: process.cwd(),
+          env: { OPENWOP_CONFIG_HOME: getTmp() },
+        });
+        assert.equal(code, 2);
+        assert.match(cap.stderr, /is not allowed/);
+        assert.equal(({}).polluted, undefined);
+        assert.equal(Object.prototype.polluted, undefined);
+      });
+    }
+  }
+
+  it('set walks only own properties (an inherited name like toString is replaced, not followed)', async () => {
+    const env = { OPENWOP_CONFIG_HOME: getTmp() };
+    const code = await runCli(['config', 'set', 'toString.x', '1'], {
+      io: capture().io,
+      fetchImpl: async () => { throw new Error('unused'); },
+      cwd: process.cwd(),
+      repoRoot: process.cwd(),
+      env,
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(readConfigSafe(configPathFor(undefined, env)).toString, { x: 1 });
+    assert.equal(Object.prototype.toString.x, undefined);
+  });
 });
 
 describe('chat — arg parsing', () => {
