@@ -6,6 +6,8 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [1.7.0] — 2026-10-15 — intent-ledger decisions bind to the reviewed contract
+
 ### Changed
 - **`openwop intent-ledger approve|reject <conversationId>` now read, show and decide exactly what you reviewed** (openwop-app ADR 0896). Without `--yes` the command prints the mission contract (goal, allowed, forbidden, needs-approval, criteria, time limit) and its `digest`, sends nothing, and exits 2. With `--yes --digest <d>` it re-reads the mission, refuses (exit 2, nothing sent) if the digest changed since you reviewed it, and POSTs `{ledgerId, revision, digest}`. The host now refuses a decision without these fields (400), because the chat agent can redraft a mission between your read and your approve. Like `approvals claim --content-hash`, the CLI never fills the digest in for you. Against a host that predates ADR 0896 (no digest on the ledger), `--yes` alone decides and the host ignores the extra fields.
 
