@@ -6,6 +6,9 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Changed
+- **`openwop intent-ledger approve|reject <conversationId>` now read, show and decide exactly what you reviewed** (openwop-app ADR 0896). Without `--yes` the command prints the mission contract (goal, allowed, forbidden, needs-approval, criteria, time limit) and its `digest`, sends nothing, and exits 2. With `--yes --digest <d>` it re-reads the mission, refuses (exit 2, nothing sent) if the digest changed since you reviewed it, and POSTs `{ledgerId, revision, digest}`. The host now refuses a decision without these fields (400), because the chat agent can redraft a mission between your read and your approve. Like `approvals claim --content-hash`, the CLI never fills the digest in for you. Against a host that predates ADR 0896 (no digest on the ledger), `--yes` alone decides and the host ignores the extra fields.
+
 ### Security
 - **`openwop config set|unset` refuse a key segment of `__proto__`, `prototype` or `constructor`** (exit 2). `config set __proto__.x 1` used to write onto `Object.prototype`. Walking a dotted key now follows own properties only, so an inherited name such as `toString` is replaced rather than followed.
 - Three regexes that could backtrack polynomially or exponentially on hostile input were rewritten with the same results on every input: the `/runs/{runId}` split in v2 id projection, the trailing-slash trim of `--stream-base-url`, and the composed-group scan in `scripts/snapshot-commands.mjs`. The v2 path-template matcher now escapes every regex metacharacter, not only `.` and `:`; each embedded template compiles to the same matcher as before.
