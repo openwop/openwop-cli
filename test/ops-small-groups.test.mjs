@@ -76,18 +76,71 @@ describe('insights-suite', () => {
 });
 
 describe('intent-ledger', () => {
-  it('draft sends arrays; approve/reject/reckoning hit their verbs', async () => {
+  it('draft sends arrays; reckoning GETs', async () => {
     const host = mockHost(() => json({ ledger: {} }));
     await runCli(['intent-ledger', 'draft', 'c:1', '--goal', 'Book', '--allowed', 'a,b', '--success-criterion', 'x', '--success-criterion', 'y'], opts(host, capture()));
     assert.equal(host.last().path, `${H}/intent-ledger/conversations/c%3A1/draft`);
     assert.deepEqual(host.last().body, { goal: 'Book', allowed: ['a', 'b'], successCriteria: ['x', 'y'] });
-    for (const verb of ['approve', 'reject']) {
-      await runCli(['intent-ledger', verb, 'c1'], opts(host, capture()));
-      assert.equal(host.last().path, `${H}/intent-ledger/conversations/c1/${verb}`);
-      assert.equal(host.last().method, 'POST');
-    }
     await runCli(['intent-ledger', 'reckoning', 'c1'], opts(host, capture()));
     assert.equal(host.last().method, 'GET');
+  });
+
+  // openwop-app ADR 0896 — a decision names the version reviewed; the CLI reads,
+  // shows, and decides only the version whose digest the person passed.
+  const ledger = { ledgerId: 'il-1', revision: 4, digest: 'sha256:abc', status: 'draft', goal: 'Book travel', allowed: [], forbidden: ['email.send'], requireApproval: [], successCriteria: [] };
+  const route = (onPost) => mockHost((req) => (req.method === 'GET' ? json({ ledger, viewer: { mayEdit: true, mayDecide: true } }) : onPost(req)));
+
+  for (const verb of ['approve', 'reject']) {
+    it(`${verb} without --yes prints the contract + digest and sends NOTHING (exit 2)`, async () => {
+      const host = route(() => json({}));
+      const cap = capture();
+      assert.equal(await runCli(['intent-ledger', verb, 'c1'], opts(host, cap)), 2);
+      assert.match(cap.stdout, /Book travel/);
+      assert.match(cap.stdout, /email\.send/);
+      assert.match(cap.stdout, /talk but not act/);
+      assert.match(cap.stderr, /--yes --digest sha256:abc/);
+      assert.equal(host.calls.filter((c) => c.method === 'POST').length, 0);
+    });
+
+    it(`${verb} --yes --digest <shown> POSTs {ledgerId, revision, digest}`, async () => {
+      const host = route(() => json({ ledger: { ...ledger, status: verb === 'approve' ? 'approved' : 'rejected', revision: 5 } }));
+      const cap = capture();
+      assert.equal(await runCli(['intent-ledger', verb, 'c1', '--yes', '--digest', 'sha256:abc'], opts(host, cap)), 0, cap.stderr);
+      assert.equal(host.last().method, 'POST');
+      assert.equal(host.last().path, `${H}/intent-ledger/conversations/c1/${verb}`);
+      assert.deepEqual(host.last().body, { ledgerId: 'il-1', revision: 4, digest: 'sha256:abc' });
+    });
+  }
+
+  it('a stale --digest (the mission changed since review) is refused before any POST', async () => {
+    const host = route(() => json({}));
+    const cap = capture();
+    assert.equal(await runCli(['intent-ledger', 'approve', 'c1', '--yes', '--digest', 'sha256:old'], opts(host, cap)), 2);
+    assert.match(cap.stderr, /changed since you reviewed/);
+    assert.equal(host.calls.filter((c) => c.method === 'POST').length, 0);
+  });
+
+  it('--yes alone is refused when the host returns a digest', async () => {
+    const host = route(() => json({}));
+    const cap = capture();
+    assert.equal(await runCli(['intent-ledger', 'approve', 'c1', '--yes'], opts(host, cap)), 2);
+    assert.match(cap.stderr, /--digest sha256:abc/);
+    assert.equal(host.calls.filter((c) => c.method === 'POST').length, 0);
+  });
+
+  it('a host that predates ADR 0896 (no revision/digest): --yes decides, sending what the GET returned', async () => {
+    const old = { ledgerId: 'il-old', status: 'draft', goal: 'g', allowed: ['kb'], forbidden: [], requireApproval: [], successCriteria: [] };
+    const host = mockHost((req) => (req.method === 'GET' ? json({ ledger: old }) : json({ ledger: { ...old, status: 'approved' } })));
+    const cap = capture();
+    assert.equal(await runCli(['intent-ledger', 'approve', 'c1', '--yes'], opts(host, cap)), 0, cap.stderr);
+    assert.deepEqual(host.last().body, { ledgerId: 'il-old' });
+  });
+
+  it('a 400 from the host (e.g. a field it requires) maps to exit 2 with its message', async () => {
+    const host = mockHost((req) => (req.method === 'GET' ? json({ ledger }) : json({ error: 'validation_error', message: 'Send the mission you reviewed' }, 400)));
+    const cap = capture();
+    assert.equal(await runCli(['intent-ledger', 'approve', 'c1', '--yes', '--digest', 'sha256:abc'], opts(host, cap)), 2);
+    assert.match(cap.stderr, /Send the mission you reviewed/);
   });
 });
 
