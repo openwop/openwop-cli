@@ -96,13 +96,13 @@ describe('goals create', () => {
       assert.equal(init.method, 'POST');
       const body = JSON.parse(init.body);
       assert.equal(body.objective, 'Keep backlog under 20');
-      assert.deepEqual(body.completion, { check: 'verifier' });
+      assert.deepEqual(body.completion, { check: 'verifier', verifierRef: 'kicktodo:progress-evidence' });
       assert.deepEqual(body.continuation, { mode: 'schedule' });
       assert.deepEqual(body.bounds, { maxLoopIterations: 50, maxCostUsd: 5, runTimeoutMs: 600000 });
       return jsonResponse({ goalId: 'goal_9', state: 'active', completion: { check: 'verifier' } });
     });
     const code = await runCli(
-      ['goals', 'create', '--objective', 'Keep backlog under 20', '--judge', 'verifier', '--continuation', 'schedule', '--max-iterations', '50', '--max-cost', '5', '--timeout-ms', '600000'],
+      ['goals', 'create', '--objective', 'Keep backlog under 20', '--verifier-ref', 'kicktodo:progress-evidence', '--continuation', 'schedule', '--max-iterations', '50', '--max-cost', '5', '--timeout-ms', '600000'],
       opts(fetchImpl, cap),
     );
     assert.equal(code, 3, cap.stderr); // freshly active → still-open bucket
@@ -115,17 +115,43 @@ describe('goals create', () => {
     assert.equal(code, 2);
   });
 
-  it('rejects an invalid --judge (exit 2)', async () => {
+  it('rejects an unhonoured --judge, including host (exit 2, no request)', async () => {
+    for (const judge of ['me', 'host']) {
+      const cap = capture();
+      let called = false;
+      const code = await runCli(['goals', 'create', '--objective', 'x', '--verifier-ref', 'v', '--judge', judge], opts(host(async () => { called = true; return jsonResponse({}); }), cap));
+      assert.equal(code, 2);
+      assert.match(cap.stderr, /--judge must be: verifier/);
+      assert.equal(called, false);
+    }
+  });
+
+  it('defaults the judge to verifier and requires --verifier-ref (exit 2)', async () => {
     const cap = capture();
-    const code = await runCli(['goals', 'create', '--objective', 'x', '--judge', 'me'], opts(host(async () => jsonResponse({})), cap));
+    const code = await runCli(['goals', 'create', '--objective', 'x'], opts(host(async () => jsonResponse({})), cap));
     assert.equal(code, 2);
-    assert.match(cap.stderr, /--judge must be one of/);
+    assert.match(cap.stderr, /--verifier-ref/);
+  });
+
+  it('rejects an unhonoured --continuation (exit 2)', async () => {
+    const cap = capture();
+    const code = await runCli(['goals', 'create', '--objective', 'x', '--verifier-ref', 'v', '--continuation', 'commitment'], opts(host(async () => jsonResponse({})), cap));
+    assert.equal(code, 2);
+    assert.match(cap.stderr, /--continuation must be one of: schedule, manual/);
+  });
+
+  it('surfaces a host 400 (malformed goal) with its message, exit 1', async () => {
+    const cap = capture();
+    const fetchImpl = host(async () => jsonResponse({ message: 'Bound `runTimeoutMs` must be a positive integer.' }, 400));
+    const code = await runCli(['goals', 'create', '--objective', 'x', '--verifier-ref', 'v'], opts(fetchImpl, cap));
+    assert.equal(code, 1);
+    assert.match(cap.stderr, /positive integer/);
   });
 
   it('surfaces the host 422 (requiresBounds) as a legible exit 1', async () => {
     const cap = capture();
     const fetchImpl = host(async () => jsonResponse({ message: 'an active goal requires bounds' }, 422));
-    const code = await runCli(['goals', 'create', '--objective', 'x'], opts(fetchImpl, cap));
+    const code = await runCli(['goals', 'create', '--objective', 'x', '--verifier-ref', 'v'], opts(fetchImpl, cap));
     assert.equal(code, 1);
     assert.match(cap.stderr, /requires bounds/);
   });
