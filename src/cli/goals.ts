@@ -45,7 +45,7 @@ export const GOALS_ROUTES: RouteCmd[] = [
 export const GOALS_HELP = `Usage:
   openwop goals list [--state <s>] [--json]
   openwop goals get <goalId> [--json]
-  openwop goals create --objective <text> [--judge host|verifier] [--continuation <mode>]
+  openwop goals create --objective <text> --verifier-ref <ref> [--continuation schedule|manual]
                        [--max-iterations <n>] [--max-cost <usd>] [--timeout-ms <ms>] [--json]
   openwop goals pause <goalId> [--json]
   openwop goals resume <goalId> [--json]
@@ -72,13 +72,16 @@ Endpoints:
   resume   POST   /v1/host/openwop-app/goals/{id}/resume
   abandon  POST   /v1/host/openwop-app/goals/{id}/abandon
 
-  --state <s>            (list) Filter by state (e.g. active, satisfied, escalated, bound-exceeded, paused).
+  --state <s>            (list) Filter by state: active, satisfied, escalated, abandoned, bound-exceeded.
   --objective <text>     (create) The goal objective (required).
-  --judge host|verifier  (create) completion.check — who decides completion (default: host).
-  --continuation <mode>  (create) continuation.mode — the arm that re-engages work (e.g. schedule | commitment | manual).
-  --max-iterations <n>   (create) Bound: bounds.maxLoopIterations.
+  --verifier-ref <ref>   (create) completion.verifierRef — the verifier registered on the host that
+                         judges this goal (required; the host refuses a ref it has not registered).
+  --judge verifier       (create) completion.check — who decides completion. 'verifier' is the only
+                         judge a host advertising agents.goals.judge=verifier honours (the default).
+  --continuation <mode>  (create) continuation.mode — schedule | manual (default: manual).
+  --max-iterations <n>   (create) Bound: bounds.maxLoopIterations (positive integer).
   --max-cost <usd>       (create) Bound: bounds.maxCostUsd (accumulated USD).
-  --timeout-ms <ms>      (create) Bound: bounds.runTimeoutMs (wall-clock, milliseconds).
+  --timeout-ms <ms>      (create) Bound: bounds.runTimeoutMs (wall-clock, positive milliseconds).
   --yes                  (abandon) Required to confirm.
   --json                 Print the raw host response instead of the rendered view.
 
@@ -88,13 +91,14 @@ termination guarantee (bounds).
 
 Exit codes (get/create/pause/resume reflect the goal's state, so scripts can gate
 on the verdict):
-  0  satisfied      3  escalated or still open (active/paused)      1  bound-exceeded/abandoned or error
+  0  satisfied      3  escalated or still open (active)      1  bound-exceeded/abandoned or error
+A paused goal is still 'active' (pause stops its continuation, not the goal).
 \`list\` exits 0 on success.
 
 Examples:
   openwop goals list --state active
   openwop goals get goal_123 --json
-  openwop goals create --objective "Keep the triage backlog under 20" --judge verifier --continuation schedule --max-iterations 50 --max-cost 5.00 --timeout-ms 600000
+  openwop goals create --objective "Keep the triage backlog under 20" --verifier-ref <ref> --continuation schedule --max-iterations 50 --max-cost 5.00 --timeout-ms 600000
   openwop goals pause goal_123
   openwop goals abandon goal_123 --yes
 `;
@@ -259,21 +263,30 @@ function renderGoal(ctx: Ctx, g: any, fallbackId: string): void {
 async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
   const { options } = parseOptions(argv, {
     bool: ['--help'],
-    value: ['--objective', '--judge', '--continuation', '--max-iterations', '--max-cost', '--timeout-ms'],
+    value: ['--objective', '--judge', '--verifier-ref', '--continuation', '--max-iterations', '--max-cost', '--timeout-ms'],
   });
   if (options.help || !options.objective) {
-    write(ctx.io.stdout, 'Usage: openwop goals create --objective <text> [--judge host|verifier] [--continuation <mode>] [--max-iterations <n>] [--max-cost <usd>] [--timeout-ms <ms>] [--json]\n');
+    write(ctx.io.stdout, 'Usage: openwop goals create --objective <text> --verifier-ref <ref> [--continuation schedule|manual] [--max-iterations <n>] [--max-cost <usd>] [--timeout-ms <ms>] [--json]\n');
     return options.help ? 0 : 2;
   }
-  if (options.judge !== undefined && !['host', 'verifier'].includes(options.judge)) {
-    throw new CliError('--judge must be one of: host, verifier', 2);
+  // The host is the authority on which judges it honours (agents.goals.judge); the
+  // reference host honours only `verifier`, and a `host`-judged goal could never
+  // complete there (it now refuses one with 422), so the CLI no longer offers it.
+  if (options.judge !== undefined && options.judge !== 'verifier') {
+    throw new CliError('--judge must be: verifier', 2);
+  }
+  if (!options.verifierRef) {
+    throw new CliError('goals create needs --verifier-ref <ref> — the verifier registered on the host that judges the goal', 2);
+  }
+  if (options.continuation !== undefined && !['schedule', 'manual'].includes(options.continuation)) {
+    throw new CliError('--continuation must be one of: schedule, manual', 2);
   }
   // The Goal ENTITY shape (RFC 0097 goal.schema.json): completion.check /
   // continuation.mode / bounds.{maxLoopIterations,runTimeoutMs,maxCostUsd} — note
   // these differ from the capability-descriptor field names (judge/continuation[]).
   const body: Record<string, any> = {
     objective: options.objective,
-    completion: { check: options.judge ?? 'host' },
+    completion: { check: 'verifier', verifierRef: options.verifierRef },
     continuation: { mode: options.continuation ?? 'manual' },
   };
   const bounds: Record<string, any> = {};
@@ -289,7 +302,7 @@ async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
   }
   if (options.timeoutMs !== undefined) {
     const t = Number(options.timeoutMs);
-    if (!Number.isInteger(t) || t < 0) throw new CliError('--timeout-ms must be a non-negative integer (milliseconds)', 2);
+    if (!Number.isInteger(t) || t <= 0) throw new CliError('--timeout-ms must be a positive integer (milliseconds)', 2);
     bounds.runTimeoutMs = t;
   }
   if (Object.keys(bounds).length) body.bounds = bounds;
@@ -298,9 +311,11 @@ async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
   try {
     res = await requestJson(ctx, '/v1/host/openwop-app/goals', { method: 'POST', body });
   } catch (err) {
-    if (err instanceof HttpError && err.status === 422) {
+    if (err instanceof HttpError && (err.status === 422 || err.status === 400)) {
       const detail = (err.body as { message?: string } | undefined)?.message
-        ?? 'this host requires bounds on an active goal — pass --max-iterations, --max-cost, and/or --timeout-ms';
+        ?? (err.status === 422
+          ? 'this host requires bounds on an active goal — pass --max-iterations, --max-cost, and/or --timeout-ms'
+          : 'the host refused the goal as malformed');
       throw new CliError(`goals: ${detail}`, 1);
     }
     gate404(err);
@@ -310,7 +325,7 @@ async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
     writeJson(ctx.io.stdout, g);
     return exitForState(g.state);
   }
-  writeLine(ctx.io.stdout, `✓ Created goal ${g.goalId ?? g.id ?? ''} (state ${g.state ?? 'active'}, check ${g.completion?.check ?? options.judge ?? 'host'}).`);
+  writeLine(ctx.io.stdout, `✓ Created goal ${g.goalId ?? g.id ?? ''} (state ${g.state ?? 'active'}, check ${g.completion?.check ?? 'verifier'}).`);
   return exitForState(g.state);
 }
 

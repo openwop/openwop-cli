@@ -498,7 +498,7 @@ The `goals` group drives the host's standing goals — an objective the host pur
 openwop goals list --state active                      # the goal list (also satisfied | escalated | bound-exceeded | paused)
 openwop goals get goal_123 --json                      # inspect (objective, judge, continuation, bounds, iterations)
 openwop goals create --objective "Keep the triage backlog under 20" \
-  --judge verifier --continuation schedule --max-iterations 50 --max-cost 5.00 --timeout-ms 600000
+  --verifier-ref <ref> --continuation schedule --max-iterations 50 --max-cost 5.00 --timeout-ms 600000
 openwop goals pause goal_123                            # suspend continuation (resume to restart)
 openwop goals abandon goal_123 --yes                   # close the goal
 ```

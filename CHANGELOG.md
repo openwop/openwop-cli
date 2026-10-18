@@ -6,6 +6,12 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [1.8.0] — 2026-10-17 — `goals create` asks for the judge the host honours
+
+### Changed
+- **`openwop goals create` now defaults to the `verifier` judge and requires `--verifier-ref <ref>`** (openwop-app ADR 0908). The old default, `--judge host`, created a goal that the reference host could never complete, and that host now refuses it (422). `--judge` accepts only `verifier`, and `--continuation` only `schedule` or `manual`, the modes the host advertises. Each is refused locally (exit 2) before anything is sent. `--timeout-ms` must be positive. A host 400 for a malformed goal now prints the host's message, exit 1, as a 422 already did.
+- The help no longer lists `paused` as a state. A paused goal stays `active`: pause stops its continuation, not the goal.
+
 ## [1.7.0] — 2026-10-15 — intent-ledger decisions bind to the reviewed contract
 
 ### Changed
