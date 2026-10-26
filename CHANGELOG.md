@@ -6,6 +6,9 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Changed
+- **`openwop evals match` now takes `--run-a <runId> --run-b <runId>` instead of `--model-a/--model-b`** (openwop-app ADR 0986). An arena verdict is cast on two of your own conversation runs that answered the same prompt; the host reads which model answered each run from its own records, so a caller can no longer name the models. The CLI POSTs `{runIdA, runIdB, winner}`. `--model-a`/`--model-b` are refused locally (exit 2, nothing sent) with a message naming the new flags. `--winner` accepts `a`, `b` or `tie` (case-insensitive) and is sent as `A`, `B` or `tie`; anything else is refused locally (exit 2). A host 400 with `details.reason: "arena_contract_changed"` prints the same message (exit 1). The human output names the models the host attributed, the two ratings, and says when the verdict was already recorded. **Requires an openwop-app host with ADR 0986 deployed**: an older host still expects model names and refuses run ids.
+
 ## [1.8.0] — 2026-10-17 — `goals create` asks for the judge the host honours
 
 ### Changed
