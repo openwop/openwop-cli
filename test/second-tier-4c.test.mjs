@@ -20,6 +20,15 @@ describe('evals',()=>{
   it('maps the host arena_contract_changed 400 to the new-flags message (exit 1)',async()=>{const cap=capture();
     const code=await runCli(['evals','match','--org','o1','--run-a','r1','--run-b','r2','--winner','b'],base(cap,async()=>json({error:'validation_error',message:'Arena verdicts no longer accept model names',details:{reason:'arena_contract_changed',required:['runIdA','runIdB','winner']}},400)));
     assert.equal(code,1);assert.match(cap.stderr,/no longer takes --model-a\/--model-b/);assert.match(cap.stderr,/--run-a <runId>/);});
+  it('rating GETs ?model= (encoded) and prints the elo',async()=>{let seen;const cap=capture();
+    const code=await runCli(['evals','rating','--org','o1','--model','openai/gpt-x'],base(cap,async(u)=>{const url=new URL(u);seen={path:url.pathname,model:url.searchParams.get('model'),raw:url.search};return json({model:'openai/gpt-x',elo:1523.7});}));
+    assert.equal(code,0);assert.match(seen.path,/\/evals\/orgs\/o1\/arena\/rating$/);assert.equal(seen.model,'openai/gpt-x');assert.match(seen.raw,/openai%2Fgpt-x/);
+    assert.equal(cap.stdout,'openai/gpt-x: 1524\n');});
+  it('rating requires --model (exit 2, nothing sent)',async()=>{let calls=0;const cap=capture();
+    assert.equal(await runCli(['evals','rating','--org','o1'],base(cap,async()=>{calls++;return json({});})),2);assert.equal(calls,0);});
+  it('rating lists the provider/model keys when a bare id is ambiguous (exit 1)',async()=>{const cap=capture();
+    const code=await runCli(['evals','rating','--org','o1','--model','gpt-x'],base(cap,async()=>json({error:'validation_error',message:'ambiguous',details:{keys:['openai/gpt-x','azure/gpt-x']}},400)));
+    assert.equal(code,1);assert.match(cap.stderr,/openai\/gpt-x, azure\/gpt-x/);});
   it('requires --org (exit 2)',async()=>{const cap=capture();assert.equal(await runCli(['evals','leaderboard'],base(cap,async()=>json({}))),2);});
 });
 describe('twin',()=>{
