@@ -5,9 +5,30 @@ function capture(){let o='',e='';return{io:{stdout:{write:s=>{o+=s;}},stderr:{wr
 const json=(b,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{'content-type':'application/json'}});
 const base=(cap,f)=>({io:cap.io,fetchImpl:f,cwd:process.cwd(),repoRoot:process.cwd(),env:{OPENWOP_CONFIG_HOME:'/nonexistent-owp-test',OPENWOP_API_KEY:'k'}});
 describe('evals',()=>{
-  it('match POSTs modelA/modelB/winner',async()=>{let seen;const cap=capture();
-    await runCli(['evals','match','--org','o1','--model-a','x','--model-b','y','--winner','a'],base(cap,async(u,i)=>{seen={path:new URL(u).pathname,body:JSON.parse(i.body)};return json({});}));
-    assert.match(seen.path,/\/evals\/orgs\/o1\/arena\/match$/);assert.deepEqual(seen.body,{modelA:'x',modelB:'y',winner:'a'});});
+  it('match POSTs runIdA/runIdB and an uppercase winner (ADR 0986)',async()=>{let seen;const cap=capture();
+    const code=await runCli(['evals','match','--org','o1','--run-a','r1','--run-b','r2','--winner','a'],base(cap,async(u,i)=>{seen={path:new URL(u).pathname,body:JSON.parse(i.body)};return json({match:{modelA:'mA',modelB:'mB',winner:'A'},ratingA:1510.4,ratingB:1489.6},201);}));
+    assert.equal(code,0);assert.match(seen.path,/\/evals\/orgs\/o1\/arena\/match$/);assert.deepEqual(seen.body,{runIdA:'r1',runIdB:'r2',winner:'A'});
+    assert.match(cap.stdout,/Recorded match \(mA vs mB → A\)\. Ratings: 1510 \/ 1490\./);});
+  it('match says a replayed verdict was already recorded',async()=>{const cap=capture();
+    await runCli(['evals','match','--org','o1','--run-a','r1','--run-b','r2','--winner','tie'],base(cap,async(u,i)=>{assert.equal(JSON.parse(i.body).winner,'tie');return json({match:{modelA:'mA',modelB:'mB',winner:'tie'},ratingA:1500,ratingB:1500,replayed:true});}));
+    assert.match(cap.stdout,/^Already recorded match/);});
+  it('match refuses --model-a/--model-b locally, naming the new flags (exit 2, nothing sent)',async()=>{let calls=0;const cap=capture();
+    const code=await runCli(['evals','match','--org','o1','--model-a','x','--model-b','y','--winner','a'],base(cap,async()=>{calls++;return json({});}));
+    assert.equal(code,2);assert.equal(calls,0);assert.match(cap.stderr,/--run-a <runId> --run-b <runId>/);});
+  it('match refuses a winner other than a|b|tie (exit 2, nothing sent)',async()=>{let calls=0;const cap=capture();
+    assert.equal(await runCli(['evals','match','--org','o1','--run-a','r1','--run-b','r2','--winner','c'],base(cap,async()=>{calls++;return json({});})),2);assert.equal(calls,0);});
+  it('maps the host arena_contract_changed 400 to the new-flags message (exit 1)',async()=>{const cap=capture();
+    const code=await runCli(['evals','match','--org','o1','--run-a','r1','--run-b','r2','--winner','b'],base(cap,async()=>json({error:'validation_error',message:'Arena verdicts no longer accept model names',details:{reason:'arena_contract_changed',required:['runIdA','runIdB','winner']}},400)));
+    assert.equal(code,1);assert.match(cap.stderr,/no longer takes --model-a\/--model-b/);assert.match(cap.stderr,/--run-a <runId>/);});
+  it('rating GETs ?model= (encoded) and prints the elo',async()=>{let seen;const cap=capture();
+    const code=await runCli(['evals','rating','--org','o1','--model','openai/gpt-x'],base(cap,async(u)=>{const url=new URL(u);seen={path:url.pathname,model:url.searchParams.get('model'),raw:url.search};return json({model:'openai/gpt-x',elo:1523.7});}));
+    assert.equal(code,0);assert.match(seen.path,/\/evals\/orgs\/o1\/arena\/rating$/);assert.equal(seen.model,'openai/gpt-x');assert.match(seen.raw,/openai%2Fgpt-x/);
+    assert.equal(cap.stdout,'openai/gpt-x: 1524\n');});
+  it('rating requires --model (exit 2, nothing sent)',async()=>{let calls=0;const cap=capture();
+    assert.equal(await runCli(['evals','rating','--org','o1'],base(cap,async()=>{calls++;return json({});})),2);assert.equal(calls,0);});
+  it('rating lists the provider/model keys when a bare id is ambiguous (exit 1)',async()=>{const cap=capture();
+    const code=await runCli(['evals','rating','--org','o1','--model','gpt-x'],base(cap,async()=>json({error:'validation_error',message:'ambiguous',details:{keys:['openai/gpt-x','azure/gpt-x']}},400)));
+    assert.equal(code,1);assert.match(cap.stderr,/openai\/gpt-x, azure\/gpt-x/);});
   it('requires --org (exit 2)',async()=>{const cap=capture();assert.equal(await runCli(['evals','leaderboard'],base(cap,async()=>json({}))),2);});
 });
 describe('twin',()=>{
