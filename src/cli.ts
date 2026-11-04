@@ -20,7 +20,7 @@ export { getChannelPlugin, setWhatsappModuleForTests } from './channels/registry
 // openwop-app ADR 1043 — the relay's reliability, consent and service surface, for the tests.
 export { normalizeAccountId } from './channels/normalize.js';
 export { computeBackoff, withRetries, InboundBatcher, mergeBatch, EchoGuard, DeliveredSet, Watchdog } from './channels/reliability.js';
-export { mediaKindOf, whatsappMediaContent, downloadMedia } from './channels/media.js';
+export { mediaKindOf, whatsappMediaContent, downloadMedia, assertSafeMediaUrl, isPublicAddress, setMediaOptionsForTests } from './channels/media.js';
 export { DeliveryError } from './channels/types.js';
 export { RelayBridge, RelayAuthError, classifyRelayError, relayAuthMessage } from './cli/relayBridge.js';
 export { assertRelayServerUrl, buildRelayServicePlan, riskNotice } from './cli/relayService.js';

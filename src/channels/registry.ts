@@ -367,13 +367,21 @@ const whatsappPlugin: ChannelPlugin = {
       record(await sock.sendMessage(jid, { text }, quoted));
       return { platformMessageIds: ids };
     }
-    let captionLeft = text;
-    for (const [i, a] of media.entries()) {
-      const content = whatsappMediaContent(a, mediaKindOf(a) === 'audio' ? undefined : captionLeft || undefined);
-      if (mediaKindOf(a) !== 'audio') captionLeft = '';
-      record(await sock.sendMessage(jid, content, i === 0 ? quoted : {}));
+    // ADR 1043 H1 — never hand Baileys a URL: download it here, through the same
+    // public-https-only, connect-time-checked fetch every channel uses, and send bytes.
+    const dl = await downloadMedia(media);
+    try {
+      let captionLeft = text;
+      for (const [i, f] of dl.files.entries()) {
+        const a = f.attachment;
+        const content = whatsappMediaContent(a, f.data, mediaKindOf(a) === 'audio' ? undefined : captionLeft || undefined);
+        if (mediaKindOf(a) !== 'audio') captionLeft = '';
+        record(await sock.sendMessage(jid, content, i === 0 ? quoted : {}));
+      }
+      if (captionLeft) record(await sock.sendMessage(jid, { text: captionLeft }));
+    } finally {
+      dl.cleanup();
     }
-    if (captionLeft) record(await sock.sendMessage(jid, { text: captionLeft }));
     return { platformMessageIds: ids };
   },
   async setTyping(conversationId: string, on: boolean) {

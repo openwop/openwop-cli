@@ -13,6 +13,9 @@ versioned on its own SemVer line.
 
 ### Security
 - **Revoke and re-activate any relay that was set up or activated with `--json` in a script or CI.** Every published version from **v0.2.1 through v1.9.0** printed the device token on `openwop relay setup --json` and `openwop relay activate --json`. A token captured in a log is a bearer credential for that relay until it expires (30 days since the server's 2026-05-27 change) or is revoked: run `openwop relay revoke --relay-id <id>`, then `openwop relay setup` again. This version prints `deviceToken: "[stored]"` and keeps the token only in `~/.openwop/relay-credentials.json` (0600).
+- **The relay fetches only public https media** (openwop-app ADR 1043 security review, H1). Every channel, WhatsApp included, now downloads an attachment itself and refuses plain http, user info, and any address that is loopback, link-local, private (RFC 1918, CGNAT, IPv6 ULA and link-local), a cloud metadata address or otherwise special, checked on the hostname, on every address it resolves to, and again on the address the connection actually uses (no DNS rebinding); redirects are not followed. WhatsApp now receives the bytes, never the URL. Before this, WhatsApp passed the URL straight to Baileys and Signal/iMessage allowed `http://localhost`, so a server-supplied URL could make your machine fetch from your own network.
+- The credentials file is created `0600` inside a `0700` directory (it was written at the default mode, then narrowed).
+- A relay whose rotation answer was lost (it holds a superseded token) now stops with exit 1 and a message to run `relay setup`, so a service shows it as failed instead of quietly stopped.
 - `relay setup` refuses a server address with a query string, a fragment or user info, or plain `http` off localhost, and `relay start` sends the token only to the server the relay was activated against (never from a link).
 
 ### Added

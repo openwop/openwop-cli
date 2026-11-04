@@ -233,8 +233,8 @@ export class DeliveredSet {
   private save(): void {
     if (!this.path) return;
     try {
-      mkdirSync(dirname(this.path), { recursive: true });
-      writeFileSync(this.path, JSON.stringify(Object.fromEntries(this.ids)), 'utf8');
+      mkdirSync(dirname(this.path), { recursive: true, mode: 0o700 });
+      writeFileSync(this.path, JSON.stringify(Object.fromEntries(this.ids)), { encoding: 'utf8', mode: 0o600 });
       try { chmodSync(this.path, 0o600); } catch { /* best-effort on Windows */ }
     } catch { /* best-effort: the in-memory set still guards this process */ }
   }

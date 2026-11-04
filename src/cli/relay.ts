@@ -25,7 +25,7 @@ import {
   loadRelayConfig, saveRelayConfig, assertRelayChannel,
   relayPidPath, relayLogPath, readRelayRecord, makeChannelDeliver,
 } from './relayShared.js';
-import { RelayBridge, classifyRelayError, RelayAuthError, type RelayCreds } from './relayBridge.js';
+import { RelayBridge, classifyRelayError, RelayAuthError, RELAY_FAILING_REASONS, type RelayCreds } from './relayBridge.js';
 import {
   assertRelayServerUrl, buildRelayServicePlan, isPersonalChannel, riskNotice, RISK_NOTICE_VERSION,
 } from './relayService.js';
@@ -436,7 +436,7 @@ async function runRelayStart(ctx: Ctx, argv: string[]) {
   if (options.once) {
     let n: { delivered: number; failed: number };
     try { n = await bridge.cycle(); }
-    catch (err) { if (err instanceof RelayAuthError) { writeLine(ctx.io.stderr, err.message); return 0; } throw err; }
+    catch (err) { if (err instanceof RelayAuthError) { writeLine(ctx.io.stderr, err.message); return RELAY_FAILING_REASONS.has(err.reason) ? 1 : 0; } throw err; }
     if (ctx.json) writeJson(ctx.io.stdout, n);
     else writeLine(ctx.io.stdout, `Bridge cycle complete — delivered ${n.delivered} message(s)${n.failed ? `, ${n.failed} failed` : ''}.`);
     return 0;
@@ -468,7 +468,9 @@ async function runRelayStart(ctx: Ctx, argv: string[]) {
   if (ctx.json) writeJson(ctx.io.stdout, result);
   // A refused token or an ended platform session exits 0: a service manager
   // (KeepAlive SuccessfulExit=false / Restart=on-failure) must not restart into it.
-  return 0;
+  // A SUPERSEDED token (a lost rotation answer) exits 1 instead, so the failure is
+  // visible as a failed service, with the message telling the user to run setup.
+  return result.stopped === 'auth' && result.reason && RELAY_FAILING_REASONS.has(result.reason) ? 1 : 0;
 }
 
 async function runRelayStop(ctx: Ctx, argv: string[]) {

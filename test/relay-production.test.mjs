@@ -17,6 +17,7 @@ import {
   mediaKindOf, whatsappMediaContent, DeliveryError,
   RelayBridge, relayAuthMessage, assertRelayServerUrl, buildRelayServicePlan, riskNotice,
   getChannelPlugin, setWhatsappModuleForTests,
+  assertSafeMediaUrl, isPublicAddress, setMediaOptionsForTests,
 } from '../dist/cli.js';
 
 const fx = (name) => JSON.parse(readFileSync(new URL(`./fixtures/relay/${name}`, import.meta.url), 'utf8'));
@@ -440,6 +441,9 @@ describe('WhatsApp through a Baileys stand-in fed the fixtures (ADR 1043 D5)', (
   it('sends every attachment by type with the caption on the first, and shows typing', async () => {
     const { mod, sockets } = fakeBaileys();
     setWhatsappModuleForTests(mod);
+    // Public resolution and a stub getter: WhatsApp now downloads, then sends BYTES.
+    const fetched = [];
+    setMediaOptionsForTests({ resolver: async () => ['93.184.216.34'], get: async (u) => { fetched.push(u.href); return Buffer.from(`bytes:${u.pathname}`); } });
     try {
       const wa = getChannelPlugin('whatsapp');
       const r = await wa.deliver({ conversationId: '15550002222@s.whatsapp.net', text: 'files', media: [
@@ -451,13 +455,31 @@ describe('WhatsApp through a Baileys stand-in fed the fixtures (ADR 1043 D5)', (
       assert.equal(sent.length, 3);
       assert.deepEqual(Object.keys(sent[0]).sort(), ['caption', 'image']);
       assert.equal(sent[0].caption, 'files');
-      assert.equal(sent[1].document.url, 'https://h.example/b.pdf');
+      assert.equal(sent[1].document.toString(), 'bytes:/b.pdf', 'Baileys gets bytes, never the URL');
+      assert.equal(sent[1].fileName, 'b.pdf');
+      assert.equal(fetched.length, 3);
       assert.equal(sent[1].caption, undefined);
       assert.ok(sent[2].video);
       assert.deepEqual(r.platformMessageIds, ['SENT1', 'SENT2', 'SENT3']);
       await wa.setTyping('15550002222@s.whatsapp.net', true);
       assert.equal(sockets[0].sent.at(-1).presence, 'composing');
-    } finally { setWhatsappModuleForTests(undefined); }
+    } finally { setWhatsappModuleForTests(undefined); setMediaOptionsForTests(undefined); }
+  });
+
+  it('H1 — refuses a loopback or private media URL before sending anything', async () => {
+    const { mod, sockets } = fakeBaileys();
+    setWhatsappModuleForTests(mod);
+    let fetched = 0;
+    setMediaOptionsForTests({ resolver: async () => ['10.0.0.5'], get: async () => { fetched++; return Buffer.from('x'); } });
+    try {
+      const wa = getChannelPlugin('whatsapp');
+      for (const url of ['http://localhost:8080/secret', 'https://127.0.0.1/x', 'https://intranet.example/x']) {
+        await assert.rejects(wa.deliver({ conversationId: '15550002222@s.whatsapp.net', text: 'x', media: [{ url, mimeType: 'image/png' }] }),
+          (e) => e instanceof DeliveryError && e.permanent === true, url);
+      }
+      assert.equal(fetched, 0, 'nothing fetched');
+      assert.equal((sockets[0]?.sent ?? []).filter((m) => m.content).length, 0, 'nothing sent');
+    } finally { setWhatsappModuleForTests(undefined); setMediaOptionsForTests(undefined); }
   });
 
   it('reconnects after a close and keeps receiving; a logout is fatal', async () => {
@@ -488,7 +510,8 @@ describe('WhatsApp through a Baileys stand-in fed the fixtures (ADR 1043 D5)', (
   it('media kinds and Baileys content', () => {
     assert.equal(mediaKindOf({ url: 'https://h/x.ogg' }), 'audio');
     assert.equal(mediaKindOf({ url: 'https://h/x', mimeType: 'text/csv' }), 'document');
-    assert.deepEqual(whatsappMediaContent({ url: 'https://h/a.mp3', mimeType: 'audio/mpeg' }, 'ignored'), { audio: { url: 'https://h/a.mp3' }, mimetype: 'audio/mpeg' });
+    const data = Buffer.from('a');
+    assert.deepEqual(whatsappMediaContent({ url: 'https://h/a.mp3', mimeType: 'audio/mpeg' }, data, 'ignored'), { audio: data, mimetype: 'audio/mpeg' });
   });
 });
 
@@ -509,6 +532,63 @@ describe('relay devices (ADR 1043 D3, CHAN-P0-8 shape)', () => {
       assert.match(lines[1], /^r2 .*offline {2}another member's/);
       assert.ok(!lines[1].includes('you can revoke'));
       assert.match(lines[2], /^r3 .*online {2}no owner/, 'no presence field: falls back to online');
+    } finally { rmSync(home, { recursive: true, force: true }); }
+  });
+});
+
+describe('H1 — media URLs: public https only, checked after DNS', () => {
+  it('classifies addresses', () => {
+    const blocked = ['127.0.0.1', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.1.1', '100.64.0.1', '100.127.255.255',
+      '169.254.169.254', '0.0.0.0', '224.0.0.1', '255.255.255.255', '::1', '::', 'fe80::1', 'fd00::1', 'fc00::abcd', 'fd00:ec2::254',
+      '::ffff:127.0.0.1', '::ffff:10.0.0.1', '64:ff9b::a00:1', '2002:a00:1::1', 'ff02::1', '2001:db8::1'];
+    for (const ip of blocked) assert.equal(isPublicAddress(ip), false, ip);
+    for (const ip of ['93.184.216.34', '8.8.8.8', '172.32.0.1', '100.128.0.1', '2606:4700:4700::1111', '::ffff:93.184.216.34']) assert.equal(isPublicAddress(ip), true, ip);
+  });
+
+  it('refuses non-https, user info, private literals, local names and names that RESOLVE private', async () => {
+    const pub = async () => ['93.184.216.34'];
+    const refused = async (url, resolver = pub) => assert.rejects(assertSafeMediaUrl(url, resolver), (e) => e instanceof DeliveryError && e.permanent === true, url);
+    await refused('http://cdn.example.com/a.png');
+    await refused('https://u:p@cdn.example.com/a.png');
+    await refused('https://127.0.0.1/a.png');
+    await refused('https://[::1]/a.png');
+    await refused('https://169.254.169.254/latest/meta-data');
+    await refused('https://[fd00::1]/a');
+    await refused('https://localhost/a');
+    await refused('https://metadata.google.internal/a');
+    await refused('https://intranet/a');
+    await refused('https://rebind.example.com/a', async () => ['93.184.216.34', '192.168.0.10']);
+    assert.equal((await assertSafeMediaUrl('https://cdn.example.com/a.png', pub)).hostname, 'cdn.example.com');
+  });
+});
+
+describe('L4 — credentials are created 0600 in a 0700 directory', () => {
+  it('modes after setup', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'owop-modes-'));
+    try {
+      const code = await runCli(['--base-url', 'https://relay.example.test', 'relay', 'setup', '--channel', 'discord'], { io: capture().io, fetchImpl: mockHost().fetchImpl, env: { OPENWOP_CONFIG_HOME: home }, cwd: home, repoRoot: home });
+      assert.equal(code, 0);
+      assert.equal(statSync(join(home, '.openwop')).mode & 0o777, 0o700);
+      assert.equal(statSync(join(home, '.openwop', 'relay-credentials.json')).mode & 0o777, 0o600);
+    } finally { rmSync(home, { recursive: true, force: true }); }
+  });
+});
+
+describe('a lost rotation answer (security review)', () => {
+  it('a superseded token stops the relay with a NON-zero exit and says to run setup', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'owop-sup-'));
+    try {
+      const host = mockHost({
+        '/device/heartbeat': () => json(200, { ...HOST.heartbeat.body, rotateAfter: '2000-01-01T00:00:00.000Z' }),
+        '/device/rotate': () => json(401, { error: 'unauthenticated', message: 'replaced', details: { reason: 'device_token_superseded' } }),
+      });
+      const env = { OPENWOP_CONFIG_HOME: home };
+      await runCli(['--base-url', 'https://relay.example.test', 'relay', 'setup', '--channel', 'discord'], { io: capture().io, fetchImpl: host.fetchImpl, env, cwd: home, repoRoot: home });
+      const cap = capture();
+      const code = await runCli(['relay', 'start', '--no-receive'], { io: cap.io, fetchImpl: host.fetchImpl, env, cwd: home, repoRoot: home, relayDeliver: async () => {}, relaySeams: { sleep: async () => {} } });
+      assert.equal(code, 1);
+      assert.match(cap.stderr, /never saved the new one/);
+      assert.match(cap.stderr, /relay setup/);
     } finally { rmSync(home, { recursive: true, force: true }); }
   });
 });
