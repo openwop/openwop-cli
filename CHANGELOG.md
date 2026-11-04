@@ -6,6 +6,8 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-11-04 — the device relay to production grade
+
 > **Release order:** deploy the matching openwop-app server (ADR 1043) **before** this CLI. Against an older server, `relay devices` and `relay rotate` answer 404, a failure report is refused (400) so `relay start` backs off and retries that cycle, and automatic rotation never triggers, so the token still expires after 30 days.
 
 ### Breaking
