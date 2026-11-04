@@ -45,6 +45,15 @@ export interface InboundMessage {
   command?: { name: string; args?: string };
   /** Opaque per-channel metadata (guildId, threadId, etc.); never interpreted by the protocol. */
   channelMeta?: Record<string, unknown>;
+  /**
+   * openwop-app ADR 1042 D9 / ADR 1043 D6 — the message was sent by the device's
+   * OWN account. The normalizers set it only in the note-to-self chat (the chat
+   * whose id is the account id given at setup); every other from-me message is
+   * dropped on the device.
+   */
+  fromMe?: boolean;
+  /** Platform ids of the users the message @mentioned (the host's requireMention gate). */
+  mentions?: string[];
 }
 
 /** An interactive component offered with an outbound message (e.g. quick-reply buttons). */
@@ -75,12 +84,43 @@ export interface ChannelAvailability {
   detail: string;
 }
 
+/**
+ * A delivery failure (ADR 1043 D1). `permanent` means retrying cannot help (the
+ * recipient does not exist, the media is too large, the channel cannot send that
+ * kind); the bridge then acks it as a permanent failure instead of retrying.
+ */
+export class DeliveryError extends Error {
+  constructor(message: string, readonly permanent = false) {
+    super(message);
+    this.name = 'DeliveryError';
+  }
+}
+
+/** What a send produced: the platform's ids for it, when the platform returns them (echo guard). */
+export interface DeliverResult { platformMessageIds?: string[] }
+
+/** Options every receive loop takes (ADR 1043 D5/D6). */
+export interface ReceiveOptions {
+  env?: NodeJS.ProcessEnv;
+  signal?: AbortSignal;
+  /** The device's own account id (note-to-self chat); from-me messages elsewhere are dropped. */
+  accountId?: string;
+  /** Any sign of life from the platform (a frame, a poll, a socket event) — feeds the watchdog. */
+  onActivity?: () => void;
+  /** The platform ended the session for good (e.g. WhatsApp logged out): stop, do not reconnect. */
+  onFatal?: (err: Error) => void;
+  /** Injected for tests: the backoff sleep between reconnects. */
+  sleepFn?: (ms: number) => Promise<void>;
+}
+
 export interface ChannelPlugin {
   channel: RelayChannel;
   /** Can this channel run on this host right now? (tooling/OS/deps present.) */
   isAvailable(env?: NodeJS.ProcessEnv): ChannelAvailability;
-  /** Deliver one outbound message to the platform. Throws on failure. */
-  deliver(msg: OutboundMessage): Promise<void>;
+  /** Deliver one outbound message to the platform. Throws (a DeliveryError when it can say whether to retry). */
+  deliver(msg: OutboundMessage): Promise<DeliverResult | void>;
+  /** Show or clear "typing" in a chat, where the platform supports it (ADR 1043 D5). */
+  setTyping?(conversationId: string, on: boolean): Promise<void>;
   /**
    * Start streaming inbound platform messages. Calls `onInbound` for each new
    * message; resolves to a stop function. Implementations MUST be resilient to
@@ -88,6 +128,6 @@ export interface ChannelPlugin {
    */
   startReceive(
     onInbound: (msg: InboundMessage) => Promise<void>,
-    opts?: { env?: NodeJS.ProcessEnv; signal?: AbortSignal },
+    opts?: ReceiveOptions,
   ): Promise<() => void>;
 }

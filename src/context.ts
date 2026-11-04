@@ -45,7 +45,23 @@ export interface Ctx {
   /** Test seam: per-turn stdin reader for `openwop chat` (null on EOF). */
   readTurn?: (prompt: string) => Promise<string | null>;
   /** Test seam: inject outbound delivery for `openwop relay start`. */
-  relayDeliver?: (egress: { channel: string; conversationId: string; text: string }) => void | Promise<void>;
+  relayDeliver?: (egress: { channel?: string; conversationId: string; text: string }) => unknown;
   /** Test seam: inject a channel plugin for the relay receive loop. */
   relayPlugin?: ChannelPlugin;
+  /**
+   * The server address the user passed explicitly (`--base-url` / OPENWOP_BASE_URL),
+   * undefined when it came from config or the default. `relay start` refuses one
+   * that differs from the address the relay was activated against (ADR 1043 D7).
+   */
+  explicitBaseUrl?: string | undefined;
+  /** Test seams for `openwop relay` (setup consent, service install, the bridge loop). */
+  relaySeams?: {
+    isTTY?: boolean;
+    prompt?: (question: string) => Promise<string>;
+    runCommand?: (argv: string[]) => { status: number | null; stdout?: string; stderr?: string };
+    platform?: string;
+    home?: string;
+    sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+    signal?: AbortSignal;
+  };
 }

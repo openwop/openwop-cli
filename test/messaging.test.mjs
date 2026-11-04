@@ -202,7 +202,7 @@ function readRelayCreds() {
 describe('relay device lifecycle (CLI)', () => {
   it('setup registers + activates and stores the device token in config', async () => {
     const cap = capture();
-    const code = await runCli(['relay', 'setup', '--channel', 'signal', '--name', 'mac'], opts(relayServer(), cap));
+    const code = await runCli(['relay', 'setup', '--channel', 'signal', '--accept-risk', '--name', 'mac'], opts(relayServer(), cap));
     assert.equal(code, 0, cap.stderr);
     assert.match(cap.stdout, /registered \+ activated/);
     const creds = readRelayCreds();
@@ -223,7 +223,7 @@ describe('relay device lifecycle (CLI)', () => {
   it('start --once heartbeats, delivers queued outbound, and acks', async () => {
     const fetchImpl = relayServer();
     // setup
-    await runCli(['relay', 'setup', '--channel', 'signal'], opts(fetchImpl, capture()));
+    await runCli(['relay', 'setup', '--channel', 'signal', '--accept-risk'], opts(fetchImpl, capture()));
     const creds = readRelayCreds();
     // operator queues a message
     const sendCap = capture();
@@ -243,7 +243,7 @@ describe('relay device lifecycle (CLI)', () => {
 
   it('status probes the host with a heartbeat', async () => {
     const fetchImpl = relayServer();
-    await runCli(['relay', 'setup', '--channel', 'whatsapp'], opts(fetchImpl, capture()));
+    await runCli(['relay', 'setup', '--channel', 'whatsapp', '--accept-risk'], opts(fetchImpl, capture()));
     const cap = capture();
     const code = await runCli(['relay', 'status'], opts(fetchImpl, cap));
     assert.equal(code, 0);
@@ -364,7 +364,7 @@ describe('messaging identity (CLI)', () => {
 describe('messaging logs (CLI)', () => {
   it('lists delivery-log entries and filters by direction', async () => {
     const fetchImpl = relayServer();
-    await runCli(['relay', 'setup', '--channel', 'signal'], opts(fetchImpl, capture()));
+    await runCli(['relay', 'setup', '--channel', 'signal', '--accept-risk'], opts(fetchImpl, capture()));
     const creds = readRelayCreds();
     await runCli(['relay', 'send', '--relay-id', creds.relayId, '--conversation', 'c1', '--text', 'hi'], opts(fetchImpl, capture()));
 
@@ -434,7 +434,7 @@ describe('doctor surfaces relay readiness', () => {
     assert.ok(doc1.checks.some((c) => c.name === 'relay' && /no messaging relay/.test(c.message)));
 
     // configure a relay, then doctor should report it + channel readiness
-    await runCli(['relay', 'setup', '--channel', 'imessage'], opts(relayServer(), capture()));
+    await runCli(['relay', 'setup', '--channel', 'imessage', '--accept-risk'], opts(relayServer(), capture()));
     const cap2 = capture();
     await runCli(['doctor', '--json', '--base-url', 'http://127.0.0.1:0'],
       { ...opts(async () => { throw new Error('offline'); }, cap2), env: { OPENWOP_CONFIG_HOME: configHome, OPENWOP_FORCE_PLATFORM: 'darwin' } });
@@ -449,7 +449,7 @@ import { existsSync, readFileSync } from 'node:fs';
 describe('relay daemon lifecycle (CLI)', () => {
   it('start --daemon spawns a detached process and records a pid; stop clears it', async () => {
     const fetchImpl = relayServer();
-    await runCli(['relay', 'setup', '--channel', 'signal', '--base-url', 'http://127.0.0.1:0'], opts(fetchImpl, capture()));
+    await runCli(['relay', 'setup', '--channel', 'signal', '--accept-risk', '--base-url', 'http://127.0.0.1:0'], opts(fetchImpl, capture()));
     const startCap = capture();
     const code = await runCli(['relay', 'start', '--daemon', '--base-url', 'http://127.0.0.1:0'], opts(fetchImpl, startCap));
     assert.equal(code, 0, startCap.stderr);

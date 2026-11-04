@@ -6,6 +6,15 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Added
+- **`openwop relay` to production grade** (openwop-app ADR 1043, CHAN-P1). `relay setup` shows the risk of linking a personal account and needs a typed `yes` (or `--accept-risk` with no terminal; Discord, a bot, needs none), takes `--account` (the device's own account, normalized per channel, for the note-to-self lane) and pins the server address, which must be https (http only on localhost) with no query string, fragment or user info. `relay start` rotates the token before it expires, stops with exit 0 and a reason on a refused token, backs off with full jitter on errors, restarts receiving after 30 minutes of silence, reconnects WhatsApp after a dropped socket (a logout is fatal), retries each send 3 times and then reports the failure to the server (permanent failures at once), remembers delivered ids so a lost ack never resends, batches inbound bursts (`--debounce-ms`), shows typing until the reply (WhatsApp, Signal, Discord), and sends every attachment. New: `relay devices`, `relay rotate`, `relay service install|uninstall|status [--dry-run]` (launchd LaunchAgent / systemd user unit, no secret in either file). Requires an openwop-app host with ADR 1043 deployed for rotation, failure acks and `devices`.
+
+### Fixed
+- `relay start --daemon` spawned a non-existent entry file (`../openwop.mjs`); it now runs `dist/openwop.js`.
+- iMessage receive replayed the whole `chat.db` history on its first poll; it now starts from the newest row.
+- Signal group sends through the `signal-cli` binary passed the group id as a recipient; they now use `-g`.
+- `relay setup --json` printed the device token; it is now shown as `[stored]`.
+
 ## [1.9.0] — 2026-10-27 — evals arena verdicts bind to your own runs
 
 ### Changed

@@ -236,8 +236,11 @@ Every registry path is resolved through the registry's `/.well-known/openwop-reg
 Connect chat channels (Signal / WhatsApp / iMessage) to the host so inbound messages drive workflow runs and replies are delivered back. Channels are a **host-extension** surface (`/v1/host/openwop-app/messaging`), not part of the normative OpenWOP wire — the protocol stays channel-agnostic.
 
 ```bash
-openwop relay setup --channel signal        # register + activate a device, store its token
-openwop relay start                          # bridge loop: heartbeat → poll outbound → deliver → ack
+openwop relay setup --channel signal --account +15551234   # risk notice + consent, then register + activate
+openwop relay start                          # bridge loop (see "Running the relay for real" below)
+openwop relay service install                # keep it running: launchd (macOS) / systemd user unit (Linux)
+openwop relay devices                        # this workspace's relays, online/offline
+openwop relay rotate                         # rotate the device token now (start does it automatically)
 openwop relay send --conversation +15551234 --text "hi"   # operator-side: queue an outbound
 openwop relay status                         # probe the device token against the host
 openwop messaging connectors list|add|enable|disable|test
@@ -265,6 +268,17 @@ How it works: the relay device owns the platform connection and bridges it to th
 - **WhatsApp** ships with the channel build (Baileys), not the core CLI.
 
 `relay start` also **receives**: each channel plugin streams inbound platform messages and forwards them to the host's `/device/inbound` (which runs the bound workflow and queues a reply). Signal uses `signal-cli ... receive`, iMessage polls `chat.db` by ROWID, WhatsApp binds Baileys `messages.upsert`. Disable inbound with `--no-receive`. When a channel's tooling isn't present, inbound is skipped and outbound prints to the console instead of silently dropping it.
+
+### Running the relay for real (openwop-app ADR 1043)
+
+The relay links **your own** account on **your own** machine. `relay setup` prints the risk first (WhatsApp can ban a number linked through WhatsApp Web; Apple has broken unofficial iMessage clients; signal-cli is a full linked device) and needs a typed `yes`, or `--accept-risk` when there is no terminal. Business WhatsApp belongs on the server's WhatsApp Business connection, never here. `--account` is the device's own account id: only messages you write to yourself in that note-to-self chat run as you with full tools; your other outgoing messages never leave the machine.
+
+- **Server address:** taken from `--base-url` / `OPENWOP_BASE_URL` / config only, never from a link. Setup refuses one with a query string, a fragment, user info, or plain `http` off localhost, and pins it; `relay start` refuses an explicit `--base-url` that differs.
+- **Token:** valid 30 days, rotated automatically 7 days before expiry (the new one is saved before use; the old one works 10 more minutes). If the server refuses the token (expired, revoked, unknown), the relay prints why and exits 0, so a service manager does not restart it.
+- **Reliability:** exponential backoff with full jitter (1 s → 5 min) on every loop; a 30-minute watchdog restarts receiving after silence; WhatsApp reconnects after a dropped socket and stops on a logout; each outbound gets 3 tries, then the server is told it failed (permanent failures at once); delivered ids are remembered (`~/.openwop/relay-delivered.json`, 24 h) so a lost acknowledgement never sends twice.
+- **Inbound:** bursts from one sender within 1.5 s go as one message (`--debounce-ms`, `0` to disable); a typing indicator shows until the reply is delivered (WhatsApp, Signal, Discord); the relay's own replies in the note-to-self chat are recognised and never loop.
+- **Media:** every attachment is sent (WhatsApp by type with the caption on the first; Signal and iMessage from a private temp copy, https only, 25 MB each).
+- **Live check:** `docs/relay-live-check.md` is the scripted manual check per channel. The automated tests run against fixtures only.
 
 The relay **device token** is a host credential, so it is stored separately from `config.json` in `~/.openwop/relay-credentials.json` (mode `0600`), not in your main config. Revoke it any time with `openwop relay revoke`.
 

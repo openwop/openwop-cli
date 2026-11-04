@@ -1,0 +1,21 @@
+{
+  "_source": "Baileys (WhatsApp Web multi-device) event payloads, in the shape @whiskeysockets/baileys v6 emits them (WAMessage proto as JSON; messages.upsert {messages, type}; connection.update {connection, lastDisconnect:{error:Boom{output:{statusCode}}}}). Numbers are 555 fakes; the own account is 15550001111.",
+  "ownAccount": "15550001111@s.whatsapp.net",
+  "upsert": {
+    "type": "notify",
+    "messages": [
+      { "key": { "remoteJid": "15550002222@s.whatsapp.net", "fromMe": false, "id": "3EB0A1B2C3D4E5F60001" }, "messageTimestamp": 1730600000, "pushName": "Ada", "message": { "conversation": "hi from Ada" } },
+      { "key": { "remoteJid": "120363025246125486@g.us", "fromMe": false, "id": "3EB0A1B2C3D4E5F60002", "participant": "15550003333@s.whatsapp.net" }, "messageTimestamp": 1730600001, "pushName": "Bo", "message": { "extendedTextMessage": { "text": "@15550001111 can you check?", "contextInfo": { "mentionedJid": ["15550001111@s.whatsapp.net"] } } } },
+      { "key": { "remoteJid": "15550001111@s.whatsapp.net", "fromMe": true, "id": "3EB0A1B2C3D4E5F60003" }, "messageTimestamp": 1730600002, "message": { "conversation": "note to self: summarise my day" } },
+      { "key": { "remoteJid": "15550002222@s.whatsapp.net", "fromMe": true, "id": "3EB0A1B2C3D4E5F60004" }, "messageTimestamp": 1730600003, "message": { "conversation": "my own reply to Ada" } },
+      { "key": { "remoteJid": "15550002222@s.whatsapp.net", "fromMe": false, "id": "3EB0A1B2C3D4E5F60005" }, "messageTimestamp": 1730600004, "pushName": "Ada", "message": { "imageMessage": { "caption": "look at this", "mimetype": "image/jpeg" } } },
+      { "key": { "remoteJid": "15550002222@s.whatsapp.net", "fromMe": false, "id": "3EB0A1B2C3D4E5F60006" }, "messageTimestamp": 1730600005, "message": { "protocolMessage": { "type": 0 } } }
+    ]
+  },
+  "connectionUpdates": {
+    "open": { "connection": "open" },
+    "closedRestartRequired": { "connection": "close", "lastDisconnect": { "error": { "output": { "statusCode": 515 } }, "date": "2026-11-03T10:00:00.000Z" } },
+    "closedConnectionLost": { "connection": "close", "lastDisconnect": { "error": { "output": { "statusCode": 408 } }, "date": "2026-11-03T10:00:00.000Z" } },
+    "closedLoggedOut": { "connection": "close", "lastDisconnect": { "error": { "output": { "statusCode": 401 } }, "date": "2026-11-03T10:00:00.000Z" } }
+  }
+}

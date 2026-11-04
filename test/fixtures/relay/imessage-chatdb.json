@@ -1,0 +1,11 @@
+{
+  "_source": "Rows `sqlite3 -json ~/Library/Messages/chat.db` returns for the relay's poll query (message LEFT JOIN handle; hex(attributedBody)). Apple `date` is ns since 2001-01-01. Handles are 555 fakes; the own handle is +15550001111.",
+  "ownAccount": "+15550001111",
+  "rows": [
+    { "ROWID": 9001, "text": "hi from Ada", "attributed_body_hex": null, "is_from_me": 0, "date": 752285000000000000, "handle_id_str": "+15550002222" },
+    { "ROWID": 9002, "text": "note to self: water plants", "attributed_body_hex": null, "is_from_me": 1, "date": 752285001000000000, "handle_id_str": "+15550001111" },
+    { "ROWID": 9003, "text": "note to self: water plants", "attributed_body_hex": null, "is_from_me": 0, "date": 752285001000000000, "handle_id_str": "+15550001111" },
+    { "ROWID": 9004, "text": "my own reply to Ada", "attributed_body_hex": null, "is_from_me": 1, "date": 752285002000000000, "handle_id_str": "+15550002222" },
+    { "ROWID": 9005, "text": null, "attributed_body_hex": null, "is_from_me": 0, "date": 752285003000000000, "handle_id_str": "+15550002222" }
+  ]
+}

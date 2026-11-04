@@ -99,5 +99,5 @@ export function makeChannelDeliver(channel: any, ctx: any) {
       writeLine(ctx.io.stdout, `→ [${channel}] ${egress.conversationId}: ${egress.text}`);
     };
   }
-  return async (egress: any) => { await plugin!.deliver(egressToOutbound(egress)); };
+  return async (egress: any) => (await plugin!.deliver(egressToOutbound(egress))) ?? undefined;
 }

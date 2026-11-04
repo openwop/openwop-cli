@@ -123,7 +123,7 @@ host route is what the subcommands hit.
 | **webhooks** (`webhook`) | — | `/v1/host/openwop-app/webhooks` | Manage HMAC-signed webhook subscriptions; `test` fires a signed delivery. |
 | **cron** | RFC 0052 | `/v1/host/openwop-app/scheduler/jobs` | Scheduled jobs: list (--roster filter) / add / enable / disable / remove / trigger. |
 | **messaging** | host-extension | `/v1/host/openwop-app/messaging` | Operate the demo relay-gateway: connectors, sessions, policy, routing, identity, logs. |
-| **relay** | host-extension | (local bridge loop) | Local channel relay: register/activate + the inbound→workflow bridge across channel plugins. |
+| **relay** | host-extension | (local bridge loop) | Local channel relay: consented setup (risk notice, own account id, pinned server), the bridge with backoff, watchdog, token rotation, failure acks, batching, typing and full media, `devices`, `rotate`, and a launchd/systemd `service` installer (openwop-app ADR 1043). |
 | **notifications** (`notification`) | host-extension | `/v1/host/openwop-app/notifications` | Notification inbox. |
 | **interrupts** (`interrupt`) | — | `/v1/host/openwop-app/runs/:id/interrupts` | List a run's open interrupts; resolve one by token. |
 | **prompts** (`prompt`) | RFC 0029 | `/v1/host/openwop-app/prompts` | Prompt-library list/get/render. |
