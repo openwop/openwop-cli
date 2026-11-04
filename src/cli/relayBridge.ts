@@ -22,13 +22,6 @@ import { DEVICE_TOKEN_HEADER, MESSAGING_BASE } from './relayShared.js';
 /** The ADR 1043 D1 `details.reason` values a 401 carries; the relay stops on any of them. */
 export const RELAY_AUTH_REASONS = ['device_token_missing', 'device_token_invalid', 'device_token_expired', 'device_revoked', 'device_token_superseded'] as const;
 
-/**
- * Refusals that exit NON-zero (security review): the relay lost the answer to its
- * own rotation and holds a superseded token. Nothing it can do will recover, but
- * the operator must notice, so the service shows as failed rather than stopped.
- */
-export const RELAY_FAILING_REASONS: ReadonlySet<string> = new Set(['device_token_superseded']);
-
 /** The host refused the device token: stop, do not retry (ADR 1043 D5). */
 export class RelayAuthError extends Error {
   constructor(readonly reason: string) {
@@ -39,7 +32,7 @@ export class RelayAuthError extends Error {
 
 export function relayAuthMessage(reason: string): string {
   switch (reason) {
-    case 'device_token_superseded': return 'The relay rotated its token but never saved the new one (the answer was lost), so its token was replaced. Run `openwop relay setup` again to link a new relay.';
+    case 'device_token_superseded': return 'RELAY STOPPED: the relay rotated its token but never saved the new one (the answer was lost), so the server replaced it. It cannot recover by itself. Run `openwop relay setup` to link this device again.';
     case 'device_token_expired': return 'The relay token expired (the device was off for 30 days or more). Run `openwop relay setup` again.';
     case 'device_revoked': return 'This relay was revoked on the server. Run `openwop relay setup` to link a new one.';
     case 'device_token_invalid': return 'The server does not recognise this relay token. Run `openwop relay setup` again.';

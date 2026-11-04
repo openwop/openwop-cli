@@ -25,9 +25,9 @@ import {
   loadRelayConfig, saveRelayConfig, assertRelayChannel,
   relayPidPath, relayLogPath, readRelayRecord, makeChannelDeliver,
 } from './relayShared.js';
-import { RelayBridge, classifyRelayError, RelayAuthError, RELAY_FAILING_REASONS, type RelayCreds } from './relayBridge.js';
+import { RelayBridge, classifyRelayError, RelayAuthError, type RelayCreds } from './relayBridge.js';
 import {
-  assertRelayServerUrl, buildRelayServicePlan, isPersonalChannel, riskNotice, RISK_NOTICE_VERSION,
+  assertRelayServerUrl, buildRelayServicePlan, isPersonalChannel, riskNotice, RISK_NOTICE_VERSION, RELAY_STOP_EXIT_CODE,
 } from './relayService.js';
 
 export const RELAY_HELP = `Usage:
@@ -436,7 +436,7 @@ async function runRelayStart(ctx: Ctx, argv: string[]) {
   if (options.once) {
     let n: { delivered: number; failed: number };
     try { n = await bridge.cycle(); }
-    catch (err) { if (err instanceof RelayAuthError) { writeLine(ctx.io.stderr, err.message); return RELAY_FAILING_REASONS.has(err.reason) ? 1 : 0; } throw err; }
+    catch (err) { if (err instanceof RelayAuthError) { writeLine(ctx.io.stderr, err.message); return RELAY_STOP_EXIT_CODE; } throw err; }
     if (ctx.json) writeJson(ctx.io.stdout, n);
     else writeLine(ctx.io.stdout, `Bridge cycle complete — delivered ${n.delivered} message(s)${n.failed ? `, ${n.failed} failed` : ''}.`);
     return 0;
@@ -466,11 +466,12 @@ async function runRelayStart(ctx: Ctx, argv: string[]) {
   process.off('SIGTERM', onSignal);
   try { stopReceive?.(); } catch { /* ignore */ }
   if (ctx.json) writeJson(ctx.io.stdout, result);
-  // A refused token or an ended platform session exits 0: a service manager
-  // (KeepAlive SuccessfulExit=false / Restart=on-failure) must not restart into it.
-  // A SUPERSEDED token (a lost rotation answer) exits 1 instead, so the failure is
-  // visible as a failed service, with the message telling the user to run setup.
-  return result.stopped === 'auth' && result.reason && RELAY_FAILING_REASONS.has(result.reason) ? 1 : 0;
+  // Every refused token (a superseded one included) and an ended platform session
+  // exits RELAY_STOP_EXIT_CODE (0): the installed services restart only on a
+  // non-zero exit (launchd KeepAlive SuccessfulExit=false, systemd
+  // Restart=on-failure), and launchd cannot exempt a specific non-zero code, so 0
+  // is the one code both honour. The reason was already logged by the bridge.
+  return RELAY_STOP_EXIT_CODE;
 }
 
 async function runRelayStop(ctx: Ctx, argv: string[]) {

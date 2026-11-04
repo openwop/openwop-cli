@@ -23,7 +23,7 @@ export { computeBackoff, withRetries, InboundBatcher, mergeBatch, EchoGuard, Del
 export { mediaKindOf, whatsappMediaContent, downloadMedia, assertSafeMediaUrl, isPublicAddress, setMediaOptionsForTests } from './channels/media.js';
 export { DeliveryError } from './channels/types.js';
 export { RelayBridge, RelayAuthError, classifyRelayError, relayAuthMessage } from './cli/relayBridge.js';
-export { assertRelayServerUrl, buildRelayServicePlan, riskNotice } from './cli/relayService.js';
+export { assertRelayServerUrl, buildRelayServicePlan, riskNotice, RELAY_STOP_EXIT_CODE } from './cli/relayService.js';
 
 // ── Foundational layer (extracted from the former monolith) ──
 import { CliError, HttpError, errText, describeHttpError } from './errors.js';

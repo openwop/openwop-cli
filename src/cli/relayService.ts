@@ -67,6 +67,15 @@ export function assertRelayServerUrl(raw: string): string {
 
 // ── user service (launchd / systemd) ─────────────────────────────────────────
 
+/**
+ * The exit code for a stop that must NOT be restarted (a refused or superseded
+ * token, an ended platform session). The units below restart only on a non-zero
+ * exit: launchd `KeepAlive {SuccessfulExit: false}` and systemd
+ * `Restart=on-failure`. launchd has no way to exempt one non-zero code, so 0 is
+ * the only code both honour. Tests pin the unit text against this value.
+ */
+export const RELAY_STOP_EXIT_CODE = 0;
+
 export const RELAY_SERVICE_LABEL = 'dev.openwop.relay';
 export const RELAY_SYSTEMD_UNIT = 'openwop-relay.service';
 

@@ -17,7 +17,7 @@ import {
   mediaKindOf, whatsappMediaContent, DeliveryError,
   RelayBridge, relayAuthMessage, assertRelayServerUrl, buildRelayServicePlan, riskNotice,
   getChannelPlugin, setWhatsappModuleForTests,
-  assertSafeMediaUrl, isPublicAddress, setMediaOptionsForTests,
+  assertSafeMediaUrl, isPublicAddress, setMediaOptionsForTests, RELAY_STOP_EXIT_CODE,
 } from '../dist/cli.js';
 
 const fx = (name) => JSON.parse(readFileSync(new URL(`./fixtures/relay/${name}`, import.meta.url), 'utf8'));
@@ -540,7 +540,9 @@ describe('H1 — media URLs: public https only, checked after DNS', () => {
   it('classifies addresses', () => {
     const blocked = ['127.0.0.1', '10.1.2.3', '172.16.0.1', '172.31.255.255', '192.168.1.1', '100.64.0.1', '100.127.255.255',
       '169.254.169.254', '0.0.0.0', '224.0.0.1', '255.255.255.255', '::1', '::', 'fe80::1', 'fd00::1', 'fc00::abcd', 'fd00:ec2::254',
-      '::ffff:127.0.0.1', '::ffff:10.0.0.1', '64:ff9b::a00:1', '2002:a00:1::1', 'ff02::1', '2001:db8::1'];
+      '::ffff:127.0.0.1', '::ffff:10.0.0.1', '64:ff9b::a00:1', '2002:a00:1::1', 'ff02::1', '2001:db8::1',
+      // IPv4-compatible ::/96 (even with a public v4 inside) and local-use NAT64 64:ff9b:1::/48.
+      '::7f00:1', '::a00:5', '::5db8:d822', '64:ff9b:1::5db8:d822', '64:ff9b:1:abcd::1'];
     for (const ip of blocked) assert.equal(isPublicAddress(ip), false, ip);
     for (const ip of ['93.184.216.34', '8.8.8.8', '172.32.0.1', '100.128.0.1', '2606:4700:4700::1111', '::ffff:93.184.216.34']) assert.equal(isPublicAddress(ip), true, ip);
   });
@@ -575,7 +577,7 @@ describe('L4 — credentials are created 0600 in a 0700 directory', () => {
 });
 
 describe('a lost rotation answer (security review)', () => {
-  it('a superseded token stops the relay with a NON-zero exit and says to run setup', async () => {
+  it('a superseded token stops the relay with the no-restart exit code and a clear setup message', async () => {
     const home = mkdtempSync(join(tmpdir(), 'owop-sup-'));
     try {
       const host = mockHost({
@@ -586,9 +588,26 @@ describe('a lost rotation answer (security review)', () => {
       await runCli(['--base-url', 'https://relay.example.test', 'relay', 'setup', '--channel', 'discord'], { io: capture().io, fetchImpl: host.fetchImpl, env, cwd: home, repoRoot: home });
       const cap = capture();
       const code = await runCli(['relay', 'start', '--no-receive'], { io: cap.io, fetchImpl: host.fetchImpl, env, cwd: home, repoRoot: home, relayDeliver: async () => {}, relaySeams: { sleep: async () => {} } });
-      assert.equal(code, 1);
-      assert.match(cap.stderr, /never saved the new one/);
+      assert.equal(code, RELAY_STOP_EXIT_CODE);
+      assert.match(cap.stderr, /RELAY STOPPED: .*never saved the new one/);
       assert.match(cap.stderr, /relay setup/);
     } finally { rmSync(home, { recursive: true, force: true }); }
+  });
+});
+
+describe('the stop exit code agrees with the installed units', () => {
+  it('neither launchd nor systemd restarts on RELAY_STOP_EXIT_CODE', () => {
+    const base = { nodeBin: '/n', entry: '/e', baseUrl: 'https://relay.example.test', logPath: '/l' };
+    const plist = buildRelayServicePlan({ ...base, platform: 'darwin', home: '/Users/u', uid: 501 }).contents;
+    const unit = buildRelayServicePlan({ ...base, platform: 'linux', home: '/home/u' }).contents;
+    // launchd restarts iff the exit was not "successful" (zero); it cannot exempt other codes.
+    assert.match(plist, /<key>KeepAlive<\/key>\s*<dict>\s*<key>SuccessfulExit<\/key>\s*<false\/>\s*<\/dict>/);
+    // systemd on-failure restarts on a non-zero exit unless RestartPreventExitStatus lists it.
+    assert.match(unit, /^Restart=on-failure$/m);
+    const prevented = (unit.match(/^RestartPreventExitStatus=(.*)$/m)?.[1] ?? '').split(/\s+/).filter(Boolean).map(Number);
+    const launchdRestarts = (code) => code !== 0;
+    const systemdRestarts = (code) => code !== 0 && !prevented.includes(code);
+    assert.equal(launchdRestarts(RELAY_STOP_EXIT_CODE), false);
+    assert.equal(systemdRestarts(RELAY_STOP_EXIT_CODE), false);
   });
 });

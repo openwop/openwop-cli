@@ -111,9 +111,10 @@ function blockedV6(ip: string): boolean {
   const h = v6Hextets(ip);
   if (!h) return true;
   const embeddedV4 = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
-  if (h.slice(0, 7).every((x) => x === 0)) return true; // :: and ::1
+  if (h.slice(0, 6).every((x) => x === 0)) return true; // ::/96 IPv4-compatible (deprecated), incl. :: and ::1
   if (h.slice(0, 5).every((x) => x === 0) && h[5] === 0xffff) return blockedV4(embeddedV4(h[6], h[7])); // IPv4-mapped
-  if (h[0] === 0x64 && h[1] === 0xff9b) return blockedV4(embeddedV4(h[6], h[7])); // NAT64
+  if (h[0] === 0x64 && h[1] === 0xff9b && h[2] === 0x0001) return true; // local-use NAT64 64:ff9b:1::/48 (RFC 8215)
+  if (h[0] === 0x64 && h[1] === 0xff9b) return blockedV4(embeddedV4(h[6], h[7])); // well-known NAT64 64:ff9b::/96
   if (h[0] === 0x2002) return blockedV4(embeddedV4(h[1], h[2])); // 6to4
   if ((h[0] & 0xfe00) === 0xfc00) return true; // ULA fc00::/7 (incl. fd00:ec2::254 metadata)
   if ((h[0] & 0xffc0) === 0xfe80) return true; // link-local fe80::/10
