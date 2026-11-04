@@ -64,7 +64,9 @@ host-extension routes under /v1/host/openwop-app/messaging.
            the token. --daemon backgrounds it (pid + logs under ~/.openwop/);
            \`relay service install\` runs it as a launchd/systemd user service.
   rotate   Rotates the device token now (start does this automatically).
-  devices  Lists this workspace's relay devices with online/offline presence.
+  devices  Lists this workspace's relay devices: online or offline, who owns
+           each, and which you may revoke (your own, or any as a workspace
+           admin).
   status   Probes the server with a heartbeat to confirm the token is live.
   send     Operator-side: queue an outbound message for the relay to deliver.
 
@@ -261,7 +263,11 @@ async function runRelayDevices(ctx: Ctx, argv: string[]) {
   if (ctx.json) { writeJson(ctx.io.stdout, { devices }); return 0; }
   if (devices.length === 0) { writeLine(ctx.io.stdout, 'No relay devices.'); return 0; }
   for (const d of devices) {
-    writeLine(ctx.io.stdout, `${d.relayId}  ${d.channel}  ${d.status}  ${d.presence}${d.lastHeartbeatAt ? `  last seen ${d.lastHeartbeatAt}` : ''}${d.deviceName ? `  (${d.deviceName})` : ''}`);
+    // `presence` (ADR 1043) when the host sends it, else the CHAN-P0-8 `online` flag.
+    const state = typeof d.presence === 'string' ? d.presence : d.online === true ? 'online' : d.online === false ? 'offline' : 'unknown';
+    const owner = d.owner === null ? '  no owner' : d.owner?.ownedByCaller ? '  yours' : d.owner ? '  another member\'s' : '';
+    const revoke = d.canRevoke === true ? '  (you can revoke)' : '';
+    writeLine(ctx.io.stdout, `${d.relayId}  ${d.channel}  ${d.status}  ${state}${owner}${d.lastHeartbeatAt ? `  last seen ${d.lastHeartbeatAt}` : ''}${d.deviceName ? `  (${d.deviceName})` : ''}${revoke}`);
   }
   return 0;
 }

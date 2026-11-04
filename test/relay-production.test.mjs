@@ -491,3 +491,24 @@ describe('WhatsApp through a Baileys stand-in fed the fixtures (ADR 1043 D5)', (
     assert.deepEqual(whatsappMediaContent({ url: 'https://h/a.mp3', mimeType: 'audio/mpeg' }, 'ignored'), { audio: { url: 'https://h/a.mp3' }, mimetype: 'audio/mpeg' });
   });
 });
+
+describe('relay devices (ADR 1043 D3, CHAN-P0-8 shape)', () => {
+  it('shows presence, the owner and whether you can revoke; tolerates a host without presence', async () => {
+    const host = mockHost({ '/relay/devices': () => json(200, { devices: [
+      { relayId: 'r1', channel: 'signal', status: 'active', registeredAt: 't', online: true, presence: 'online', owner: { userId: 'me', ownedByCaller: true }, canRevoke: true },
+      { relayId: 'r2', channel: 'whatsapp', status: 'active', registeredAt: 't', online: false, owner: { userId: 'x', ownedByCaller: false }, canRevoke: false },
+      { relayId: 'r3', channel: 'imessage', status: 'active', registeredAt: 't', online: true, owner: null },
+    ] }) });
+    const home = mkdtempSync(join(tmpdir(), 'owop-dev-'));
+    try {
+      const cap = capture();
+      const code = await runCli(['--base-url', 'https://relay.example.test', 'relay', 'devices'], { io: cap.io, fetchImpl: host.fetchImpl, env: { OPENWOP_CONFIG_HOME: home }, cwd: home, repoRoot: home });
+      assert.equal(code, 0, cap.stderr);
+      const lines = cap.stdout.trim().split('\n');
+      assert.match(lines[0], /^r1 .*online {2}yours.*\(you can revoke\)$/);
+      assert.match(lines[1], /^r2 .*offline {2}another member's/);
+      assert.ok(!lines[1].includes('you can revoke'));
+      assert.match(lines[2], /^r3 .*online {2}no owner/, 'no presence field: falls back to online');
+    } finally { rmSync(home, { recursive: true, force: true }); }
+  });
+});
