@@ -125,6 +125,23 @@ describe('fixtures — platform payloads normalize per ADR 1043 D6', () => {
     assert.equal(normalizeAccountId('signal', '+1 555 000 1111'), '+15550001111');
     assert.equal(normalizeAccountId('signal', '5550001111'), undefined);
     assert.equal(normalizeAccountId('imessage', 'Me@iCloud.com'), 'me@icloud.com');
+    assert.equal(normalizeAccountId('imessage', 'a@mail.example.co.uk'), 'a@mail.example.co.uk');
+    assert.equal(normalizeAccountId('imessage', 'a@example'), undefined, 'no dot after @');
+    assert.equal(normalizeAccountId('imessage', 'a@.example.com'), undefined, 'empty label');
+  });
+
+  // CodeQL js/polynomial-redos: the id comes from inbound peer data. A crafted
+  // handle must not stall the relay (the old `[^\s@]+\.[^\s@]+` backtracked
+  // polynomially on '!@!.' + '!.' × n). Red when the length cap is removed AND the
+  // regex is the overlapping form.
+  it('rejects a long crafted handle quickly (ReDoS guard)', () => {
+    const evil = '!@!.' + '!.'.repeat(25_000);
+    const t0 = performance.now();
+    assert.equal(normalizeAccountId('imessage', evil), undefined);
+    assert.ok(performance.now() - t0 < 50, `took ${(performance.now() - t0).toFixed(1)} ms`);
+    const at254 = 'a@' + 'b'.repeat(248) + '.com';
+    assert.equal(at254.length, 254);
+    assert.equal(normalizeAccountId('imessage', at254), at254, 'a 254-char address is still accepted');
   });
 });
 

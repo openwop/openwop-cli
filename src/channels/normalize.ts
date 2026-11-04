@@ -23,7 +23,9 @@ export interface NormalizeOptions { accountId?: string }
 export function normalizeAccountId(channel: RelayChannel | string, raw: unknown): string | undefined {
   if (typeof raw !== 'string') return undefined;
   const v = raw.trim();
-  if (!v) return undefined;
+  // The id comes from inbound peer data, so bound it before ANY regex runs (an
+  // address is at most 254 characters; RFC 5321). CodeQL js/polynomial-redos.
+  if (!v || v.length > 254) return undefined;
   if (channel === 'whatsapp') {
     if (/^\d{6,15}@s\.whatsapp\.net$/.test(v)) return v;
     const digits = v.replace(/[\s()+-]/g, '');
@@ -34,7 +36,9 @@ export function normalizeAccountId(channel: RelayChannel | string, raw: unknown)
     return /^\+\d{6,15}$/.test(e164) ? e164 : undefined;
   }
   if (channel === 'imessage') {
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return v.toLowerCase();
+    // Non-overlapping labels: no character can match both sides of a dot, so the
+    // test is linear even without the length cap above.
+    if (/^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/.test(v)) return v.toLowerCase();
     const e164 = v.replace(/[\s()-]/g, '');
     return /^\+\d{6,15}$/.test(e164) ? e164 : undefined;
   }
