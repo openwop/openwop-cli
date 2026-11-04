@@ -16,7 +16,14 @@ import type { ChannelPlugin, InboundMessage, RelayChannel } from './channels/typ
 // Re-export the channel surface so the test suite (which imports the built
 // dist/cli.js bundle) can reach the pure normalizers + the registry.
 export { parseSignalEnvelope, parseImessageRow, parseWhatsappMessage, parseDiscordMessage, decodeAttributedBodyHex } from './channels/normalize.js';
-export { getChannelPlugin } from './channels/registry.js';
+export { getChannelPlugin, setWhatsappModuleForTests } from './channels/registry.js';
+// openwop-app ADR 1043 — the relay's reliability, consent and service surface, for the tests.
+export { normalizeAccountId } from './channels/normalize.js';
+export { computeBackoff, withRetries, InboundBatcher, mergeBatch, EchoGuard, DeliveredSet, Watchdog } from './channels/reliability.js';
+export { mediaKindOf, whatsappMediaContent, downloadMedia, assertSafeMediaUrl, isPublicAddress, setMediaOptionsForTests } from './channels/media.js';
+export { DeliveryError } from './channels/types.js';
+export { RelayBridge, RelayAuthError, classifyRelayError, relayAuthMessage } from './cli/relayBridge.js';
+export { assertRelayServerUrl, buildRelayServicePlan, riskNotice, RELAY_STOP_EXIT_CODE } from './cli/relayService.js';
 
 // ── Foundational layer (extracted from the former monolith) ──
 import { CliError, HttpError, errText, describeHttpError } from './errors.js';
@@ -260,6 +267,12 @@ export async function runCli(argv: string[], options: any = {}): Promise<number>
       // Resolves with each line, or null on EOF. Defaults to a readline-
       // backed reader when absent.
       readTurn: options.readTurn,
+      // ADR 1043 D7 — the relay pins its server; it must know an explicit override.
+      explicitBaseUrl: parsed.globals.baseUrl ?? env.OPENWOP_BASE_URL,
+      // Test seams for `openwop relay` (absent in production).
+      ...(options.relayDeliver ? { relayDeliver: options.relayDeliver } : {}),
+      ...(options.relayPlugin ? { relayPlugin: options.relayPlugin } : {}),
+      ...(options.relaySeams ? { relaySeams: options.relaySeams } : {}),
     };
     ctx.apiKey = ctx.apiKey ?? defaultApiKeyFor(ctx.baseUrl);
 

@@ -30,12 +30,16 @@ export function loadRelayConfig(ctx: Ctx) {
 
 export function saveRelayConfig(ctx: Ctx, relay: any) {
   const p = relayCredsPath(ctx.env);
-  mkdirSync(dirname(p), { recursive: true });
+  // ADR 1043 L4 — the directory is 0700 and the file is CREATED 0600 (never
+  // written world-readable first and narrowed after). The chmods also narrow a
+  // directory or file an older version left wider.
+  mkdirSync(dirname(p), { recursive: true, mode: 0o700 });
+  try { chmodSync(dirname(p), 0o700); } catch { /* best-effort on Windows */ }
   if (!relay || Object.keys(relay).length === 0) {
     try { if (existsSync(p)) rmSync(p); } catch { /* best-effort */ }
     return;
   }
-  writeFileSync(p, `${JSON.stringify(relay, null, 2)}\n`, 'utf8');
+  writeFileSync(p, `${JSON.stringify(relay, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
   try { chmodSync(p, 0o600); } catch { /* best-effort on Windows */ }
 }
 
@@ -99,5 +103,5 @@ export function makeChannelDeliver(channel: any, ctx: any) {
       writeLine(ctx.io.stdout, `→ [${channel}] ${egress.conversationId}: ${egress.text}`);
     };
   }
-  return async (egress: any) => { await plugin!.deliver(egressToOutbound(egress)); };
+  return async (egress: any) => (await plugin!.deliver(egressToOutbound(egress))) ?? undefined;
 }

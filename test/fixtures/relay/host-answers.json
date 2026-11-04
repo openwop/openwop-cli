@@ -1,0 +1,228 @@
+{
+  "_source": "Recorded 2026-11-03 from openwop-app feat/adr-1043-device-relay (3ba6a74f5) over HTTP on the real app (memory storage), device routes under /host/openwop-app/messaging. Tokens are throwaway test values, shortened. inboundAccepted / inboundDuplicate / inboundDropped are NOT recorded (the workflow bridge self-call needs a listening port in that harness); their shapes are copied from routes/messaging.ts POST device/inbound.",
+  "register": {
+    "status": 201,
+    "body": {
+      "relayId": "relay_29a9ed34-43f0-4c6a-896f-255b1ac5c6d2",
+      "channel": "signal",
+      "activationCode": "7c72a437e7b2",
+      "activationExpiresAt": "2026-11-04T02:45:35.856Z"
+    }
+  },
+  "activateWrongCode": {
+    "status": 400,
+    "body": {
+      "error": "invalid_request",
+      "message": "activation code invalid or expired",
+      "details": {
+        "attemptsLeft": 4
+      }
+    }
+  },
+  "activate": {
+    "status": 200,
+    "body": {
+      "relayId": "relay_29a9ed34-43f0-4c6a-896f-255b1ac5c6d2",
+      "channel": "signal",
+      "deviceToken": "dtok_recorded_c7ae8016",
+      "tokenExpiresAt": "2026-12-04T02:35:35.943Z",
+      "rotateAfter": "2026-11-27T02:35:35.943Z",
+      "heartbeatIntervalSeconds": 30,
+      "outboundPollIntervalSeconds": 5,
+      "ownerBound": false
+    }
+  },
+  "heartbeat": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "serverTime": "2026-11-04T02:35:35.948Z",
+      "tokenExpiresAt": "2026-12-04T02:35:35.943Z",
+      "rotateAfter": "2026-11-27T02:35:35.943Z",
+      "heartbeatIntervalSeconds": 30,
+      "outboundPollIntervalSeconds": 5
+    }
+  },
+  "outbound": {
+    "status": 200,
+    "body": {
+      "relayId": "relay_29a9ed34-43f0-4c6a-896f-255b1ac5c6d2",
+      "messages": [
+        {
+          "egressId": "egr_72fda84f-e1f2-4596-8f9d-9f22dba5e110",
+          "relayId": "relay_29a9ed34-43f0-4c6a-896f-255b1ac5c6d2",
+          "channel": "signal",
+          "conversationId": "+15550002222",
+          "text": "hello",
+          "enqueuedAt": "2026-11-04T02:35:35.951Z",
+          "media": [
+            {
+              "url": "https://example.com/a.png",
+              "mimeType": "image/png"
+            },
+            {
+              "url": "https://example.com/b.pdf",
+              "mimeType": "application/pdf",
+              "filename": "b.pdf"
+            }
+          ],
+          "attempts": 0
+        }
+      ]
+    }
+  },
+  "ackFailedTransient": {
+    "status": 200,
+    "body": {
+      "acked": 0,
+      "failed": 1,
+      "deadLettered": 0
+    }
+  },
+  "outboundAfterFailure": {
+    "status": 200,
+    "body": {
+      "relayId": "relay_29a9ed34-43f0-4c6a-896f-255b1ac5c6d2",
+      "messages": [
+        {
+          "egressId": "egr_72fda84f-e1f2-4596-8f9d-9f22dba5e110",
+          "relayId": "relay_29a9ed34-43f0-4c6a-896f-255b1ac5c6d2",
+          "channel": "signal",
+          "conversationId": "+15550002222",
+          "text": "hello",
+          "enqueuedAt": "2026-11-04T02:35:35.951Z",
+          "media": [
+            {
+              "url": "https://example.com/a.png",
+              "mimeType": "image/png"
+            },
+            {
+              "url": "https://example.com/b.pdf",
+              "mimeType": "application/pdf",
+              "filename": "b.pdf"
+            }
+          ],
+          "attempts": 1
+        }
+      ]
+    }
+  },
+  "ackDelivered": {
+    "status": 200,
+    "body": {
+      "acked": 1,
+      "failed": 0,
+      "deadLettered": 0
+    }
+  },
+  "inboundAccepted": {
+    "status": 202,
+    "body": {
+      "accepted": true,
+      "sessionKey": "signal:+15550002222",
+      "conversationId": "chat_session_x"
+    },
+    "_note": "shape from source, not recorded"
+  },
+  "inboundDuplicate": {
+    "status": 202,
+    "body": {
+      "accepted": true,
+      "sessionKey": "signal:+15550002222",
+      "deduped": true
+    },
+    "_note": "shape from source, not recorded"
+  },
+  "rotate": {
+    "status": 200,
+    "body": {
+      "relayId": "relay_29a9ed34-43f0-4c6a-896f-255b1ac5c6d2",
+      "deviceToken": "dtok_recorded_45868827",
+      "tokenExpiresAt": "2026-12-04T02:35:36.042Z",
+      "rotateAfter": "2026-11-27T02:35:36.042Z",
+      "previousTokenValidUntil": "2026-11-04T02:45:36.042Z"
+    }
+  },
+  "rotateWithOldToken": {
+    "status": 401,
+    "body": {
+      "error": "unauthenticated",
+      "message": "this token was rotated; use the current token",
+      "details": {
+        "reason": "device_token_invalid"
+      }
+    }
+  },
+  "authMissing": {
+    "status": 401,
+    "body": {
+      "error": "unauthenticated",
+      "message": "x-openwop-device-token header required",
+      "details": {
+        "reason": "device_token_missing"
+      }
+    }
+  },
+  "authInvalid": {
+    "status": 401,
+    "body": {
+      "error": "unauthenticated",
+      "message": "invalid device token",
+      "details": {
+        "reason": "device_token_invalid"
+      }
+    }
+  },
+  "authExpired": {
+    "status": 401,
+    "body": {
+      "error": "unauthenticated",
+      "message": "device token expired",
+      "details": {
+        "reason": "device_token_expired"
+      }
+    }
+  },
+  "authRevoked": {
+    "status": 401,
+    "body": {
+      "error": "unauthenticated",
+      "message": "this relay was revoked",
+      "details": {
+        "reason": "device_revoked"
+      }
+    }
+  },
+  "inboundRateLimited": {
+    "status": 429,
+    "retryAfter": "60",
+    "body": {
+      "error": "rate_limited",
+      "message": "Request denied by rate limit. Try again later.",
+      "details": {
+        "scope": "key",
+        "reason": "channel_inbound_rate",
+        "retryAfterMs": 59993
+      }
+    }
+  },
+  "activateLocked": {
+    "status": 403,
+    "body": {
+      "error": "forbidden",
+      "message": "activation is locked for this relay after too many wrong codes; register the device again",
+      "details": {
+        "reason": "activation_locked"
+      }
+    }
+  },
+  "inboundDropped": {
+    "status": 202,
+    "body": {
+      "accepted": false,
+      "sessionKey": "signal:+15550002222",
+      "dropped": "allowlist-miss"
+    },
+    "_note": "shape from source, not recorded"
+  }
+}

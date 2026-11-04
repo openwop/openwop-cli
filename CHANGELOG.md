@@ -6,6 +6,26 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+> **Release order:** deploy the matching openwop-app server (ADR 1043) **before** this CLI. Against an older server, `relay devices` and `relay rotate` answer 404, a failure report is refused (400) so `relay start` backs off and retries that cycle, and automatic rotation never triggers, so the token still expires after 30 days.
+
+### Breaking
+- **A non-interactive `openwop relay setup` (or `relay register`) for WhatsApp, Signal or iMessage now needs `--accept-risk`** (openwop-app ADR 1043 D6). Without a terminal and without the flag it prints the risk notice and exits 2 with nothing registered. Scripts and CI that link a personal account must add `--accept-risk` after reading the notice. Discord (a bot token, not a personal account) is unchanged.
+
+### Security
+- **Revoke and re-activate any relay that was set up or activated with `--json` in a script or CI.** Every published version from **v0.2.1 through v1.9.0** printed the device token on `openwop relay setup --json` and `openwop relay activate --json`. A token captured in a log is a bearer credential for that relay until it expires (30 days since the server's 2026-05-27 change) or is revoked: run `openwop relay revoke --relay-id <id>`, then `openwop relay setup` again. This version prints `deviceToken: "[stored]"` and keeps the token only in `~/.openwop/relay-credentials.json` (0600).
+- **The relay fetches only public https media** (openwop-app ADR 1043 security review, H1). Every channel, WhatsApp included, now downloads an attachment itself and refuses plain http, user info, and any address that is loopback, link-local, private (RFC 1918, CGNAT, IPv6 ULA and link-local), a cloud metadata address or otherwise special (including IPv4-compatible `::/96` and local-use NAT64 `64:ff9b:1::/48`), checked on the hostname, on every address it resolves to, and again on the address the connection actually uses (no DNS rebinding); redirects are not followed. WhatsApp now receives the bytes, never the URL. Before this, WhatsApp passed the URL straight to Baileys and Signal/iMessage allowed `http://localhost`, so a server-supplied URL could make your machine fetch from your own network.
+- The credentials file is created `0600` inside a `0700` directory (it was written at the default mode, then narrowed).
+- A relay whose rotation answer was lost (it holds a superseded token) now stops with a clear `RELAY STOPPED` line telling you to run `relay setup`, logged to the relay log. It exits 0 like every other refused token: the installed services restart only on a non-zero exit (launchd `KeepAlive` with `SuccessfulExit=false`, systemd `Restart=on-failure`), and launchd cannot exempt one non-zero code, so a non-zero exit would restart it in a loop that can never recover.
+- `relay setup` refuses a server address with a query string, a fragment or user info, or plain `http` off localhost, and `relay start` sends the token only to the server the relay was activated against (never from a link).
+
+### Added
+- **`openwop relay` to production grade** (openwop-app ADR 1043, CHAN-P1). `relay setup` shows the risk of linking a personal account and needs a typed `yes` (or `--accept-risk` with no terminal; Discord, a bot, needs none), takes `--account` (the device's own account, normalized per channel, for the note-to-self lane) and pins the server address, which must be https (http only on localhost) with no query string, fragment or user info. `relay start` rotates the token before it expires, stops with exit 0 and a reason on a refused token, backs off with full jitter on errors, restarts receiving after 30 minutes of silence, reconnects WhatsApp after a dropped socket (a logout is fatal), retries each send 3 times and then reports the failure to the server (permanent failures at once), remembers delivered ids so a lost ack never resends, batches inbound bursts (`--debounce-ms`), shows typing until the reply (WhatsApp, Signal, Discord), and sends every attachment. New: `relay devices` (presence, owner, and whether you may revoke each, from the host's `canRevoke`; tolerates a host that sends only `online`), `relay rotate`, `relay service install|uninstall|status [--dry-run]` (launchd LaunchAgent / systemd user unit, no secret in either file). Requires an openwop-app host with ADR 1043 deployed for rotation, failure acks and `devices`.
+
+### Fixed
+- `relay start --daemon` spawned a non-existent entry file (`../openwop.mjs`); it now runs `dist/openwop.js`.
+- iMessage receive replayed the whole `chat.db` history on its first poll; it now starts from the newest row.
+- Signal group sends through the `signal-cli` binary passed the group id as a recipient; they now use `-g`.
+
 ## [1.9.0] — 2026-10-27 — evals arena verdicts bind to your own runs
 
 ### Changed
