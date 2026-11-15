@@ -317,6 +317,7 @@ openwop kanban card-add b_1 --title "Triage" --column todo
 openwop kanban watch b_1                       # stream a board's card events (SSE)
 openwop orgs list                             # organizations + RBAC (RFC 0049)
 openwop orgs teams|groups|roles|members <orgId> list|create|update|delete
+openwop orgs members <orgId> add-existing --candidate <id>   # add someone who already has an account (no email)
 openwop orgs effective --subject user:jo      # resolve a subject's effective access
 openwop workspace list                        # per-tenant agent workspace files (RFC 0059)
 openwop workspace put notes/todo.md --content "- ship it"

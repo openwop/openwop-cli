@@ -116,7 +116,7 @@ host route is what the subcommands hit.
 | **roster** | RFC 0086 | `/v1/host/openwop-app/roster` | Named standing agents + their workflow portfolio. |
 | **org-chart** (`orgchart`) | RFC 0087 | `/v1/host/openwop-app/org-chart` | Descriptive department/role/reporting structure. |
 | **kanban** (`boards`) | host-extension (composes RFC 0086 triggers) | `/v1/host/openwop-app/kanban` | Agent task boards; `watch` streams card events. |
-| **orgs** (`org`) | RFC 0049 | `/v1/host/openwop-app/orgs` | Orgs/teams/groups/roles/members RBAC; `effective` resolves a subject's access. |
+| **orgs** (`org`) | RFC 0049 | `/v1/host/openwop-app/orgs` | Orgs/teams/groups/roles/members RBAC; `effective` resolves a subject's access. `members candidates/add-existing/link` add a person who already has an account, or tie an account-less row to one, by host-issued id, never a subject (openwop-app ADR 1123). |
 | **workspace** | RFC 0059 §C | `/v1/host/openwop-app/workspace` | Per-tenant agent workspace files (list/put/get). |
 | **byok** | — | `/v1/host/openwop-app/byok/secrets` | Host-side BYOK secret store; the wire **never returns values**. |
 | **config** | — | (local file) | Read/write `~/.openwop/config.json`. |
