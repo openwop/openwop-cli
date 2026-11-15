@@ -6,6 +6,16 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+### Added
+- **`openwop orgs members <orgId> candidates | add-existing | link`** (openwop-app ADR 1123). These add someone who already has an account to an org, bound to their sign-in at once, with no email invitation. They can also tie a member row that has no account to one.
+  - `candidates` lists the people the host offers. `--for-link` keeps the org's own members, for `link`.
+  - `add-existing` and `link` take `--candidate <id>`.
+  - Host superadmins may pass `--email <e>` instead. The CLI looks that one address up, then spends the single-use token the host returns. A miss exits 1, and means "send an invitation instead".
+  - The request body never carries a subject.
+
+### Deprecated
+- **`openwop orgs members … create|update --subject user:…`** for adding a person. It still works, with a warning. Use `add-existing` or `link`. The host will refuse it once openwop-app#5945 lands. Service and IdP subjects (`oidc:`, `saml:`, `scim:`) are unaffected.
+
 ## [2.0.0] — 2026-11-04 — the device relay to production grade
 
 > **Release order:** deploy the matching openwop-app server (ADR 1043) **before** this CLI. Against an older server, `relay devices` and `relay rotate` answer 404, a failure report is refused (400) so `relay start` backs off and retries that cycle, and automatic rotation never triggers, so the token still expires after 30 days.

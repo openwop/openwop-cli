@@ -32,6 +32,43 @@ describe('orgs extensions', () => {
     assert.deepEqual([calls[2].method, calls[2].path], ['DELETE', `${H}/orgs/o1/invites/inv2`]);
   });
 
+  it('members add-existing / link / candidates (ADR 1123) send ids, never a subject', async () => {
+    const cap = capture();
+    const { calls, fetchImpl } = mockHost((c) => {
+      if (c.path.endsWith('/member-candidates')) return { body: { candidates: [{ candidateId: 'm:1', displayName: 'Ada', email: 'ada@a.io' }] } };
+      if (c.path.endsWith('/member-lookup')) return { body: { candidate: c.body.email === 'ada@a.io' ? { lookupToken: 'tok1', displayName: 'Ada' } : null } };
+      if (c.path.endsWith('/add-existing')) return { status: 201, body: { memberId: 'mem9', displayName: 'Ada', roles: c.body.roles ?? ['viewer'] } };
+      return { body: { memberId: 'ph1' } };
+    });
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'candidates'], opts(fetchImpl, cap)), 0, cap.stderr);
+    assert.equal(calls[0].path, `${H}/orgs/o1/member-candidates`);
+    assert.match(cap.stdout, /m:1\s+Ada\s+ada@a\.io/);
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'add-existing', '--candidate', 'm:1', '--role', 'editor'], opts(fetchImpl, cap)), 0, cap.stderr);
+    assert.deepEqual([calls[1].method, calls[1].path, calls[1].body], ['POST', `${H}/orgs/o1/members/add-existing`, { candidateId: 'm:1', roles: ['editor'] }]);
+    // --email looks up first, then spends the token; the body never carries a subject.
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'add-existing', '--email', 'ada@a.io'], opts(fetchImpl, cap)), 0, cap.stderr);
+    assert.deepEqual([calls[2].path, calls[2].body], [`${H}/orgs/o1/member-lookup`, { email: 'ada@a.io' }]);
+    assert.deepEqual(calls[3].body, { lookupToken: 'tok1' });
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'add-existing', '--email', 'nobody@a.io'], opts(fetchImpl, cap)), 1, 'a miss exits 1');
+    assert.match(cap.stderr, /send an invitation/i);
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'add-existing'], opts(fetchImpl, cap)), 2, 'needs one of --candidate/--email');
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'link', 'ph1', '--candidate', 'm:1'], opts(fetchImpl, cap)), 0, cap.stderr);
+    assert.deepEqual([calls.at(-1).path, calls.at(-1).body], [`${H}/orgs/o1/members/ph1/link`, { candidateId: 'm:1' }]);
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'candidates', '--for-link'], opts(fetchImpl, cap)), 0);
+    assert.equal(calls.at(-1).path + calls.at(-1).search, `${H}/orgs/o1/member-candidates?for=link`);
+  });
+
+  it('members create --subject user:… still works but warns it is deprecated (openwop-app#5945)', async () => {
+    const cap = capture();
+    const { calls, fetchImpl } = mockHost(() => ({ status: 201, body: { memberId: 'm1' } }));
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'create', '--display-name', 'Jo', '--subject', 'user:jo'], opts(fetchImpl, cap)), 0);
+    assert.equal(calls[0].body.subject, 'user:jo');
+    assert.match(cap.stderr, /deprecated.*add-existing/s);
+    const cap2 = capture();
+    assert.equal(await runCli(['orgs', 'members', 'o1', 'create', '--display-name', 'Bot', '--subject', 'oidc:ci'], opts(fetchImpl, cap2)), 0);
+    assert.doesNotMatch(cap2.stderr, /deprecated/);
+  });
+
   it('invitations preview/accept/decline carry the token', async () => {
     const cap = capture();
     const { calls, fetchImpl } = mockHost((c) => ({ status: c.path.endsWith('/accept') ? 201 : 200, body: c.path.endsWith('/accept') ? { orgId: 'o1', memberId: 'm1', alreadyMember: false } : { orgName: 'Acme' } }));

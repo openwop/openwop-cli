@@ -19,6 +19,9 @@ export const ORGS_HELP = `Usage:
   openwop orgs members <orgId> list|create|update|delete [...]
 
   openwop orgs members <orgId> transfer-ownership <memberId> [--step-down] [--json]
+  openwop orgs members <orgId> candidates [--for-link] [--json]
+  openwop orgs members <orgId> add-existing (--candidate <id> | --email <e>) [--role <id>]... [--json]
+  openwop orgs members <orgId> link <memberId> (--candidate <id> | --email <e>) [--json]
   openwop orgs invites <orgId> list|create|revoke [...]
   openwop orgs invitations preview|accept|decline [--token <t>] [--json]
 
@@ -40,6 +43,17 @@ granted scopes. Drives the host-extension surface under /v1/host/openwop-app/org
                       authorization. Exit 0 = allowed, 1 = denied.
   transfer-ownership  POST /orgs/:orgId/members/:memberId/transfer-ownership — grant owner
                       to a member; --step-down also drops YOUR owner role (last-owner escape).
+  candidates          GET /host/openwop-app/orgs/:orgId/member-candidates — the people who
+                      already have an account and that you may add here (people in the orgs
+                      you can act in). --for-link keeps this org's own members, for \`link\`.
+  add-existing        POST /host/openwop-app/orgs/:orgId/members/add-existing — add someone who
+                      already has an account, bound to their sign-in at once, no email.
+                      --candidate takes an id from \`candidates\`. --email (host superadmins
+                      only) looks one exact address up first; a miss exits 1 and means
+                      "send an invitation instead". Needs host:members:manage. (ADR 1123)
+  link                POST /host/openwop-app/orgs/:orgId/members/:memberId/link — tie a member
+                      row that has no account to one. If the person is already a member
+                      here, the row is removed and their membership kept.
   invites             GET/POST/DELETE /orgs/:orgId/invites[/:inviteId] (needs host:members:manage)
                       create: --email <e> [--role <roleId>] (host default role: viewer)
   invitations         GET /orgs/invitations/preview?token=, POST /orgs/invitations/accept|decline
@@ -50,13 +64,18 @@ Nested-entity flags:
   groups  create/update  --name <n> [--description <t>] [--role <id>]... [--member <id>]...
   roles   create/update  --name <n> [--description <t>] [--scope <s>]...
   members create         --display-name <n> [--subject <id>] [--email <e>] [--role <id>]... [--team <id>]...
+                         --subject user:… is DEPRECATED for people: use add-existing (the host
+                         will refuse it later, openwop-app#5945). Service and IdP subjects stay.
   members update         [--display-name <n>] [--email <e>] [--role <id>]... [--team <id>]...
 
 Examples:
   openwop orgs create --name "Acme"
   openwop orgs teams o_1 create --name "Support" --color blue
   openwop orgs roles o_1 create --name "Reviewer" --scope runs:read --scope runs:annotate
-  openwop orgs members o_1 create --subject user:jo --display-name "Jo" --role role_reviewer --team t_support
+  openwop orgs members o_1 candidates
+  openwop orgs members o_1 add-existing --candidate m:3f2a --role role_reviewer
+  openwop orgs members o_1 link m_9 --candidate m:3f2a
+  openwop orgs members o_1 create --subject oidc:ci-bot --display-name "CI bot" --role viewer
   openwop orgs effective --subject user:jo
   openwop orgs decide --principal user:jo --action runs:read
   openwop orgs invites o_1 create --email jo@acme.com --role editor
@@ -72,6 +91,9 @@ export async function runOrgs(ctx: Ctx, argv: string[]) {
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, ORGS_HELP); return 0; }
   if (sub === 'members' && argv[2] === 'transfer-ownership') {
     return await transferOwnership(ctx, argv[1], argv.slice(3));
+  }
+  if (sub === 'members' && ['candidates', 'add-existing', 'link'].includes(argv[2] ?? '')) {
+    return await memberAddExisting(ctx, argv[1], argv[2]!, argv.slice(3));
   }
   if ((ENTITIES as readonly string[]).includes(sub)) {
     return await runEntity(ctx, sub as Entity, argv.slice(1));
@@ -210,6 +232,59 @@ async function transferOwnership(ctx: Ctx, orgId: string | undefined, argv: stri
   });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Ownership granted to ${res.body?.transferredTo ?? positionals[0]}${res.body?.steppedDown ? `; you stepped down (member ${res.body.steppedDown})` : ''}.`);
+  return 0;
+}
+
+// ── add an existing person / link a row (ADR 1123, routes/orgAddExisting.ts) ──
+async function memberAddExisting(ctx: Ctx, orgId: string | undefined, verb: string, argv: string[]) {
+  const { options, positionals } = parseOptions(argv, { bool: ['--help', '--for-link'], value: ['--candidate', '--email'], multi: ['--role'] });
+  const usage = verb === 'candidates'
+    ? 'Usage: openwop orgs members <orgId> candidates [--for-link] [--json]\n'
+    : verb === 'link'
+      ? 'Usage: openwop orgs members <orgId> link <memberId> (--candidate <id> | --email <e>) [--json]\n'
+      : 'Usage: openwop orgs members <orgId> add-existing (--candidate <id> | --email <e>) [--role <id>]... [--json]\n';
+  if (options.help) { write(ctx.io.stdout, usage); return 0; }
+  if (!orgId) { write(ctx.io.stderr, usage); return 2; }
+  const base = `/v1/host/openwop-app/orgs/${encodeURIComponent(orgId)}`;
+
+  if (verb === 'candidates') {
+    const res = await requestJson(ctx, `${base}/member-candidates${options.forLink ? '?for=link' : ''}`);
+    if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+    const rows = arrayOf(res.body, 'candidates');
+    if (rows.length === 0) { writeLine(ctx.io.stdout, `Nobody else can be added to org ${orgId}. Invite them: \`openwop orgs invites ${orgId} create --email <e>\`.`); return 0; }
+    writeLine(ctx.io.stdout, formatTable(rows.map((c: any) => ({ candidateId: c.candidateId, name: c.displayName ?? '', email: c.email ?? '' })), ['candidateId', 'name', 'email']));
+    return 0;
+  }
+
+  if (verb === 'link' && positionals.length !== 1) { write(ctx.io.stderr, usage); return 2; }
+  if ((options.candidate === undefined) === (options.email === undefined)) {
+    writeLine(ctx.io.stderr, 'Pass exactly one of --candidate <id> (from `candidates`) or --email <e> (host superadmins only).');
+    return 2;
+  }
+  let who: Record<string, string>;
+  if (options.email !== undefined) {
+    // The host answers a miss, a hidden account and an ambiguous address alike.
+    const found = await requestJson(ctx, `${base}/member-lookup`, { method: 'POST', body: { email: options.email } });
+    const token = found.body?.candidate?.lookupToken;
+    if (typeof token !== 'string') {
+      writeLine(ctx.io.stderr, `No account to add with that email. Send an invitation instead: \`openwop orgs invites ${orgId} create --email <e>\`.`);
+      return 1;
+    }
+    who = { lookupToken: token };
+  } else {
+    who = { candidateId: String(options.candidate) };
+  }
+
+  if (verb === 'link') {
+    const res = await requestJson(ctx, `${base}/members/${encodeURIComponent(positionals[0]!)}/link`, { method: 'POST', body: who });
+    if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+    writeLine(ctx.io.stdout, `Linked: member ${res.body?.memberId ?? positionals[0]} in org ${orgId} is tied to that account.`);
+    return 0;
+  }
+  const roles = Array.isArray(options.role) && options.role.length ? options.role : undefined;
+  const res = await requestJson(ctx, `${base}/members/add-existing`, { method: 'POST', body: { ...who, ...(roles ? { roles } : {}) } });
+  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
+  writeLine(ctx.io.stdout, `Added ${res.body?.displayName ?? 'them'} to org ${orgId} as member ${res.body?.memberId ?? '?'} (${(res.body?.roles ?? []).join(', ') || 'default role'}). They have access now and were notified.`);
   return 0;
 }
 
@@ -373,6 +448,9 @@ function entityBody(ctx: Ctx, entity: Entity, argv: string[], requireName: boole
       break;
     case 'members':
       setIf('subject', options.subject); setIf('displayName', options.displayName); setIf('email', options.email);
+      if (typeof options.subject === 'string' && options.subject.startsWith('user:')) {
+        writeLine(ctx.io.stderr, 'Warning: --subject user:… is deprecated for adding a person. Use `openwop orgs members <orgId> add-existing` (or `link` for an existing row). The host will refuse it later (openwop-app#5945).');
+      }
       if (Array.isArray(options.role) && options.role.length) body.roles = options.role;
       if (Array.isArray(options.team) && options.team.length) body.teamIds = options.team;
       break;
