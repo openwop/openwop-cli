@@ -6,6 +6,10 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-11-15 — add a person who already has an account
+
+> **Release order:** needs an openwop-app server with ADR 1123 (#5944, live on app.openwop.dev since 0322673e9). Against an older server the three new `orgs members` verbs answer 404.
+
 ### Added
 - **`openwop orgs members <orgId> candidates | add-existing | link`** (openwop-app ADR 1123). These add someone who already has an account to an org, bound to their sign-in at once, with no email invitation. They can also tie a member row that has no account to one.
   - `candidates` lists the people the host offers. `--for-link` keeps the org's own members, for `link`.
