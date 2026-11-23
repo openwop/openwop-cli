@@ -98,6 +98,83 @@ describe('kanban command', () => {
     assert.deepEqual(sent.columns, [{ id: 'todo', name: 'To Do' }, { id: 'done', name: 'Done' }]);
   });
 
+  it('board follows nextCursor, merges the pages, and prints the columns', async () => {
+    const cap = capture();
+    const seen = [];
+    const board = { id: 'b1', name: 'House', columns: [{ id: 'todo', name: 'To Do' }, { id: 'done', name: 'Done' }] };
+    const fetchImpl = async (url) => {
+      const u = new URL(url);
+      assert.match(u.pathname, /\/kanban\/boards\/b1$/);
+      seen.push([u.searchParams.get('limit'), u.searchParams.get('cursor')]);
+      return u.searchParams.get('cursor') === 'p2'
+        ? jsonResponse({ board, cards: [{ id: 'c3', columnId: 'done', title: 'Grout' }], workItems: [], total: 3 })
+        : jsonResponse({ board, cards: [{ id: 'c1', columnId: 'todo', title: 'Tile' }, { id: 'c2', columnId: 'todo', title: 'Hood' }], workItems: [], total: 3, nextCursor: 'p2' });
+    };
+    const code = await runCli(['kanban', 'board', 'b1'], opts(fetchImpl, cap));
+    assert.equal(code, 0, cap.stderr);
+    assert.deepEqual(seen, [['100', null], ['100', 'p2']]);
+    assert.match(cap.stdout, /board: b1 — House/);
+    assert.match(cap.stdout, /\[To Do\] \(2\)/);
+    assert.match(cap.stdout, /\[Done\] \(1\)\n  · c3  Grout/);
+  });
+
+  it('board --json emits the merged cards without a cursor', async () => {
+    const cap = capture();
+    const board = { id: 'b1', name: 'House', columns: [] };
+    const fetchImpl = async (url) => (new URL(url).searchParams.get('cursor') === 'p2'
+      ? jsonResponse({ board, cards: [{ id: 'c2' }], workItems: [], total: 2 })
+      : jsonResponse({ board, cards: [{ id: 'c1' }], workItems: [], total: 2, nextCursor: 'p2' }));
+    const code = await runCli(['kanban', 'board', 'b1', '--json'], opts(fetchImpl, cap));
+    assert.equal(code, 0, cap.stderr);
+    const out = JSON.parse(cap.stdout);
+    assert.deepEqual(out.cards.map((c) => c.id), ['c1', 'c2']);
+    assert.equal(out.total, 2);
+    assert.equal(out.nextCursor, undefined);
+  });
+
+  it('board reads a host that does not page in one request, old shape included', async () => {
+    const cap = capture();
+    let calls = 0;
+    // Count only the board reads: runCli also negotiates the protocol through this fetch.
+    const fetchImpl = async (url) => { if (/\/kanban\/boards\/b1$/.test(new URL(url).pathname)) calls += 1; return jsonResponse({ id: 'b1', name: 'Old', columns: [{ id: 'todo', name: 'To Do' }], cards: [{ id: 'c1', columnId: 'todo', title: 'Tile' }] }); };
+    const code = await runCli(['kanban', 'board', 'b1'], opts(fetchImpl, cap));
+    assert.equal(code, 0, cap.stderr);
+    assert.equal(calls, 1);
+    assert.match(cap.stdout, /\[To Do\] \(1\)\n  · c1  Tile/);
+  });
+
+  it('assigned follows nextCursor', async () => {
+    const cap = capture();
+    const fetchImpl = async (url) => {
+      const u = new URL(url);
+      assert.match(u.pathname, /\/kanban\/assigned$/);
+      return u.searchParams.get('cursor') === 'n'
+        ? jsonResponse({ cards: [{ id: 'c2', title: 'Hood', boardId: 'b1', columnId: 'todo' }] })
+        : jsonResponse({ cards: [{ id: 'c1', title: 'Tile', boardId: 'b1', columnId: 'todo' }], nextCursor: 'n' });
+    };
+    const code = await runCli(['kanban', 'assigned'], opts(fetchImpl, cap));
+    assert.equal(code, 0, cap.stderr);
+    assert.match(cap.stdout, /c1\s+Tile/);
+    assert.match(cap.stdout, /c2\s+Hood/);
+  });
+
+  it('a host that refuses an unpaged read gets a clear message and exit 1', async () => {
+    const cap = capture();
+    const fetchImpl = async () => jsonResponse({ error: 'validation_error', message: 'page required', details: { reason: 'kanban_board_page_required', total: 2500, cap: 2000 } }, 400);
+    const code = await runCli(['kanban', 'board', 'b1'], opts(fetchImpl, cap));
+    assert.equal(code, 1);
+    assert.match(cap.stderr, /refuses an unpaged read/);
+  });
+
+  it('a repeated cursor stops the read instead of looping', async () => {
+    const cap = capture();
+    let calls = 0;
+    const fetchImpl = async (url) => { if (/\/kanban\/boards\/b1$/.test(new URL(url).pathname)) calls += 1; return jsonResponse({ board: { id: 'b1', columns: [] }, cards: [], nextCursor: 'same' }); };
+    const code = await runCli(['kanban', 'board', 'b1'], opts(fetchImpl, cap));
+    assert.notEqual(code, 0);
+    assert.ok(calls <= 2, `calls: ${calls}`);
+  });
+
   it('card-move PATCHes the columnId', async () => {
     const cap = capture();
     let sent; let method;
