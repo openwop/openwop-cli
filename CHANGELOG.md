@@ -6,6 +6,14 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+> **Release order:** works against any openwop-app server. A server with ADR 1155's paged board read (0.19.1) is read a page at a time; an older one still answers in one read.
+
+### Changed
+- **`openwop kanban board` and `openwop kanban assigned` read a large board a page at a time** (openwop-app ADR 1155 D3). Each sends `limit=100` and follows `nextCursor` until the host stops sending one, then prints or emits (`--json`) the merged cards. A host that does not page ignores `limit` and returns everything in the first read. A host that refuses an unpaged read (`kanban_board_page_required`) gets a clear message and exit 1. A repeated cursor stops the read with an error instead of looping.
+
+### Fixed
+- **`openwop kanban board` printed no columns or cards.** It read the board's fields from the top of the response, but the host returns `{ board, cards, workItems }`. It now reads `board`, and still accepts the old top-level shape.
+
 ## [2.1.0] — 2026-11-15 — add a person who already has an account
 
 > **Release order:** needs an openwop-app server with ADR 1123 (#5944, live on app.openwop.dev since 0322673e9). Against an older server the three new `orgs members` verbs answer 404.

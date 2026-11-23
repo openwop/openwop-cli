@@ -1,6 +1,6 @@
 import type { Ctx } from '../context.js';
 /** `openwop kanban ...` — agent task boards (host-extension; composes RFC 0086 roster triggers). */
-import { CliError } from '../errors.js';
+import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
@@ -98,15 +98,61 @@ async function boardsList(ctx: Ctx, argv: string[]) {
   return 0;
 }
 
+// ADR 1155 D3 (openwop-app) — a large board is read a page at a time. A host that
+// pages answers `limit` with `total` and `nextCursor`; one that does not ignores
+// `limit` and returns every card, so the same loop ends after one read.
+const KANBAN_PAGE = 100;
+const PAGE_REQUIRED = 'kanban_board_page_required';
+
+/** True for the host's "this read needs `limit`" refusal (ADR 1155 OQ-2). */
+function isPageRequired(err: unknown): boolean {
+  if (!(err instanceof HttpError) || err.status !== 400) return false;
+  const body = (err.body ?? {}) as { error?: unknown; code?: unknown; details?: { reason?: unknown } };
+  return body.error === PAGE_REQUIRED || body.code === PAGE_REQUIRED || body.details?.reason === PAGE_REQUIRED;
+}
+
+/** Every page of a paged kanban read, merged. The first page's other fields (the
+ *  board, `total`) are kept; `nextCursor` is followed until the host stops sending it. */
+async function readAllPages(ctx: Ctx, path: string): Promise<Record<string, any>> {
+  const cards: any[] = [];
+  const workItems: any[] = [];
+  let first: Record<string, any> | null = null;
+  let cursor: string | undefined;
+  const seen = new Set<string>();
+  do {
+    const q = new URLSearchParams({ limit: String(KANBAN_PAGE), ...(cursor ? { cursor } : {}) });
+    const res = await requestJson(ctx, `${path}?${q}`);
+    const body = (res.body ?? {}) as Record<string, any>;
+    first ??= body;
+    if (Array.isArray(body.cards)) cards.push(...body.cards);
+    if (Array.isArray(body.workItems)) workItems.push(...body.workItems);
+    cursor = typeof body.nextCursor === 'string' && body.nextCursor.length > 0 ? body.nextCursor : undefined;
+    // A host that repeated a cursor would loop forever; stop instead.
+    if (cursor !== undefined && seen.has(cursor)) throw new Error(`the host repeated page cursor ${cursor}`);
+    if (cursor !== undefined) seen.add(cursor);
+  } while (cursor !== undefined);
+  const { nextCursor: _next, ...rest } = first ?? {};
+  return { ...rest, cards, ...(workItems.length > 0 || Array.isArray(first?.workItems) ? { workItems } : {}) };
+}
+
 async function boardGet(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) {
     write(ctx.io.stdout, 'Usage: openwop kanban board <boardId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/openwop-app/kanban/boards/${encodeURIComponent(positionals[0])}`);
-  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
-  const b = res.body ?? {};
+  let body: Record<string, any>;
+  try {
+    body = await readAllPages(ctx, `/v1/host/openwop-app/kanban/boards/${encodeURIComponent(positionals[0])}`);
+  } catch (err) {
+    if (!isPageRequired(err)) throw err;
+    writeLine(ctx.io.stderr, 'This host refuses an unpaged read of this board and did not page it. Upgrade the host or the CLI.');
+    return 1;
+  }
+  if (ctx.json) { writeJson(ctx.io.stdout, body); return 0; }
+  // The read is `{ board, cards, workItems }`; very old hosts put the board's fields
+  // at the top level.
+  const b = { ...(body.board ?? body), cards: body.cards };
   writeLine(ctx.io.stdout, `board: ${b.id ?? positionals[0]} — ${b.name ?? ''}`);
   if (b.rosterId) writeLine(ctx.io.stdout, `roster: ${b.rosterId}`);
   const columns = Array.isArray(b.columns) ? b.columns : [];
@@ -289,9 +335,16 @@ async function boardsPersonal(ctx: Ctx, argv: string[]) {
 async function assignedList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, KANBAN_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/kanban/assigned');
-  if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
-  const cards = Array.isArray(res.body?.cards) ? res.body.cards : [];
+  let body: Record<string, any>;
+  try {
+    body = await readAllPages(ctx, '/v1/host/openwop-app/kanban/assigned');
+  } catch (err) {
+    if (!isPageRequired(err)) throw err;
+    writeLine(ctx.io.stderr, 'This host refuses an unpaged read of your assigned cards and did not page it. Upgrade the host or the CLI.');
+    return 1;
+  }
+  if (ctx.json) { writeJson(ctx.io.stdout, body); return 0; }
+  const cards = Array.isArray(body.cards) ? body.cards : [];
   if (cards.length === 0) { writeLine(ctx.io.stdout, 'No cards assigned to you.'); return 0; }
   writeLine(ctx.io.stdout, formatTable(
     cards.map((c: any) => ({ cardId: c.id ?? c.cardId ?? '', title: c.title ?? '', board: c.boardId ?? '', column: c.columnId ?? '' })),
