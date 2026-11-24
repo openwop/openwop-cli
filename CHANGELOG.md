@@ -6,6 +6,8 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-11-24 — read large kanban boards a page at a time
+
 > **Release order:** works against any openwop-app server. A server with ADR 1155's paged board read (0.19.1) is read a page at a time; an older one still answers in one read.
 
 ### Changed
