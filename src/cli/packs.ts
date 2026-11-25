@@ -14,11 +14,11 @@ import { DEFAULT_REGISTRY_URL } from '../constants.js';
 import { normalizeBaseUrl, parseNodeVersion } from './shared.js';
 
 export const PACKS_HELP = `Usage:
-  openwop packs search [query] [--registry-url url] [--tree v1|v2] [--limit n] [--json]
-  openwop packs info <name> [--version v] [--registry-url url] [--tree v1|v2] [--json]
-  openwop packs install <name>[@version|@range] [--version v] [--dir path] [--no-verify] [--registry-url url] [--tree v1|v2] [--json]
-  openwop packs publish <dir> [--key ed25519.pem] [--key-id id] [--out dir] [--tree v1|v2] [--json]
-  openwop packs yank <name>[@version] [--version v] [--undo] [--tree v1|v2] [--json]
+  openwop packs search [query] [--registry-url url] [--limit n] [--json]
+  openwop packs info <name> [--version v] [--registry-url url] [--json]
+  openwop packs install <name>[@version|@range] [--version v] [--dir path] [--no-verify] [--registry-url url] [--json]
+  openwop packs publish <dir> [--key ed25519.pem] [--key-id id] [--out dir] [--json]
+  openwop packs yank <name>[@version] [--version v] [--undo] [--json]
 
 Operates the signed node-pack registry (default: https://packs.openwop.dev,
 override with --registry-url or OPENWOP_REGISTRY_URL). The registry is a
@@ -26,9 +26,9 @@ separate surface from the host --base-url.
 
 Every registry path is resolved through the registry's
 /.well-known/openwop-registry.json \`endpoints\` map (spec/v2/core/packs.md
-§"The registry tree"), preferring the v2 tree (\`endpoints.v2\`). The v1 tree
-is used only when the registry names no v2 tree (or publishes no discovery
-document), or when you pass --tree v1.
+§"The registry tree"), and only its v2 tree (\`endpoints.v2\`) is read
+(RFC 0266). A registry that publishes no discovery document, or whose document
+names no v2 tree, is refused (exit 1); there is no v1 or flat-path fallback.
 
   search    Reads the registry index (endpoints.registryIndex, /v2/index.json on
             packs.openwop.dev) and filters the catalog client-side.
@@ -48,12 +48,11 @@ document), or when you pass --tree v1.
   publish   The reference registry has NO write API (publish is PR-based). This
             packages + Ed25519-signs a local pack dir into a signed tarball +
             sidecars, ready to commit + open a PR against openwop-registry. The
-            default (v2) signing block is { keyId, scheme: "ed25519-canonical-json" };
-            --tree v1 writes the legacy v1 block. Private key: --key, else
+            signing block is the v2 { keyId, scheme: "ed25519-canonical-json" }.
+            Private key: --key, else
             ~/.openwop-keys/{keyId}.private.pem.
   yank      Edits a local registry checkout — flips "yanked": true in the version
-            manifest under registry/v2/ (--tree v1 for the frozen v1 tree;
-            --undo reverses). The published change lands via PR + a
+            manifest under registry/v2/ (--undo reverses). The published change lands via PR + a
             build-index.mjs rerun. Run from inside the repo.
 
 Exit codes: 0 ok · 1 verification / integrity / resolution failure · 2 usage.
@@ -86,42 +85,20 @@ function registryUrlFor(options: any, env: any) {
   return normalizeBaseUrl(options.registryUrl ?? env.OPENWOP_REGISTRY_URL ?? DEFAULT_REGISTRY_URL);
 }
 
-type RegistryTree = 'v1' | 'v2';
-
-/** A registry resolved through its discovery document: which tree, and that tree's path templates. */
+/** A registry resolved through its discovery document: the v2 tree's path templates. */
 export interface RegistryView {
   url: string;
-  tree: RegistryTree;
-  /** Path templates (`{name}`, `{version}`, `{keyId}`) for the chosen tree, plus the unversioned `publicKey`. */
+  /** Always 'v2' (RFC 0266); kept on the view for --json output and messages. */
+  tree: 'v2';
+  /** Path templates (`{name}`, `{version}`, `{keyId}`) for the v2 tree, plus the unversioned `publicKey`. */
   endpoints: Record<string, string>;
   /** `signingKeys[]` from the discovery document; null when the registry published none. */
   signingKeys: any[] | null;
-  /** How the tree was chosen, for --json output and error messages. */
-  source: 'endpoints.v2' | 'endpoints.v1' | 'legacy-v1';
 }
 
 const REQUIRED_ENDPOINTS = ['registryIndex', 'packMetadata', 'versionManifest', 'versionTarball', 'versionSignature'];
 
-/**
- * The v1 layout, used ONLY when a registry publishes no discovery document
- * (a pre-`endpoints` registry). A registry that publishes one is always read
- * through it (packs.md §"The registry tree": a client MUST resolve every
- * registry path through `endpoints` rather than construct one).
- */
-const LEGACY_V1_ENDPOINTS: Record<string, string> = {
-  registryIndex: '/v1/index.json',
-  packMetadata: '/v1/packs/{name}/index.json',
-  versionManifest: '/v1/packs/{name}/-/{version}.json',
-  versionTarball: '/v1/packs/{name}/-/{version}.tgz',
-  versionSignature: '/v1/packs/{name}/-/{version}.sig',
-  publicKey: '/keys/{keyId}.pub',
-};
-
-function treeOption(options: any): RegistryTree | undefined {
-  if (options.tree === undefined) return undefined;
-  if (options.tree !== 'v1' && options.tree !== 'v2') throw new CliError(`--tree must be v1 or v2 (got "${options.tree}").`);
-  return options.tree;
-}
+const TREE_RULE = 'the CLI reads only the registry\'s v2 tree (RFC 0266; spec/v2/core/packs.md §"The registry tree")';
 
 function stringTemplates(value: any): Record<string, string> {
   const out: Record<string, string> = {};
@@ -131,14 +108,13 @@ function stringTemplates(value: any): Record<string, string> {
 }
 
 /**
- * Read `/.well-known/openwop-registry.json` and pick a tree: `endpoints.v2`
- * when the registry names one (or `--tree v2`), else the v1 templates
- * (`endpoints.v1`, or the flat v1-era aliases). `publicKey` is unversioned
- * (keys are not protocol-versioned) and is read from the flat map.
+ * Read `/.well-known/openwop-registry.json` and resolve its v2 tree
+ * (`endpoints.v2`). Per RFC 0266 there is no v1 or flat-path fallback: a
+ * registry without a discovery document or without `endpoints.v2` is refused.
+ * Only `publicKey` comes from the flat map — keys are not protocol-versioned.
  */
 export async function resolveRegistry(ctx: Ctx, options: any): Promise<RegistryView> {
   const url = registryUrlFor(options, ctx.env);
-  const forced = treeOption(options);
   let doc: any = null;
   try {
     doc = await registryJson(ctx, url, '/.well-known/openwop-registry.json');
@@ -147,27 +123,21 @@ export async function resolveRegistry(ctx: Ctx, options: any): Promise<RegistryV
   }
   const endpoints = doc && typeof doc.endpoints === 'object' ? doc.endpoints : null;
   if (!endpoints) {
-    if (forced === 'v2') throw new CliError(`${url} publishes no /.well-known/openwop-registry.json endpoints map, so no v2 tree can be resolved.`, 1);
-    return { url, tree: 'v1', endpoints: { ...LEGACY_V1_ENDPOINTS }, signingKeys: null, source: 'legacy-v1' };
+    throw new CliError(`${url} publishes no /.well-known/openwop-registry.json endpoints map, so no v2 tree can be resolved; ${TREE_RULE}.`, 1);
   }
-  const flat = stringTemplates(endpoints);
-  const publicKey = flat.publicKey ?? LEGACY_V1_ENDPOINTS.publicKey;
   const v2 = stringTemplates(endpoints.v2);
-  const hasV2 = REQUIRED_ENDPOINTS.every((k) => typeof v2[k] === 'string');
-  let tree: RegistryTree;
-  let map: Record<string, string>;
-  let source: RegistryView['source'];
-  if (forced === 'v2' || (forced === undefined && hasV2)) {
-    if (!hasV2) throw new CliError(`${url} names no v2 tree in its discovery document (endpoints.v2); retry with --tree v1.`, 1);
-    tree = 'v2'; map = v2; source = 'endpoints.v2';
-  } else {
-    const v1 = stringTemplates(endpoints.v1);
-    tree = 'v1'; map = { ...flat, ...v1 }; source = 'endpoints.v1';
+  if (Object.keys(v2).length === 0) {
+    throw new CliError(`${url} names no v2 tree in its discovery document (endpoints.v2); ${TREE_RULE}.`, 1);
   }
   for (const k of REQUIRED_ENDPOINTS) {
-    if (typeof map[k] !== 'string') throw new CliError(`${url}'s discovery document names no ${tree} "${k}" endpoint.`, 1);
+    if (typeof v2[k] !== 'string') throw new CliError(`${url}'s discovery document names no v2 "${k}" endpoint (endpoints.v2.${k}); ${TREE_RULE}.`, 1);
   }
-  return { url, tree, endpoints: { ...map, publicKey }, signingKeys: Array.isArray(doc.signingKeys) ? doc.signingKeys : null, source };
+  const publicKey = stringTemplates(endpoints).publicKey;
+  return {
+    url, tree: 'v2',
+    endpoints: { ...v2, ...(publicKey ? { publicKey } : {}) },
+    signingKeys: Array.isArray(doc.signingKeys) ? doc.signingKeys : null,
+  };
 }
 
 /** Fill a discovery template; every parameter is one encoded path segment. */
@@ -202,7 +172,7 @@ async function registryBytes(ctx: Ctx, registryUrl: any, path: any) {
 async function runPacksSearch(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, {
     bool: ['--help'],
-    value: ['--registry-url', '--limit', '--tree'],
+    value: ['--registry-url', '--limit'],
   });
   if (options.help) {
     write(ctx.io.stdout, PACKS_HELP);
@@ -210,10 +180,9 @@ async function runPacksSearch(ctx: Ctx, argv: string[]) {
   }
   const query = String(positionals[0] ?? '').toLowerCase();
   const registry = await resolveRegistry(ctx, options);
-  // The canonical file-backed registry serves the full catalog at its
-  // registryIndex; we filter client-side. (The dynamic demo backend's
-  // /v1/packs/-/search only knows in-process nodes — not the published
-  // catalog — so the index is the authoritative search source.)
+  // The canonical file-backed registry serves the full catalog at its v2
+  // registryIndex; we filter client-side, so the index is the authoritative
+  // search source.
   const index = await registryJson(ctx, registry.url, registryPath(registry, 'registryIndex'));
   const packs = Array.isArray(index?.packs) ? index.packs : [];
   const matched = packs.filter((p: any) => {
@@ -248,7 +217,7 @@ async function runPacksSearch(ctx: Ctx, argv: string[]) {
 async function runPacksInfo(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, {
     bool: ['--help'],
-    value: ['--registry-url', '--version', '--tree'],
+    value: ['--registry-url', '--version'],
   });
   if (options.help) {
     write(ctx.io.stdout, PACKS_HELP);
@@ -315,7 +284,7 @@ function versionFlags(v: any): string {
 async function runPacksInstall(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, {
     bool: ['--help', '--no-verify'],
-    value: ['--registry-url', '--version', '--dir', '--tree'],
+    value: ['--registry-url', '--version', '--dir'],
   });
   if (options.help) {
     write(ctx.io.stdout, PACKS_HELP);
@@ -368,9 +337,7 @@ async function runPacksInstall(ctx: Ctx, argv: string[]) {
 
   let verifyResult = 'skipped';
   if (!options.noVerify) {
-    verifyResult = registry.tree === 'v2'
-      ? await verifyV2(ctx, registry, name, version, manifest, tgz)
-      : await verifyV1(ctx, registry, name, version, manifest, tgz);
+    verifyResult = await verifyV2(ctx, registry, name, version, manifest, tgz);
   }
 
   // Place under a local pack cache: <dir>/<name>/<version>/. Default dir is
@@ -399,25 +366,6 @@ async function runPacksInstall(ctx: Ctx, argv: string[]) {
   writeLine(ctx.io.stdout, `  integrity: ${integrity}`);
   writeLine(ctx.io.stdout, `  tarball:   ${tgzPath}`);
   return 0;
-}
-
-/**
- * v1 verification (unchanged from the v1 tree's conventions, mirroring
- * verify-signatures.mjs): method 'ed25519' signs the whole tarball; method
- * 'manual' signs the pack.json bytes inside the tarball.
- */
-async function verifyV1(ctx: Ctx, registry: RegistryView, name: string, version: string, manifest: any, tgz: Buffer) {
-  const keyId = manifest?.signing?.keyId ?? manifest?.signing?.publicKeyRef;
-  if (!keyId) throw new CliError(`${name}@${version} manifest has no signing key reference; re-run with --no-verify to bypass.`, 1);
-  const sig = await registryBytes(ctx, registry.url, registryPath(registry, 'versionSignature', { name, version }));
-  if (sig.length !== 64) throw new CliError(`Signature for ${name}@${version} is ${sig.length} bytes; expected 64 for Ed25519.`, 1);
-  const pubPem = (await registryBytes(ctx, registry.url, registryPath(registry, 'publicKey', { keyId }))).toString('utf8');
-  const method = manifest?.signing?.method ?? 'ed25519';
-  const signedBytes = method === 'manual' ? extractPackJsonBytes(tgz) : tgz;
-  if (!ed25519Verify(null, signedBytes, createPublicKey(pubPem), sig)) {
-    throw new CliError(`Signature verification FAILED for ${name}@${version} (keyId=${keyId}, method=${method}).`, 1);
-  }
-  return `verified (keyId=${keyId}, method=${method})`;
 }
 
 const V2_SCHEME = 'ed25519-canonical-json';
@@ -591,7 +539,7 @@ export function resolveVersion(name: string, pack: any, range: string | undefine
 async function runPacksPublish(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, {
     bool: ['--help'],
-    value: ['--key', '--key-id', '--out', '--tree'],
+    value: ['--key', '--key-id', '--out'],
   });
   if (options.help) {
     write(ctx.io.stdout, PACKS_HELP);
@@ -616,17 +564,11 @@ async function runPacksPublish(ctx: Ctx, argv: string[]) {
   if (!name || !version) throw new CliError('pack.json must declare both "name" and "version".');
 
   const keyId = options.keyId ?? 'openwop-team-1';
-  const tree = treeOption(options) ?? 'v2';
+  const tree = 'v2';
   // Augment the manifest with the signing block, then sign the CANONICAL
   // (RFC 8785) JSON — exactly the in-tarball pack.json bytes a verifier
-  // checks. v2 (packs.md §Signing): the closed { keyId, scheme } block. The
-  // frozen v1 tree keeps its { method: 'manual', publicKeyRef, signatureRef }.
-  const signedManifest = {
-    ...manifest,
-    signing: tree === 'v2'
-      ? { keyId, scheme: V2_SCHEME }
-      : { method: 'manual', publicKeyRef: keyId, signatureRef: 'keys/pack.json.sig' },
-  };
+  // checks. v2 (packs.md §Signing): the closed { keyId, scheme } block.
+  const signedManifest = { ...manifest, signing: { keyId, scheme: V2_SCHEME } };
   const canonical = canonicalJsonStringify(signedManifest);
 
   // Load (or, for dev, generate) the Ed25519 private key.
@@ -697,7 +639,7 @@ async function runPacksPublish(ctx: Ctx, argv: string[]) {
 async function runPacksYank(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, {
     bool: ['--help', '--undo'],
-    value: ['--version', '--tree'],
+    value: ['--version'],
   });
   if (options.help) {
     write(ctx.io.stdout, PACKS_HELP);
@@ -719,8 +661,8 @@ async function runPacksYank(ctx: Ctx, argv: string[]) {
     throw new CliError('packs yank requires <name>@<version> (or <name> --version v).');
   }
   const root = requireRepoRoot(ctx);
-  // New lifecycle changes land on the v2 tree (the v1 tree is frozen); --tree v1 for maintenance.
-  const tree = treeOption(options) ?? 'v2';
+  // Lifecycle changes land on the v2 tree only (RFC 0266).
+  const tree = 'v2';
   const manifestPath = join(root, 'registry', tree, 'packs', name, '-', `${version}.json`);
   if (!existsSync(manifestPath)) {
     throw new CliError(`Version manifest not found: ${manifestPath}\n(packs yank edits a local registry checkout; the published change lands via PR.)`);

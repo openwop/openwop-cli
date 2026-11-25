@@ -150,22 +150,32 @@ describe('packs — registry paths come from .well-known endpoints (v2 preferred
     assert.ok(reg.seen.includes(`/t2/p/${NAME}/index.json`));
   });
 
-  it('falls back to the v1 templates only when the registry names no v2 tree', async () => {
+  it('refuses a registry whose discovery document names no v2 tree (RFC 0266: no v1 or flat fallback)', async () => {
     const reg = v2Registry({ withV2: false });
-    const cap = capture();
-    const code = await runCli(['--json', 'packs', 'search', '--registry-url', 'http://registry.local'], {
-      io: cap.io, fetchImpl: reg.fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: {},
-    });
-    assert.equal(code, 0);
-    assert.equal(JSON.parse(cap.stdout).tree, 'v1');
-    assert.ok(reg.seen.includes('/old/index.json'));
-  });
-
-  it('--tree v2 against a registry with no v2 tree fails closed (exit 1)', async () => {
-    const reg = v2Registry({ withV2: false });
-    const r = await packs(['search', '--tree', 'v2'], reg);
+    const r = await packs(['search'], reg);
     assert.equal(r.code, 1);
     assert.match(r.stderr, /names no v2 tree/);
+    assert.match(r.stderr, /RFC 0266/);
+    assert.ok(!reg.seen.includes('/old/index.json'), 'the flat v1-era templates are never read');
+  });
+
+  it('refuses a registry that publishes no discovery document (no legacy /v1 layout)', async () => {
+    const seen = [];
+    const fetchImpl = async (url) => { seen.push(new URL(String(url)).pathname); return new Response(JSON.stringify({ error: 'not_found' }), { status: 404 }); };
+    const r = await packs(['info', NAME], { fetchImpl });
+    assert.equal(r.code, 1);
+    assert.match(r.stderr, /publishes no \/\.well-known\/openwop-registry\.json/);
+    assert.match(r.stderr, /The registry tree/);
+    assert.deepEqual(seen, ['/.well-known/openwop-registry.json']);
+  });
+
+  it('--tree is no longer an option (exit 2)', async () => {
+    const reg = v2Registry();
+    for (const sub of ['search', 'info', 'install', 'publish', 'yank']) {
+      const r = await packs([sub, NAME, '--tree', 'v2'], reg);
+      assert.equal(r.code, 2, sub);
+      assert.match(r.stderr, /Unknown option: --tree/, sub);
+    }
   });
 });
 
