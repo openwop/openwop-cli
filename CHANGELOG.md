@@ -6,7 +6,9 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
-> **Release order:** needs a host that serves OpenWOP protocol major 2 (app.openwop.dev has served only major 2 since 2026-10-03). Against a host that serves only major 1, every command now stops with a message instead of sending `/v1/…`. **This is a breaking change: release it as 3.0.0.**
+## [3.0.0] — 2026-11-25 — v2 only
+
+> **Release order:** needs a host that serves OpenWOP protocol major 2 (app.openwop.dev has served only major 2 since 2026-10-03), and a pack registry that publishes a v2 tree (`endpoints.v2`). Against a host that serves only major 1, every command now stops with a message instead of sending `/v1/…`. **This is a breaking change.**
 
 ### Breaking
 - **Protocol major 1 support is removed** (RFC 0234: major 1 reached end of support on 2026-10-04, and a conformant host answers every `/v1/*` path with `410`). The CLI speaks major 2 only.
@@ -16,7 +18,8 @@ versioned on its own SemVer line.
   - `--last-event-id` must be an integer sequence. The v1 opaque id is no longer sent verbatim.
   - `catalog packs search|get|export` read only `/host/openwop-app/packs…`. The `/v1/packs` fallback on a 404 is gone.
   - Host-extension surfaces (`approvals`, `connections`, `workforces`) are found through the host's advertised `extensions.*.root` only. A v1 discovery `paths` map no longer counts, and `a2a status` / `proposals` / `goals` read capability records from the v2 discovery document only.
-  - To drive a host that still serves only major 1, stay on `@openwop/cli` 2.x (2.2.0).
+  - **`openwop packs` reads only the registry's v2 tree, and `--tree` is removed** from `search`, `info`, `install`, `publish` and `yank` (RFC 0266, matching openwop-app's installer). A registry that publishes no `/.well-known/openwop-registry.json`, or whose document names no `endpoints.v2`, is refused with exit 1 naming RFC 0266 and packs.md §"The registry tree". The legacy `/v1/…` layout, `endpoints.v1` and the flat v1-era templates are no longer read (only the unversioned `publicKey` template still comes from the flat map). `install` no longer verifies v1 signing blocks (`method: "ed25519"` / `"manual"`); `publish` writes only the v2 `{ keyId, scheme }` block; `yank` edits only `registry/v2/`. Passing `--tree` is now `Unknown option` (exit 2).
+  - To drive a host that still serves only major 1, or a registry with no v2 tree, stay on `@openwop/cli` 2.x (2.2.0).
 
 ### Changed
 - **Every command now writes the path it sends.** About 800 `/v1/…` literals in 165 source files were respelled as their v2 paths: the unversioned operation (`/runs`, `/agents/{agentId}`, `/prompts:render`) or the host-extension root (`/host/openwop-app/…`). The request-time rewrite (manifest twin, `/v1/host/<org>/` → advertised root, seams twin) is gone. `src/protocol.ts` now only adds `OpenWOP-Version: 2.0` (not on a `/host/<org>/…` route the path manifest does not name) and projects tenant-bound run ids. Help text names the v2 paths.

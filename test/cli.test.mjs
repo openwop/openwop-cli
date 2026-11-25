@@ -1054,11 +1054,12 @@ describe('chat — REPL loop', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// packs subcommand (gap 6 / item C-5). Mocks the read-only signed registry —
-// /v1/index.json, /v1/packs/{name}/index.json, the version manifest, the
-// signed .tgz + detached .sig, and the publisher /keys/{keyId}.pub. The
-// install happy-path exercises real Ed25519 verification against a tarball
-// signed in-test (method 'manual' = signature over the pack.json bytes).
+// packs subcommand (gap 6 / item C-5). Mocks the read-only signed registry's
+// v2 tree (RFC 0266): the discovery document, /v2/index.json,
+// /v2/packs/{name}/index.json, the version manifest, the signed .tgz +
+// detached .sig, and the publisher /keys/{keyId}.pub. The install happy-path
+// exercises real Ed25519 verification against a tarball signed in-test
+// (ed25519-canonical-json = signature over the canonical pack.json bytes).
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Minimal RFC 8785-style canonical JSON (matches build-pack-tarball.mjs).
@@ -1103,12 +1104,12 @@ function buildSignedPackFixture(name = 'community.test.demo', version = '0.2.0',
     license: 'MIT',
     author: 'Test',
     nodes: [{ typeId: `${name}.echo`, version }],
-    signing: { method: 'manual', publicKeyRef: keyId, signatureRef: 'keys/pack.json.sig' },
+    signing: { keyId, scheme: 'ed25519-canonical-json' },
     publishedAt: '2026-05-26T00:00:00Z',
     deprecated: false,
     yanked: false,
   };
-  // method 'manual' signs the canonical pack.json bytes embedded in the tarball.
+  // ed25519-canonical-json signs the canonical pack.json bytes embedded in the tarball.
   const canonicalBytes = Buffer.from(canonical(baseManifest), 'utf8');
   const sig = ed25519Sign(null, canonicalBytes, privateKey);
   const entries = [
@@ -1117,7 +1118,7 @@ function buildSignedPackFixture(name = 'community.test.demo', version = '0.2.0',
   ].sort((a, b) => (a.name < b.name ? -1 : 1));
   const tgz = tarGz(entries);
   const integrity = 'sha256-' + createHash('sha256').update(tgz).digest('base64');
-  const manifest = { ...baseManifest, signing: { ...baseManifest.signing, keyId }, integrity };
+  const manifest = { ...baseManifest, integrity };
   return {
     tgz, sig,
     pubPem: publicKey.export({ type: 'spki', format: 'pem' }),
@@ -1141,11 +1142,26 @@ function registryFetch(fx) {
     const u = new URL(url);
     const p = u.pathname;
     const enc = encodeURIComponent(fx.name);
-    if (p === '/v1/index.json') return new Response(JSON.stringify(fx.index), { status: 200 });
-    if (p === `/v1/packs/${enc}/index.json`) return new Response(JSON.stringify(fx.packIndex), { status: 200 });
-    if (p === `/v1/packs/${enc}/-/${fx.version}.json`) return new Response(JSON.stringify(fx.manifest), { status: 200 });
-    if (p === `/v1/packs/${enc}/-/${fx.version}.tgz`) return new Response(fx.tgz, { status: 200 });
-    if (p === `/v1/packs/${enc}/-/${fx.version}.sig`) return new Response(fx.sig, { status: 200 });
+    if (p === '/.well-known/openwop-registry.json') {
+      return new Response(JSON.stringify({
+        endpoints: {
+          publicKey: '/keys/{keyId}.pub',
+          v2: {
+            registryIndex: '/v2/index.json',
+            packMetadata: '/v2/packs/{name}/index.json',
+            versionManifest: '/v2/packs/{name}/-/{version}.json',
+            versionTarball: '/v2/packs/{name}/-/{version}.tgz',
+            versionSignature: '/v2/packs/{name}/-/{version}.sig',
+          },
+        },
+        signingKeys: [{ keyId: fx.keyId, algorithm: 'ed25519', permittedNamespaces: ['community.test.*'], status: 'active' }],
+      }), { status: 200 });
+    }
+    if (p === '/v2/index.json') return new Response(JSON.stringify(fx.index), { status: 200 });
+    if (p === `/v2/packs/${enc}/index.json`) return new Response(JSON.stringify(fx.packIndex), { status: 200 });
+    if (p === `/v2/packs/${enc}/-/${fx.version}.json`) return new Response(JSON.stringify(fx.manifest), { status: 200 });
+    if (p === `/v2/packs/${enc}/-/${fx.version}.tgz`) return new Response(fx.tgz, { status: 200 });
+    if (p === `/v2/packs/${enc}/-/${fx.version}.sig`) return new Response(fx.sig, { status: 200 });
     if (p === `/keys/${fx.keyId}.pub`) return new Response(fx.pubPem, { status: 200 });
     return new Response(JSON.stringify({ message: 'not_found' }), { status: 404 });
   };
@@ -1365,17 +1381,13 @@ describe('packs yank', () => {
     assert.match(cap.stdout, /build-index\.mjs --tree v2/);
   });
 
-  it('edits the frozen v1 tree only with --tree v1', async () => {
-    const manifestDir = join(tmp, 'registry', 'v1', 'packs', 'community.test.demo', '-');
-    mkdirSync(manifestDir, { recursive: true });
-    const mfPath = join(manifestDir, '0.2.0.json');
-    writeFileSync(mfPath, JSON.stringify({ name: 'community.test.demo', version: '0.2.0', yanked: false }, null, 2));
+  it('refuses --tree (removed in 3.0.0; the v2 tree is the only tree)', async () => {
     const cap = capture();
     const code = await runCli(['packs', 'yank', 'community.test.demo@0.2.0', '--tree', 'v1'], {
       io: cap.io, fetchImpl: async () => { throw new Error('no fetch'); }, cwd: process.cwd(), repoRoot: tmp, env: {},
     });
-    assert.equal(code, 0);
-    assert.equal(JSON.parse(readFileSync(mfPath, 'utf8')).yanked, true);
+    assert.equal(code, 2);
+    assert.match(cap.stderr, /Unknown option: --tree/);
   });
 
   it('errors when the version manifest is not in the local checkout', async () => {
