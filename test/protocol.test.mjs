@@ -1,12 +1,10 @@
 // Run via `npm test` (builds dist/ first) — imports the esbuild bundle at ../dist/cli.js.
 //
-// Protocol-major negotiation (src/protocol.ts; spec/v2/core/versioning.md §1.2–§1.5):
-// the CLI reads `/.well-known/openwop` once, selects the highest major it
-// implements that the host advertises, and under major 2 rewrites manifest-named
-// `/v1/<op>` requests to the unversioned twin + `OpenWOP-Version: 2.0`, leaving
-// host-proprietary `/v1/host/<org>/*` routes as written unless the host
-// advertises an unversioned `/host/<org>/` root for them (versioning.md §5),
-// in which case they go to that root with no version header.
+// The v2-only wire (src/protocol.ts; spec/v2/core/versioning.md §1.2–§1.5, §5):
+// the CLI reads `/.well-known/openwop` once, refuses a host that serves only
+// major 1 (end of support 2026-10-04, RFC 0234), sends every path as written,
+// adds `OpenWOP-Version: 2.0` to protocol paths, and leaves host-proprietary
+// `/host/<org>/*` routes header-less.
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
@@ -40,10 +38,10 @@ function host(protocolVersions, preferredVersion, { extensions, strict = false }
       return new Response(JSON.stringify({ protocolVersions, preferredVersion, ...(extensions ? { extensions } : {}) }), { status: 200, headers: { 'content-type': 'application/json' } });
     }
     if (u.pathname === '/health') return new Response('{}', { status: 200 });
-    if (u.pathname === '/v1/host/openwop-app/daemon-status' || u.pathname === '/host/openwop-app/daemon-status') {
+    if (u.pathname === '/host/openwop-app/daemon-status') {
       return new Response(JSON.stringify({ pid: 1, uptimeSeconds: 2, startTime: 't' }), { status: 200 });
     }
-    if (/^(\/v1)?\/runs\/r-1\/annotations$/.test(u.pathname) && init?.method === 'POST') {
+    if (u.pathname === '/runs/r-1/annotations' && init?.method === 'POST') {
       return new Response(JSON.stringify({ annotationId: 'a2', signal: JSON.parse(init.body).signal }), { status: 201 });
     }
     throw new Error(`unexpected fetch: ${u.pathname}`);
@@ -57,9 +55,11 @@ function opts(h, cap, env = {}) {
 
 const annotate = ['runs', 'annotate', 'r-1', '--rating', '5', '--note', 'nice', '--base-url', 'http://h'];
 
-describe('protocol negotiation', () => {
-  it('a dual-stack host: manifest-named /v1/<op> goes unversioned with OpenWOP-Version: 2.0', async () => {
-    const h = host(['1.9', '2.0'], '1.9');
+const V1_EOS = /major 1 reached end of support on 2026-10-04 \(RFC 0234\)/;
+
+describe('protocol negotiation (v2 only)', () => {
+  it('a v2 host: the unversioned path is sent as written with OpenWOP-Version: 2.0, after ONE discovery read', async () => {
+    const h = host(['2.0'], '2.0');
     const cap = capture();
     assert.equal(await runCli(annotate, opts(h, cap)), 0, cap.stderr);
     const discovery = h.seen.filter((r) => r.path === '/.well-known/openwop');
@@ -68,26 +68,53 @@ describe('protocol negotiation', () => {
     const post = h.seen.find((r) => r.method === 'POST');
     assert.equal(post.path, '/runs/r-1/annotations');
     assert.equal(post.version, '2.0');
+    assert.ok(!h.seen.some((r) => r.path.startsWith('/v1/')), 'nothing is ever sent to /v1');
   });
 
-  it('a v1-only host: the /v1 literal is sent as written, no version header', async () => {
-    const h = host(['1.9'], '1.9');
-    const cap = capture();
-    assert.equal(await runCli(annotate, opts(h, cap)), 0, cap.stderr);
-    const post = h.seen.find((r) => r.method === 'POST');
-    assert.equal(post.path, '/v1/runs/r-1/annotations');
-    assert.equal(post.version, null);
-  });
-
-  it('OPENWOP_PROTOCOL_MAJOR=1 pins major 1 without probing discovery', async () => {
+  it('a host that also lists a 1.x version is still spoken to on major 2', async () => {
     const h = host(['1.9', '2.0'], '1.9');
     const cap = capture();
-    assert.equal(await runCli(annotate, opts(h, cap, { OPENWOP_PROTOCOL_MAJOR: '1' })), 0, cap.stderr);
-    assert.equal(h.seen.filter((r) => r.path === '/.well-known/openwop').length, 0);
-    assert.equal(h.seen.find((r) => r.method === 'POST').path, '/v1/runs/r-1/annotations');
+    assert.equal(await runCli(annotate, opts(h, cap)), 0, cap.stderr);
+    assert.equal(h.seen.find((r) => r.method === 'POST').version, '2.0');
   });
 
-  it('an unreachable host stays on the v1 default and the command reports its own failure', async () => {
+  it('a v1-only host is refused with a message naming major 1 end of support, and nothing is sent', async () => {
+    const h = host(['1.9'], '1.9');
+    const cap = capture();
+    assert.equal(await runCli(annotate, opts(h, cap)), 1);
+    assert.match(cap.stderr, /does not serve OpenWOP protocol major 2 \(it advertises 1\.9\)/);
+    assert.match(cap.stderr, V1_EOS);
+    assert.equal(h.seen.filter((r) => r.method === 'POST').length, 0);
+  });
+
+  it('a strict v1-only host answers the v2 discovery ask with 406: its details.protocolVersions is read and the host is refused', async () => {
+    const h = host(['1.9'], '1.9', { strict: true });
+    const cap = capture();
+    assert.equal(await runCli(annotate, opts(h, cap)), 1);
+    assert.match(cap.stderr, /it advertises 1\.9/);
+    assert.match(cap.stderr, V1_EOS);
+    assert.equal(h.seen.filter((r) => r.method === 'POST').length, 0);
+  });
+
+  it('OPENWOP_PROTOCOL_MAJOR=1 is refused (exit 2) with a message naming major 1 end of support', async () => {
+    const h = host(['1.9', '2.0'], '1.9');
+    const cap = capture();
+    assert.equal(await runCli(annotate, opts(h, cap, { OPENWOP_PROTOCOL_MAJOR: '1' })), 2);
+    assert.match(cap.stderr, /OPENWOP_PROTOCOL_MAJOR=1 is not supported/);
+    assert.match(cap.stderr, V1_EOS);
+    assert.equal(h.seen.length, 0, 'nothing is sent');
+  });
+
+  it('OPENWOP_PROTOCOL_MAJOR=2 skips the discovery read', async () => {
+    const h = host(['2.0'], '2.0');
+    const cap = capture();
+    assert.equal(await runCli(annotate, opts(h, cap, { OPENWOP_PROTOCOL_MAJOR: '2' })), 0, cap.stderr);
+    assert.equal(h.seen.filter((r) => r.path === '/.well-known/openwop').length, 0);
+    const post = h.seen.find((r) => r.method === 'POST');
+    assert.deepEqual([post.path, post.version], ['/runs/r-1/annotations', '2.0']);
+  });
+
+  it('an unreachable host is not refused: the command reports its own failure', async () => {
     const cap = capture();
     const fetchImpl = async () => { throw new Error('connect refused'); };
     const code = await runCli(annotate, { io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k' } });
@@ -95,117 +122,49 @@ describe('protocol negotiation', () => {
     assert.match(cap.stderr, /connect refused/);
   });
 
-  it('doctor: proprietary /v1/host/openwop-app/* stays /v1 under major 2, and the protocol row names the selected major', async () => {
-    const h = host(['1.9', '2.0'], '1.9');
-    const cap = capture();
-    await runCli(['doctor', '--json', '--base-url', 'http://h'], { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: {} });
-    const daemon = h.seen.filter((r) => r.path.endsWith('/host/openwop-app/daemon-status'));
-    assert.equal(daemon.length, 1);
-    assert.equal(daemon[0].path, '/v1/host/openwop-app/daemon-status', 'a path the manifest does not name is never rewritten');
-    assert.equal(daemon[0].version, null);
-    const row = JSON.parse(cap.stdout).checks.find((c) => c.name === 'protocol');
-    assert.equal(row.status, 'ok');
-    assert.match(row.message, /protocolVersions 1\.9, 2\.0; preferredVersion 1\.9; CLI speaks major 2/);
-  });
-
-  it('doctor: a v2-only host passes the protocol row (the CLI speaks major 2)', async () => {
+  it('doctor: proprietary /host/openwop-app/* carries no version header, and the protocol row names major 2', async () => {
     const h = host(['2.0'], '2.0');
     const cap = capture();
     await runCli(['doctor', '--json', '--base-url', 'http://h'], { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: {} });
+    const daemon = h.seen.filter((r) => r.path.endsWith('/daemon-status'));
+    assert.equal(daemon.length, 1);
+    assert.equal(daemon[0].path, '/host/openwop-app/daemon-status');
+    assert.equal(daemon[0].version, null, 'a /host/<org>/ path has no major (§5) — no OpenWOP-Version');
     const row = JSON.parse(cap.stdout).checks.find((c) => c.name === 'protocol');
     assert.equal(row.status, 'ok');
-    assert.match(row.message, /CLI speaks major 2/);
+    assert.match(row.message, /protocolVersions 2\.0; preferredVersion 2\.0; CLI speaks major 2/);
   });
 
-  it('doctor: a host advertising neither major fails the protocol row', async () => {
+  it('doctor: a v1-only host fails the protocol row with the end-of-support message', async () => {
+    const h = host(['1.9'], '1.9');
+    const cap = capture();
+    await runCli(['doctor', '--json', '--base-url', 'http://h'], { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: {} });
+    const row = JSON.parse(cap.stdout).checks.find((c) => c.name === 'protocol');
+    assert.equal(row.status, 'fail');
+    assert.match(row.message, V1_EOS);
+  });
+
+  it('doctor: a host advertising only an unknown major fails the protocol row', async () => {
     const h = host(['3.0'], '3.0');
     const cap = capture();
     await runCli(['doctor', '--json', '--base-url', 'http://h'], { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: {} });
     const row = JSON.parse(cap.stdout).checks.find((c) => c.name === 'protocol');
     assert.equal(row.status, 'fail');
-    assert.match(row.message, /neither major/);
-  });
-
-  const ADVERTISED = {
-    'openwop-app.host': { root: '/host/openwop-app/', twin: '/v1/host/openwop-app/', rfc: '0181' },
-    'openwop-app.notes': 'not an object — ignored',
-  };
-  const doctor = ['doctor', '--json', '--base-url', 'http://h'];
-  const daemonRequests = (h) => h.seen.filter((r) => r.path.endsWith('/daemon-status'));
-
-  it('major 2 + an advertised root: /v1/host/<org>/* goes to /host/<org>/* with no version header', async () => {
-    const h = host(['1.9', '2.0'], '1.9', { extensions: ADVERTISED });
-    const cap = capture();
-    await runCli(doctor, { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: {} });
-    const daemon = daemonRequests(h);
-    assert.equal(daemon.length, 1);
-    assert.equal(daemon[0].path, '/host/openwop-app/daemon-status');
-    assert.equal(daemon[0].version, null, 'a /host/<org>/ path has no major (§5) — no OpenWOP-Version');
-  });
-
-  it('major 2 + a root advertised without a twin: the twin is derived by prefixing /v1', async () => {
-    const h = host(['2.0'], '2.0', { extensions: { 'openwop-app.host': { root: '/host/openwop-app' } } });
-    const cap = capture();
-    await runCli(doctor, { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: {} });
-    assert.equal(daemonRequests(h)[0].path, '/host/openwop-app/daemon-status');
-  });
-
-  it('major 2 + a root for a DIFFERENT org: /v1/host/openwop-app/* is sent unchanged', async () => {
-    const h = host(['2.0'], '2.0', { extensions: { 'acme.host': { root: '/host/acme/', twin: '/v1/host/acme/' } } });
-    const cap = capture();
-    await runCli(doctor, { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: {} });
-    assert.equal(daemonRequests(h)[0].path, '/v1/host/openwop-app/daemon-status');
-  });
-
-  it('major 1 (v1-only host that still lists a root): /v1/host/<org>/* is never rewritten', async () => {
-    const h = host(['1.9'], '1.9', { extensions: ADVERTISED });
-    const cap = capture();
-    await runCli(doctor, { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: {} });
-    assert.equal(daemonRequests(h)[0].path, '/v1/host/openwop-app/daemon-status');
-    assert.equal(daemonRequests(h)[0].version, null);
-  });
-
-  it('OPENWOP_PROTOCOL_MAJOR=1 on a dual-stack host with a root: the /v1 twin is sent unchanged', async () => {
-    const h = host(['1.9', '2.0'], '1.9', { extensions: ADVERTISED });
-    const cap = capture();
-    await runCli(doctor, { io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: { OPENWOP_PROTOCOL_MAJOR: '1' } });
-    assert.equal(daemonRequests(h)[0].path, '/v1/host/openwop-app/daemon-status');
-  });
-
-  it('OPENWOP_PROTOCOL_MAJOR=2 pins without a probe, so no root is known and the /v1 twin is sent', async () => {
-    const h = host(['1.9', '2.0'], '1.9', { extensions: ADVERTISED });
-    const cap = capture();
-    assert.equal(await runCli(annotate, opts(h, cap, { OPENWOP_PROTOCOL_MAJOR: '2' })), 0, cap.stderr);
-    assert.equal(h.seen.filter((r) => r.path === '/.well-known/openwop').length, 0);
-    assert.equal(h.seen.find((r) => r.method === 'POST').path, '/runs/r-1/annotations');
-  });
-
-  it('a strict v1-only host answers the v2 discovery ask with 406: negotiation reads details.protocolVersions and stays on /v1', async () => {
-    const h = host(['1.9'], '1.9', { strict: true });
-    const cap = capture();
-    assert.equal(await runCli(annotate, opts(h, cap)), 0, cap.stderr);
-    assert.equal(h.seen.find((r) => r.method === 'POST').path, '/v1/runs/r-1/annotations');
-  });
-
-  it('the discovery read that finds the root is the same single read that picks the major', async () => {
-    const h = host(['1.9', '2.0'], '1.9', { extensions: ADVERTISED });
-    const cap = capture();
-    assert.equal(await runCli(annotate, opts(h, cap)), 0, cap.stderr);
-    assert.equal(h.seen.filter((r) => r.path === '/.well-known/openwop').length, 1);
+    assert.match(row.message, /does not serve OpenWOP protocol major 2/);
   });
 });
 
 describe('hostSurfaceAdvertised', async () => {
   const { hostSurfaceAdvertised } = await import('../dist/cli.js');
-  const P = '/v1/host/openwop-app/workforces';
-  it('major 1: reads the paths map', () => {
-    assert.equal(hostSurfaceAdvertised({ paths: { '/v1/host/openwop-app/workforces': {} } }, P), true);
-    assert.equal(hostSurfaceAdvertised({ paths: { '/v1/runs': {} } }, P), false);
-  });
-  it('major 2 (no paths map): reads the advertised extension root', () => {
+  const P = '/host/openwop-app/workforces';
+  it('reads the advertised extension root (versioning.md §5)', () => {
     assert.equal(hostSurfaceAdvertised({ extensions: { 'openwop-app.host': { root: '/host/openwop-app/' } } }, P), true);
+    assert.equal(hostSurfaceAdvertised({ extensions: { 'openwop-app.host': { root: '/host/openwop-app' } } }, P), true);
     assert.equal(hostSurfaceAdvertised({ extensions: { 'other.host': { root: '/host/other/' } } }, P), false);
     assert.equal(hostSurfaceAdvertised({}, P), false);
     assert.equal(hostSurfaceAdvertised(null, P), false);
+  });
+  it('a v1 paths map is not an advertisement (major 1 ended 2026-10-04)', () => {
+    assert.equal(hostSurfaceAdvertised({ paths: { '/v1/host/openwop-app/workforces': {} } }, P), false);
   });
 });

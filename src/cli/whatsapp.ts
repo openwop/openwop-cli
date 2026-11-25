@@ -4,10 +4,10 @@ import type { Ctx } from '../context.js';
  * compliance attestation (openwop-app WhatsApp feature).
  *
  * Org-scoped host extension, gated on the `whatsapp` feature toggle:
- *   GET    /v1/host/openwop-app/whatsapp/orgs/{orgId}/health?connectionId=…   (workspace read)
- *   GET    /v1/host/openwop-app/whatsapp/orgs/{orgId}/attestation             (workspace read)
- *   PUT    /v1/host/openwop-app/whatsapp/orgs/{orgId}/attestation             (WhatsApp manager)
- *   DELETE /v1/host/openwop-app/whatsapp/orgs/{orgId}/attestation             (WhatsApp manager)
+ *   GET    /host/openwop-app/whatsapp/orgs/{orgId}/health?connectionId=…   (workspace read)
+ *   GET    /host/openwop-app/whatsapp/orgs/{orgId}/attestation             (workspace read)
+ *   PUT    /host/openwop-app/whatsapp/orgs/{orgId}/attestation             (WhatsApp manager)
+ *   DELETE /host/openwop-app/whatsapp/orgs/{orgId}/attestation             (WhatsApp manager)
  * The attestation records that no AI provider used with WhatsApp data trains
  * on it; the host requires an explicit confirmation to record it.
  *
@@ -27,7 +27,7 @@ export const WHATSAPP_HELP = `Usage:
   openwop whatsapp attestation set --org <orgId> --confirm-no-training [--json]
   openwop whatsapp attestation revoke --org <orgId> --yes
 
-The server's WhatsApp Business connection (/v1/host/openwop-app/whatsapp/orgs/{orgId}/*):
+The server's WhatsApp Business connection (/host/openwop-app/whatsapp/orgs/{orgId}/*):
 'health' reads the connection's health; 'attestation' reads, records, or revokes
 the workspace's attestation that no AI provider used with WhatsApp data trains
 on it (recording needs --confirm-no-training and WhatsApp-manager access).
@@ -46,7 +46,7 @@ export async function runWhatsapp(ctx: Ctx, argv: string[]): Promise<number> {
   const rest = argv.slice(sub === 'attestation' ? 2 : 1);
   const { options } = parseOptions(rest, { bool: ['--help', '--confirm-no-training', '--yes'], value: ['--org', '--connection'] });
   if (options.help) { write(ctx.io.stdout, WHATSAPP_HELP); return 0; }
-  const base = `/v1/host/openwop-app/whatsapp/orgs/${enc(requireOrg(options.org))}`;
+  const base = `/host/openwop-app/whatsapp/orgs/${enc(requireOrg(options.org))}`;
   if (sub === 'health') {
     if (!options.connection) throw new CliError('whatsapp health requires --connection <connectionId>.', 2);
     const res = await requestJson(ctx, `${base}/health?connectionId=${enc(options.connection)}`);

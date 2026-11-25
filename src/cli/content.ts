@@ -3,12 +3,12 @@ import type { Ctx } from '../context.js';
  * `openwop content ...` — the NORMATIVE localized-content surface
  * (RFC 0103, `localized-content.md`; `api/openapi.yaml` tag `content`).
  *
- *   GET    /v1/content/pages/{slug}                        getContentPage     (public delivery, published only, Accept-Language negotiated)
- *   GET    /v1/content/pages                               listContentPages   (content:read)
- *   POST   /v1/content/pages                               createContentPage  (content:write)
- *   DELETE /v1/content/pages/{pageId}                      deleteContentPage  (content:write)
- *   PUT    /v1/content/pages/{pageId}/sections/{sectionId} putContentSection  (content:write)
- *   GET    /v1/content/settings                            getContentSettings (content:read)
+ *   GET    /content/pages/{slug}                        getContentPage     (public delivery, published only, Accept-Language negotiated)
+ *   GET    /content/pages                               listContentPages   (content:read)
+ *   POST   /content/pages                               createContentPage  (content:write)
+ *   DELETE /content/pages/{pageId}                      deleteContentPage  (content:write)
+ *   PUT    /content/pages/{pageId}/sections/{sectionId} putContentSection  (content:write)
+ *   GET    /content/settings                            getContentSettings (content:read)
  *
  * Every path is a manifest operation, so under protocol v2 it rides the
  * unversioned `/content/*` name automatically (src/protocol.ts). A host that
@@ -35,20 +35,20 @@ export const CONTENT_HELP = `Usage:
 Localized content (RFC 0103) — the protocol's content surface, not the reference
 host's authoring workflow (for that, use \`openwop cms\`).
 
-  page      GET    /v1/content/pages/{slug}  Public delivery of a PUBLISHED page for
+  page      GET    /content/pages/{slug}  Public delivery of a PUBLISHED page for
             the negotiated locale; --locale sets Accept-Language. Anonymous-capable.
-  pages     GET    /v1/content/pages         Your tenant's pages, draft + published.
-  create    POST   /v1/content/pages         { slug, name?, pageId?, sectionOrder?, status? }
+  pages     GET    /content/pages         Your tenant's pages, draft + published.
+  create    POST   /content/pages         { slug, name?, pageId?, sectionOrder?, status? }
             --publish sends status:"published" (admin tier; refused while the
             org gates publishing on review — create a draft instead).
-  delete    DELETE /v1/content/pages/{pageId}  Removes the page, its sections and
+  delete    DELETE /content/pages/{pageId}  Removes the page, its sections and
             every locale overlay. Takes the pageId, not the slug.
-  section   PUT    /v1/content/pages/{pageId}/sections/{sectionId}  { locale, data }
+  section   PUT    /content/pages/{pageId}/sections/{sectionId}  { locale, data }
             The base locale upserts the section's data; any other locale upserts
             that locale's overlay.
-  settings  GET    /v1/content/settings      { baseLocale, supportedLocales, autoTranslateOnPublish }
+  settings  GET    /content/settings      { baseLocale, supportedLocales, autoTranslateOnPublish }
 
-Under protocol v2 these ride /content/* (no /v1 prefix) automatically. A host
+A host
 that does not support content answers 501; an unknown slug/page is 404 (both exit 1).
 Scopes: content:read for reads, content:write for writes (exit 4 without them).
 
@@ -82,7 +82,7 @@ async function dispatch(ctx: Ctx, sub: string, options: Record<string, any>, pos
   switch (sub) {
     case 'page': {
       if (positionals.length !== 1) throw new CliError('Usage: openwop content page <slug> [--locale <bcp47>] [--json]', 2);
-      const res = await requestJson(ctx, `/v1/content/pages/${encodeURIComponent(positionals[0])}`, {
+      const res = await requestJson(ctx, `/content/pages/${encodeURIComponent(positionals[0])}`, {
         ...(options.locale ? { headers: { 'accept-language': String(options.locale) } } : {}),
       });
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
@@ -95,7 +95,7 @@ async function dispatch(ctx: Ctx, sub: string, options: Record<string, any>, pos
       return 0;
     }
     case 'pages': {
-      const res = await requestJson(ctx, '/v1/content/pages');
+      const res = await requestJson(ctx, '/content/pages');
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       const pages = Array.isArray(res.body) ? res.body : Array.isArray(res.body?.pages) ? res.body.pages : [];
       if (pages.length === 0) { writeLine(ctx.io.stdout, 'No content pages in this tenant.'); return 0; }
@@ -115,7 +115,7 @@ async function dispatch(ctx: Ctx, sub: string, options: Record<string, any>, pos
         if (options.sectionOrder) body.sectionOrder = String(options.sectionOrder).split(',').map((x) => x.trim()).filter(Boolean);
       }
       if (options.publish) body.status = 'published';
-      const res = await requestJson(ctx, '/v1/content/pages', { method: 'POST', body });
+      const res = await requestJson(ctx, '/content/pages', { method: 'POST', body });
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       writeLine(ctx.io.stdout, `Created page ${res.body?.pageId ?? ''} (${res.body?.slug ?? body.slug}, ${res.body?.status ?? 'draft'}).`);
       return 0;
@@ -123,7 +123,7 @@ async function dispatch(ctx: Ctx, sub: string, options: Record<string, any>, pos
     case 'delete': {
       if (positionals.length !== 1) throw new CliError('Usage: openwop content delete <pageId> [--yes]', 2);
       if (!options.yes) { writeLine(ctx.io.stderr, `Refusing to delete page ${positionals[0]} (with its sections and locale overlays) without --yes.`); return 2; }
-      await requestJson(ctx, `/v1/content/pages/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+      await requestJson(ctx, `/content/pages/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
       writeLine(ctx.io.stdout, `Deleted page ${positionals[0]}.`);
       return 0;
     }
@@ -132,7 +132,7 @@ async function dispatch(ctx: Ctx, sub: string, options: Record<string, any>, pos
       if (!options.locale) throw new CliError('section needs --locale <bcp47>.', 2);
       const data = options.dataJson !== undefined ? parseJsonFlag('--data-json', options.dataJson) : readBodyOption(ctx, options);
       if (!data || typeof data !== 'object' || Array.isArray(data)) throw new CliError('section needs --data-json (or --body-file) holding a JSON object.', 2);
-      const res = await requestJson(ctx, `/v1/content/pages/${encodeURIComponent(positionals[0])}/sections/${encodeURIComponent(positionals[1])}`, {
+      const res = await requestJson(ctx, `/content/pages/${encodeURIComponent(positionals[0])}/sections/${encodeURIComponent(positionals[1])}`, {
         method: 'PUT',
         body: { locale: options.locale, data },
       });
@@ -141,7 +141,7 @@ async function dispatch(ctx: Ctx, sub: string, options: Record<string, any>, pos
       return 0;
     }
     case 'settings': {
-      const res = await requestJson(ctx, '/v1/content/settings');
+      const res = await requestJson(ctx, '/content/settings');
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       const s = res.body ?? {};
       writeLine(ctx.io.stdout, `baseLocale: ${s.baseLocale ?? ''}`);

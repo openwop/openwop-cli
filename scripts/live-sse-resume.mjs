@@ -9,7 +9,7 @@
  * 1. Mints an anonymous session on the upstream by starting a run of a
  *    workflow that waits `--delay-ms` between its node-started and
  *    node-completed events (the reference host serves `conformance-delay` to
- *    anonymous visitors on /v1).
+ *    anonymous visitors).
  * 2. Starts a local proxy in front of the upstream that injects that session
  *    cookie and strips any Authorization header (so the CLI reads the
  *    anonymous run it cannot otherwise address), and breaks the FIRST
@@ -54,9 +54,9 @@ if (!['drop', 'stall'].includes(mode)) { console.error('--mode must be drop|stal
 const fail = (msg) => { console.error(`FAIL: ${msg}`); process.exit(1); };
 
 // 1. Mint an anonymous session + a slow run.
-const created = await fetch(new URL('/v1/runs', upstream), {
+const created = await fetch(new URL('runs', upstream.href.endsWith('/') ? upstream : `${upstream.href}/`), {
   method: 'POST',
-  headers: { 'content-type': 'application/json' },
+  headers: { 'content-type': 'application/json', 'openwop-version': '2.0' },
   body: JSON.stringify({ workflowId, inputs: { delayMs } }),
 });
 const setCookie = created.headers.getSetCookie?.() ?? [];

@@ -18,7 +18,7 @@ export const WEBHOOKS_HELP = `Usage:
   openwop webhooks dead-letters <subscriptionId> [--limit n] [--cursor c] [--json]
 
 Manage HMAC-signed webhook subscriptions on the configured host (POST/GET/DELETE
-/v1/webhooks per spec/v1/webhooks.md).
+/webhooks per spec/v2/core/webhooks.md).
 
   add     Registers a subscription. Supply --event one or more times. When you
           omit --secret, the host generates one and returns it ONCE in the add
@@ -29,7 +29,7 @@ Manage HMAC-signed webhook subscriptions on the configured host (POST/GET/DELETE
 
   rotate-secret
           Rotates a Standard Webhooks subscription's signing secret with an
-          overlap window (POST /v1/webhooks/{id}/rotate-secret; RFC 0201 §E.18).
+          overlap window (POST /webhooks/{id}/rotate-secret; RFC 0201 §E.18).
           Until previousSecretExpiresAt both secrets sign; afterwards only the
           new one. Only a subscription registered with standard-webhooks-1 can
           rotate (400 otherwise); a host without the secretRotation facet is 404.
@@ -38,7 +38,7 @@ Manage HMAC-signed webhook subscriptions on the configured host (POST/GET/DELETE
           host never returns it). It is never taken from the command line.
   dead-letters
           Lists the subscription's dead-lettered deliveries, newest first
-          (GET /v1/webhooks/{id}/dead-letters; RFC 0188 §A.1, a protocol-v2
+          (GET /webhooks/{id}/dead-letters; RFC 0188 §A.1, a protocol-v2
           operation). Content-free: a record names a delivery, never its bytes.
           A host without the webhooks.deadLetter facet answers 404 (exit 1).
           Page with --cursor <nextCursor>.
@@ -78,7 +78,7 @@ async function runWebhooksList(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, WEBHOOKS_HELP);
     return 0;
   }
-  const res = await requestJson(ctx, '/v1/webhooks');
+  const res = await requestJson(ctx, '/webhooks');
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -118,7 +118,7 @@ async function runWebhooksAdd(ctx: Ctx, argv: string[]) {
     ...(options.tag ? { tags: options.tag } : {}),
     ...(options.secret ? { secret: options.secret } : {}),
   };
-  const res = await requestJson(ctx, '/v1/webhooks', { method: 'POST', body, headers: idempotencyHeaders() });
+  const res = await requestJson(ctx, '/webhooks', { method: 'POST', body, headers: idempotencyHeaders() });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -136,7 +136,7 @@ async function runWebhooksRemove(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop webhooks remove <subscriptionId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  await requestJson(ctx, `/v1/webhooks/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/webhooks/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   if (ctx.json) writeJson(ctx.io.stdout, { removed: positionals[0] });
   else writeLine(ctx.io.stdout, `✓ Removed webhook ${positionals[0]}`);
   return 0;
@@ -148,7 +148,7 @@ async function runWebhooksTest(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop webhooks test <subscriptionId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/webhooks/${encodeURIComponent(positionals[0])}/test`, { method: 'POST', body: {} });
+  const res = await requestJson(ctx, `/webhooks/${encodeURIComponent(positionals[0])}/test`, { method: 'POST', body: {} });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -183,7 +183,7 @@ async function runWebhooksRotateSecret(ctx: Ctx, argv: string[]) {
   const qs = options.tenantId ? `?tenantId=${encodeURIComponent(options.tenantId)}` : '';
   let res;
   try {
-    res = await requestJson(ctx, `/v1/webhooks/${encodeURIComponent(positionals[0])}/rotate-secret${qs}`, {
+    res = await requestJson(ctx, `/webhooks/${encodeURIComponent(positionals[0])}/rotate-secret${qs}`, {
       method: 'POST',
       body: { secret },
       headers: idempotencyHeaders(),
@@ -213,7 +213,7 @@ async function runWebhooksDeadLetters(ctx: Ctx, argv: string[]) {
   const qs = q.toString();
   let res;
   try {
-    res = await requestJson(ctx, `/v1/webhooks/${encodeURIComponent(positionals[0])}/dead-letters${qs ? `?${qs}` : ''}`);
+    res = await requestJson(ctx, `/webhooks/${encodeURIComponent(positionals[0])}/dead-letters${qs ? `?${qs}` : ''}`);
   } catch (err) {
     failClosedOn404(err, 'webhooks dead-letters');
   }

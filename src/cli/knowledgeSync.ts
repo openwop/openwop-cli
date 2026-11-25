@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop knowledge-sync ...` — knowledge-sync sources (feature: knowledge-sync,
  * ADR 0107; media opt-out ADR 0108; hardening ADR 0605).
  *
- * Host-extension surface under /v1/host/openwop-app/knowledge-sync: a source binds
+ * Host-extension surface under /host/openwop-app/knowledge-sync: a source binds
  * one of the caller's own storage Connections (Google Drive, Microsoft, Dropbox,
  * Box) + a folder to a KB collection and keeps it in sync on a cadence. Org-scoped
  * RBAC (workspace:read / workspace:write); no access is a uniform 404. The host is
@@ -15,7 +15,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { enc, pickArray, renderDone, renderList, withQuery } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/knowledge-sync';
+const BASE = '/host/openwop-app/knowledge-sync';
 
 export const KNOWLEDGE_SYNC_HELP = `Usage:
   openwop knowledge-sync list --org <orgId> [--json]
@@ -30,7 +30,7 @@ export const KNOWLEDGE_SYNC_HELP = `Usage:
   openwop knowledge-sync delete <sourceId> [--yes] [--json]
 
 Knowledge-sync sources (host-extension, ADR 0107) under
-/v1/host/openwop-app/knowledge-sync.
+/host/openwop-app/knowledge-sync.
 
   list/create  GET|POST /knowledge-sync (?orgId=). The connection must be YOUR OWN;
                a Google Drive folder link is normalized to its id by the server.

@@ -22,7 +22,7 @@ function recorder(reply) {
   };
   return { calls, f };
 }
-const B = '/v1/host/openwop-app/media/orgs/o1';
+const B = '/host/openwop-app/media/orgs/o1';
 
 describe('media library assets', () => {
   it('list GETs /assets with filters and renders a table', async () => {
@@ -150,14 +150,14 @@ describe('media collections + image-providers', () => {
 describe('media capability-token assets', () => {
   it('upload POSTs base64 JSON with name; put sends ttlSeconds', async () => {
     writeFileSync(join(dir, 'doc.pdf'), 'PDF');
-    const r = recorder(() => json({ token: 't1', url: '/v1/host/openwop-app/assets/t1', bytes: 3 }, 201));
+    const r = recorder(() => json({ token: 't1', url: '/host/openwop-app/assets/t1', bytes: 3 }, 201));
     const cap = capture();
     await runCli(['media', 'upload', 'doc.pdf'], ctx(cap, r.f));
     await runCli(['media', 'put', 'doc.pdf', '--ttl-seconds', '60', '--content-type', 'text/plain'], ctx(capture(), r.f));
-    assert.ok(r.calls[0].path.endsWith('/v1/host/openwop-app/media/upload'));
+    assert.ok(r.calls[0].path.endsWith('/host/openwop-app/media/upload'));
     assert.deepEqual(r.calls[0].body, { contentBase64: Buffer.from('PDF').toString('base64'), contentType: 'application/pdf', name: 'doc.pdf' });
     assert.match(cap.stdout, /token\s+t1/);
-    assert.ok(r.calls[1].path.endsWith('/v1/host/openwop-app/media/put'));
+    assert.ok(r.calls[1].path.endsWith('/host/openwop-app/media/put'));
     assert.deepEqual(r.calls[1].body, { contentBase64: Buffer.from('PDF').toString('base64'), contentType: 'text/plain', ttlSeconds: 60 });
   });
 
@@ -173,7 +173,7 @@ describe('media capability-token assets', () => {
     const cap = capture();
     const code = await runCli(['media', 'fetch', 'tok/1', '--output', 'out.png'], ctx(cap, r.f));
     assert.equal(code, 0);
-    assert.ok(r.calls[0].path.endsWith('/v1/host/openwop-app/assets/tok%2F1'));
+    assert.ok(r.calls[0].path.endsWith('/host/openwop-app/assets/tok%2F1'));
     assert.deepEqual([...readFileSync(join(dir, 'out.png'))], [9, 8, 7]);
     assert.match(cap.stdout, /Wrote 3 bytes/);
   });

@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop client-support` — the client-support handshake
  * (openwop-app ADR 0413; host-extension, public, advertise-only).
  *
- *   GET /v1/host/openwop-app/client-support?build=<int>&platform=<web|ios|android>
+ *   GET /host/openwop-app/client-support?build=<int>&platform=<web|ios|android>
  *
  * A client asks whether its build is still supported; the host answers with the
  * operator-configured minimum build (a floor) and an optional upgrade URL. The
@@ -19,7 +19,7 @@ export const CLIENT_SUPPORT_HELP = `Usage:
   openwop client-support [--build <n>] [--platform web|ios|android] [--json]
 
 Ask the host whether a client build is still supported (ADR 0413;
-GET /v1/host/openwop-app/client-support, public — no credentials needed).
+GET /host/openwop-app/client-support, public — no credentials needed).
 The host reports the minimum supported build for the platform (0 = no floor)
 and, when the build is below it, an upgrade URL. It is advertise-only: nothing
 is blocked server-side; the client decides what to do.
@@ -47,7 +47,7 @@ export async function runClientSupport(ctx: Ctx, argv: string[]): Promise<number
   if (options.build !== undefined) q.set('build', String(options.build));
   if (options.platform) q.set('platform', String(options.platform));
   const qs = q.toString();
-  const res = await requestJson(ctx, `/v1/host/openwop-app/client-support${qs ? `?${qs}` : ''}`, { auth: false });
+  const res = await requestJson(ctx, `/host/openwop-app/client-support${qs ? `?${qs}` : ''}`, { auth: false });
   const r = res.body ?? {};
   if (ctx.json) writeJson(ctx.io.stdout, r);
   else {

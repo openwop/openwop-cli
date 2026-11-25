@@ -10,7 +10,7 @@ import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { gatedRequest } from './adminShared.js';
 
-const BASE = '/v1/host/openwop-app/runtime-posture';
+const BASE = '/host/openwop-app/runtime-posture';
 const SURFACE = 'Runtime posture';
 
 export const RUNTIME_POSTURE_HELP = `Usage:

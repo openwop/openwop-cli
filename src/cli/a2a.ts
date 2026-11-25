@@ -5,7 +5,7 @@ import type { Ctx } from '../context.js';
  * `A2ATaskState` per backing run (taskId === runId) for the run's whole
  * lifecycle, readable after the caller disconnects. This group reads that durable
  * projection via the host seam:
- *   GET /v1/host/openwop-app/a2a/tasks/{taskId}  — the durable A2ATaskState
+ *   GET /host/openwop-app/a2a/tasks/{taskId}  — the durable A2ATaskState
  *
  * The record is content-free by design (RFC 0100): it carries the projected
  * state, the interrupt kind (iff input-required), and an optional push config —
@@ -43,16 +43,16 @@ when the host doesn't advertise A2A.
 
 Endpoints:
   status       reads /.well-known/openwop → capabilities.a2a
-  task         GET /v1/host/openwop-app/a2a/tasks/{taskId}
-  rpc          POST /v1/host/openwop-app/a2a — one A2A JSON-RPC 2.0 call against the
+  task         GET /host/openwop-app/a2a/tasks/{taskId}
+  rpc          POST /host/openwop-app/a2a — one A2A JSON-RPC 2.0 call against the
                host's own A2A server (e.g. agent/getCard, message/send). --a2a-version
                sets the A2A-Version header (absent = a 0.3-era peer); a JSON-RPC error
                in the reply exits 1. Only when the operator enabled the A2A server.
-  start        POST /v1/host/openwop-app/a2a/tasks/start — start the sample durable task
+  start        POST /host/openwop-app/a2a/tasks/start — start the sample durable task
                (a run paused at an approval); prints its taskId.
-  push-config  POST /v1/host/openwop-app/a2a/tasks/push-config { taskId, url, tokenFingerprint? }
+  push-config  POST /host/openwop-app/a2a/tasks/push-config { taskId, url, tokenFingerprint? }
                — register a push-notification target (the host refuses private/unsafe URLs).
-  invoke       POST /v1/host/openwop-app/a2a/invoke — have the HOST call a peer A2A agent
+  invoke       POST /host/openwop-app/a2a/invoke — have the HOST call a peer A2A agent
                and report the negotiated protocol version (a test seam: only on servers
                with test seams enabled).
 
@@ -73,7 +73,7 @@ Examples:
 `;
 
 const SUBCOMMANDS = ['status', 'task', 'rpc', 'start', 'push-config', 'invoke'];
-const A2A_BASE = '/v1/host/openwop-app/a2a';
+const A2A_BASE = '/host/openwop-app/a2a';
 
 export async function runA2a(ctx: Ctx, argv: string[]): Promise<number> {
   const sub = argv[0] ?? 'status';
@@ -154,11 +154,11 @@ async function runTask(ctx: Ctx, argv: string[]): Promise<number> {
   const id = positionals[0];
   let t: any;
   try {
-    const res = await requestJson(ctx, `/v1/host/openwop-app/a2a/tasks/${encodeURIComponent(id)}`);
+    const res = await requestJson(ctx, `/host/openwop-app/a2a/tasks/${encodeURIComponent(id)}`);
     t = res.body ?? {};
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) {
-      throw new CliError(`a2a: no durable task ${id} (the host must serve /v1/host/openwop-app/a2a/tasks/{taskId}; taskId equals the backing runId).`, 1);
+      throw new CliError(`a2a: no durable task ${id} (the host must serve /host/openwop-app/a2a/tasks/{taskId}; taskId equals the backing runId).`, 1);
     }
     throw err;
   }

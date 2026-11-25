@@ -26,7 +26,7 @@ export function sseResponse(frames) {
 /**
  * A recording mock host. `routes` maps `"METHOD /path"` (path without query)
  * to a response factory `(call) => Response` or a plain JSON body. Discovery
- * answers a v1 document so paths stay `/v1/host/openwop-app/...`.
+ * answers a v1 document so paths stay `/host/openwop-app/...`.
  */
 export function mockHost(routes = {}) {
   const calls = [];
@@ -57,4 +57,4 @@ export async function run(argv, host) {
   return { code, stdout: cap.stdout, stderr: cap.stderr };
 }
 
-export const H = '/v1/host/openwop-app';
+export const H = '/host/openwop-app';

@@ -14,7 +14,7 @@ export const INTERRUPTS_HELP = `Usage:
   openwop interrupts respond <runId> <nodeId> [--data-json '{...}'] [--idempotency-key k] [--json]
 
 List a run's open interrupts (human-in-the-loop / approval pauses) and resolve
-one by its capability token (POST /v1/interrupts/{token}; /interrupts/{token}
+one by its capability token (POST /interrupts/{token}; /interrupts/{token}
 under protocol v2). \`--data-json\` is the resume value (validated against the
 interrupt's resumeSchema by the host); it is sent as the closed body
 \`{ "resumeValue": <data> }\` both majors require. A payload that is already
@@ -22,17 +22,17 @@ exactly \`{ "resumeValue": ... }\` is sent as-is. Every resolve carries an
 Idempotency-Key (interrupt.md §Resolve surfaces).
 
 \`inspect\` reads an interrupt by its token without resolving it
-(GET /v1/interrupts/{token}; /interrupts/{token} under v2): kind, resumeSchema,
+(GET /interrupts/{token}; /interrupts/{token} under v2): kind, resumeSchema,
 data, expiry and whether it is already resolved. A resolved interrupt stays
 inspectable; an expired token is 410 and a finished run 409.
 
 \`respond\` resolves the open interrupt on one node of a run you own
-(POST /v1/runs/{runId}/interrupts/{nodeId}; /runs/{runId}/interrupts/{nodeId}
+(POST /runs/{runId}/interrupts/{nodeId}; /runs/{runId}/interrupts/{nodeId}
 under v2) with the same \`{ "resumeValue": ... }\` body. It needs the
 approvals:respond scope (exit 4 without it); no open interrupt on that node is
 404, and under v2 a finished run is 409 interrupt_already_resolved.
 
-\`list\` reads the host-extension GET /v1/host/openwop-app/runs/{runId}/interrupts.
+\`list\` reads the host-extension GET /host/openwop-app/runs/{runId}/interrupts.
 
 Exit codes: 0 ok · 1 not found / expired / already resolved · 2 usage · 4 not allowed.
 
@@ -52,7 +52,7 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
       if (rest.length !== 1) { write(ctx.io.stdout, 'Usage: openwop interrupts list <runId> [--json]\n'); return 2; }
       let res;
       try {
-        res = await requestJson(ctx, `/v1/host/openwop-app/runs/${encodeURIComponent(rest[0])}/interrupts`);
+        res = await requestJson(ctx, `/host/openwop-app/runs/${encodeURIComponent(rest[0])}/interrupts`);
       } catch (err) {
         // A host that does not serve the openwop-app extension answers "no
         // operation at …" (not a missing run). Fail closed, legibly, and name
@@ -60,7 +60,7 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
         const env = err instanceof HttpError ? errorEnvelope(err.body) : {};
         if (err instanceof HttpError && err.status === 404 && /^no operation at /i.test(env.message ?? '')) {
           throw new CliError(
-            'interrupts: `list` reads the openwop-app host extension (GET /v1/host/openwop-app/runs/{runId}/interrupts), which this host does not serve. '
+            'interrupts: `list` reads the openwop-app host extension (GET /host/openwop-app/runs/{runId}/interrupts), which this host does not serve. '
               + 'On any host an open interrupt appears as interrupt.requested in the run\'s events; answer it with `openwop interrupts respond <runId> <nodeId>`.',
             1,
           );
@@ -83,7 +83,7 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
       if (options.dataJson) {
         try { resumeValue = JSON.parse(options.dataJson); } catch { throw new CliError('--data-json must be valid JSON.'); }
       }
-      const res = await requestJson(ctx, `/v1/interrupts/${encodeURIComponent(positionals[0])}`, {
+      const res = await requestJson(ctx, `/interrupts/${encodeURIComponent(positionals[0])}`, {
         method: 'POST',
         body: resumeBody(resumeValue),
         headers: idempotencyHeaders(options.idempotencyKey),
@@ -97,7 +97,7 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
       if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop interrupts inspect <token> [--json]\n'); return options.help ? 0 : 2; }
       let res;
       try {
-        res = await requestJson(ctx, `/v1/interrupts/${encodeURIComponent(positionals[0])}`);
+        res = await requestJson(ctx, `/interrupts/${encodeURIComponent(positionals[0])}`);
       } catch (err) {
         lifecycleError(err);
       }
@@ -121,7 +121,7 @@ export async function runInterrupts(ctx: Ctx, argv: string[]): Promise<number> {
       }
       let res;
       try {
-        res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/interrupts/${encodeURIComponent(positionals[1])}`, {
+        res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}/interrupts/${encodeURIComponent(positionals[1])}`, {
           method: 'POST',
           body: resumeBody(resumeValue),
           headers: idempotencyHeaders(options.idempotencyKey),

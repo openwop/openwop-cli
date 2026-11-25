@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const ME = '/v1/host/openwop-app/profiles/me';
+const ME = '/host/openwop-app/profiles/me';
 
 /** Declared profile commands (routeKit): pins, avatar, workflows, personal knowledge + memory. Mirrors features/profiles + features/profile-memory. */
 export const PROFILES_ROUTES: RouteCmd[] = [
@@ -77,7 +77,7 @@ Examples:
   openwop profiles activity --limit 10 --status failed
 `;
 
-const BASE = '/v1/host/openwop-app/profiles';
+const BASE = '/host/openwop-app/profiles';
 
 /** requestJson with profile-aware, fail-closed error mapping. */
 async function profilesRequest(ctx: Ctx, path: string, options?: Parameters<typeof requestJson>[2], notFoundMsg?: string) {

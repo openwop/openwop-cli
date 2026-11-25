@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop podcasts ...` — multi-speaker podcasts (feature: podcasts, ADR 0086)
  * + show (channel) distribution (ADR 0390).
  *
- * Host-extension surface under /v1/host/openwop-app/podcasts: speaker profiles
+ * Host-extension surface under /host/openwop-app/podcasts: speaker profiles
  * (a 1–4 voice cast), episode profiles (models + segment count), episodes (an
  * async generation run from a notebook), and shows (the publishable channel).
  * Org-scoped RBAC (workspace:read / workspace:write); no access is a uniform 404.
@@ -15,7 +15,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { enc, mergeBody, parseJsonFlag, pickArray, renderDone, renderList, withQuery } from './contentHelpers.js';
 
-const ROOT = '/v1/host/openwop-app/podcasts';
+const ROOT = '/host/openwop-app/podcasts';
 const EP = `${ROOT}/episodes`;
 
 export const PODCASTS_HELP = `Usage:
@@ -44,7 +44,7 @@ export const PODCASTS_HELP = `Usage:
                                            [--body <json>|--body-file <path>] [--json]
   openwop podcasts speaker-profiles delete <profileId> [--yes] [--json]
 
-Podcasts (host-extension, ADR 0086 + ADR 0390) under /v1/host/openwop-app/podcasts.
+Podcasts (host-extension, ADR 0086 + ADR 0390) under /host/openwop-app/podcasts.
 
   episodes          GET|POST /podcasts/episodes (?orgId=), GET|DELETE /episodes/<id>,
                     POST /episodes/<id>/retry|publish|unpublish. Generation is async:

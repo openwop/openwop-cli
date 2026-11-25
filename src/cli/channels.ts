@@ -5,7 +5,7 @@ import type { Ctx } from '../context.js';
  * identities, ADR 0202 agent reply policy + AI catch-up, RFC 0110 channel
  * presence).
  *
- * Host-extension surface under /v1/host/openwop-app/channels/*. Membership is
+ * Host-extension surface under /host/openwop-app/channels/*. Membership is
  * enforced by the host (a private channel you are not in is a 404; owner-only
  * management answers 403). Distinct from `openwop relay` / `messaging`, which
  * drive external chat networks (Signal, WhatsApp, iMessage) — this is the
@@ -17,7 +17,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { enc, emit, intFlag, renderFrame, streamHostSse, writeFields } from './chatShared.js';
 
-const BASE = '/v1/host/openwop-app/channels';
+const BASE = '/host/openwop-app/channels';
 
 export const CHANNELS_HELP = `Usage:
   openwop channels list [--json]
@@ -39,7 +39,7 @@ export const CHANNELS_HELP = `Usage:
   openwop channels presence-snapshot <channelId> [--json]
   openwop channels typing <channelId> [--stop]
 
-The server's team channels (/v1/host/openwop-app/channels/*):
+The server's team channels (/host/openwop-app/channels/*):
 
   list/create        GET|POST /channels (public channels + your private ones)
   get/update         GET|PATCH /channels/{id} (rename / describe: owner only)

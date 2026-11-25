@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop campaign-journeys ...` — the journey enrollment ledger (ADR 0222;
  * exclusivity groups ADR 0299).
  *
- * Surface: /v1/host/openwop-app/campaign-journeys/enrollments (toggle
+ * Surface: /host/openwop-app/campaign-journeys/enrollments (toggle
  * `campaign-journeys`). Journeys themselves are workflow chains — run and
  * monitor them with `openwop runs` / `openwop workflows`; this group only reads
  * which contact entered which journey, and resets a guard row so a contact can
@@ -19,7 +19,7 @@ export const CAMPAIGN_JOURNEYS_HELP = `Usage:
   openwop campaign-journeys reset --journey <journeyId> --contact <contactId> --yes [--json]
 
 Campaign journeys (ADR 0222). 'enrollments' lists the enrollment ledger
-(GET /v1/host/openwop-app/campaign-journeys/enrollments[?journeyId=]) — which
+(GET /host/openwop-app/campaign-journeys/enrollments[?journeyId=]) — which
 contact ran which journey, when, and under which run. 'reset' deletes one
 (journey, contact) guard row (DELETE …/enrollments with {journeyId, contactId})
 so that contact can enroll again — an explicit operator decision, so it needs --yes.

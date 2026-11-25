@@ -20,7 +20,7 @@ function renderDeck(body: any): string {
 }
 
 export const TASKS_ROUTES: RouteCmd[] = [
-  { words: ['deck'], method: 'GET', path: '/v1/host/openwop-app/tasks', human: renderDeck,
+  { words: ['deck'], method: 'GET', path: '/host/openwop-app/tasks', human: renderDeck,
     summary: 'Your task deck (optionally scoped to one conversation\'s run).',
     query: [{ flag: '--conversation-run-id', key: 'conversationRunId' }] },
 ];

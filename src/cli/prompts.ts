@@ -17,16 +17,16 @@ export const PROMPTS_HELP = `Usage:
   openwop prompts delete <templateId> [--yes]
   openwop prompts library <list|get|create|update|delete|render> --org <orgId> ...   (see \`openwop prompts library --help\`)
 
-Browse, render, and manage the host's prompt library (RFC 0029, /v1/prompts).
+Browse, render, and manage the host's prompt library (RFC 0029, /prompts).
 \`render\` resolves a PromptRef (templateId[@version]) against the supplied
 variables. \`create\` posts a new PromptTemplate; \`update\` PUTs the fields you
 pass to an existing template; \`delete\` removes one. \`render\` posts
-POST /v1/prompts:render (/prompts:render under v2) with { ref, variables,
+POST /prompts:render (/prompts:render under v2) with { ref, variables,
 contentTrust? } — the host returns 501 when it does not advertise
 prompts.endpointsSupported.
 
 \`library\` manages an org's curated prompt library (host-extension,
-/v1/host/openwop-app/prompts/orgs/{orgId}/entries).
+/host/openwop-app/prompts/orgs/{orgId}/entries).
 `;
 
 export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
@@ -42,7 +42,7 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
       if (options.kind) q.set('kind', options.kind);
       if (options.tag) q.set('tag', options.tag);
       if (options.limit) q.set('limit', options.limit);
-      const res = await requestJson(ctx, `/v1/prompts${q.toString() ? `?${q}` : ''}`);
+      const res = await requestJson(ctx, `/prompts${q.toString() ? `?${q}` : ''}`);
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       const items = Array.isArray(res.body?.items) ? res.body.items : [];
       if (items.length === 0) { writeLine(ctx.io.stdout, 'No prompt templates.'); return 0; }
@@ -54,7 +54,7 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
     }
     case 'get': {
       if (rest.length !== 1) { write(ctx.io.stdout, 'Usage: openwop prompts get <templateId> [--json]\n'); return 2; }
-      const res = await requestJson(ctx, `/v1/prompts/${encodeURIComponent(rest[0])}`);
+      const res = await requestJson(ctx, `/prompts/${encodeURIComponent(rest[0])}`);
       writeJson(ctx.io.stdout, res.body);
       return 0;
     }
@@ -68,7 +68,7 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
       if (options.variablesJson) {
         try { variables = JSON.parse(options.variablesJson); } catch { throw new CliError('--variables-json must be valid JSON.'); }
       }
-      const res = await requestJson(ctx, '/v1/prompts:render', {
+      const res = await requestJson(ctx, '/prompts:render', {
         method: 'POST',
         body: { ref: positionals[0], variables, ...(options.contentTrust ? { contentTrust: options.contentTrust } : {}) },
       });
@@ -82,7 +82,7 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
         return 2;
       }
       const body = { templateId: String(options.templateId), version: String(options.version), kind: String(options.kind), text: String(options.text) };
-      const res = await requestJson(ctx, '/v1/prompts', { method: 'POST', body, headers: idempotencyHeaders() });
+      const res = await requestJson(ctx, '/prompts', { method: 'POST', body, headers: idempotencyHeaders() });
       if (ctx.json) writeJson(ctx.io.stdout, res.body);
       else writeLine(ctx.io.stdout, `Created prompt ${body.templateId}@${body.version}`);
       return 0;
@@ -94,7 +94,7 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
       if (options.version) body.version = String(options.version);
       if (options.kind) body.kind = String(options.kind);
       if (options.text) body.text = String(options.text);
-      const res = await requestJson(ctx, `/v1/prompts/${encodeURIComponent(positionals[0])}`, { method: 'PUT', body });
+      const res = await requestJson(ctx, `/prompts/${encodeURIComponent(positionals[0])}`, { method: 'PUT', body });
       if (ctx.json) writeJson(ctx.io.stdout, res.body);
       else writeLine(ctx.io.stdout, `Updated prompt ${positionals[0]}`);
       return 0;
@@ -103,7 +103,7 @@ export async function runPrompts(ctx: Ctx, argv: string[]): Promise<number> {
       const { options, positionals } = parseOptions(rest, { bool: ['--yes'] });
       if (positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop prompts delete <templateId> [--yes]\n'); return 2; }
       if (!options.yes) throw new CliError(`Refusing to delete prompt ${positionals[0]} without --yes.`, 2);
-      await requestJson(ctx, `/v1/prompts/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+      await requestJson(ctx, `/prompts/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
       writeLine(ctx.io.stdout, `Deleted prompt ${positionals[0]}`);
       return 0;
     }

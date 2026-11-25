@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const B = '/v1/host/openwop-app/operations';
+const B = '/host/openwop-app/operations';
 
 describe('operations', () => {
   it('slo renders the rows table; --json prints the raw body', async () => {
@@ -76,6 +76,6 @@ describe('operations', () => {
     assert.equal(await runCli(['operations', 'bogus'], opts(host, cap)), 2);
     cap = capture();
     assert.equal(await runCli(['operations', '--help'], opts(host, cap)), 0);
-    assert.match(cap.stdout, /POST\s+\/v1\/host\/openwop-app\/operations\/dlq\/replay/);
+    assert.match(cap.stdout, /POST\s+\/host\/openwop-app\/operations\/dlq\/replay/);
   });
 });

@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const O = '/v1/host/openwop-app/cms/orgs/org_1';
+const O = '/host/openwop-app/cms/orgs/org_1';
 
 describe('cms — scheduling, shared sections, localization, experiments, seo', () => {
   it('schedule publish POSTs {at}; clear-publish DELETEs', async () => {
@@ -76,7 +76,7 @@ describe('cms — scheduling, shared sections, localization, experiments, seo', 
     const cap = capture();
     assert.equal(await runCli(['cms', 'seo', 'set', 'p1', '--org', 'org_1', '--meta-description', 'New', '--noindex', 'true'], opts(host, cap)), 0, cap.stderr);
     assert.equal(host.calls[0].method, 'GET');
-    assert.equal(host.last().path, '/v1/host/openwop-app/publishing/orgs/org_1/pages/p1/seo');
+    assert.equal(host.last().path, '/host/openwop-app/publishing/orgs/org_1/pages/p1/seo');
     assert.deepEqual(host.last().body, { metaTitle: 'Old', canonicalUrl: 'https://a.example', noindex: true, metaDescription: 'New' });
   });
 

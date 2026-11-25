@@ -56,11 +56,11 @@ describe('capability records across discovery representations', () => {
     assert.match(cap.stdout, /durableTasks: no/);
   });
 
-  it('a2a status still finds a record the host advertises only in its v1 document', async () => {
+  it('a record the host advertises only in its header-less v1 document is not read (major 1 ended 2026-10-04)', async () => {
     const cap = capture();
     const code = await runCli(['a2a', 'status'], opts(dualStack({ v1: { capabilities: { a2a: { supported: true, durableTasks: true } } } }), cap));
-    assert.equal(code, 0, cap.stdout + cap.stderr);
-    assert.match(cap.stdout, /durableTasks: yes/);
+    assert.equal(code, 1);
+    assert.match(cap.stdout, /does not advertise A2A/);
   });
 
   it('still fails closed when neither representation advertises the record', async () => {
@@ -82,7 +82,7 @@ describe('interrupts list on a host without the openwop-app extension', () => {
   it('fails closed with a legible message instead of a bare 404', async () => {
     const cap = capture();
     const code = await runCli(['interrupts', 'list', 'tenant/run_1'], opts(dualStack({}, async () =>
-      jsonResponse({ error: 'not_found', message: 'no operation at /v1/host/openwop-app/runs/tenant%2Frun_1/interrupts' }, 404)), cap));
+      jsonResponse({ error: 'not_found', message: 'no operation at /host/openwop-app/runs/tenant%2Frun_1/interrupts' }, 404)), cap));
     assert.equal(code, 1);
     assert.match(cap.stderr, /reads the openwop-app host extension/);
     assert.match(cap.stderr, /interrupts respond <runId> <nodeId>/);

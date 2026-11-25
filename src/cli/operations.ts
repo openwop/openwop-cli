@@ -12,7 +12,7 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const B = '/v1/host/openwop-app/operations';
+const B = '/host/openwop-app/operations';
 
 export const OPERATIONS_ROUTES: RouteCmd[] = [
   { words: ['health'], method: 'GET', path: `${B}/health/summary`, summary: 'Host health rollup (providers, config, storage, SSE, rate limits, daemon). Superadmin.' },

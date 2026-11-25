@@ -3,14 +3,14 @@ import type { Ctx } from '../context.js';
  * `openwop chat …` — the ONE chat group.
  *
  *  - `openwop chat <workflowId>` (or `chat repl <workflowId>`) — the interactive
- *    streaming REPL over the normative run surface (POST /v1/runs + the run event
+ *    streaming REPL over the normative run surface (POST /runs + the run event
  *    stream).
  *  - `openwop chat sessions|messages|participants|open|feedback|models|search|
  *    export|import|tools …` — the host's persistent conversation primitive
  *    (RFC 0005 conversations; openwop-app ADR 0043 conversations, ADR 0071/0102
  *    feedback, ADR 0112 search, ADR 0119 export/import, ADR 0124 model
  *    capabilities, ADR 0132 per-conversation tool scope, ADR 0195 reactions) under
- *    /v1/host/openwop-app/chat/*, /chat-export/* and /conversation-tools/*.
+ *    /host/openwop-app/chat/*, /chat-export/* and /conversation-tools/*.
  *    Host-extension surfaces: non-normative, tenant-scoped, visibility-gated by
  *    the host (a conversation you cannot see is a 404).
  */
@@ -25,7 +25,7 @@ import { submitTurn, streamRunEvents, renderEvent, extractAssistantText, default
 import { enc, emit, intFlag, writeFields } from './chatShared.js';
 import { idempotencyHeaders } from '../wire.js';
 
-const CHAT_BASE = '/v1/host/openwop-app/chat';
+const CHAT_BASE = '/host/openwop-app/chat';
 const CHAT_SUBCOMMANDS = ['repl', 'sessions', 'session', 'messages', 'message', 'participants', 'open', 'feedback', 'models', 'search', 'export', 'import', 'tools'];
 
 export const CHAT_HELP = `Usage:
@@ -44,7 +44,7 @@ export const CHAT_HELP = `Usage:
 
 Run \`openwop chat <subcommand> --help\` for each family's flags. Conversation
 commands hit the host's persistent conversations (host extension, not the
-normative wire): /v1/host/openwop-app/chat/*, /chat-export/*, and
+normative wire): /host/openwop-app/chat/*, /chat-export/*, and
 /conversation-tools/sessions/*. Every read takes --json. Exit codes: 0 ok,
 2 usage / not found, 4 not signed in or not permitted, 1 server error.
 
@@ -56,8 +56,8 @@ streams that run's events to the terminal as they arrive. Type /exit (or
 /quit, or press Ctrl-D) to leave.
 
 Streaming:
-  Prefers Server-Sent Events (GET /v1/runs/{runId}/events). If the host does
-  not stream, it falls back to polling GET /v1/runs/{runId}/events/poll.
+  Prefers Server-Sent Events (GET /runs/{runId}/events). If the host does
+  not stream, it falls back to polling GET /runs/{runId}/events/poll.
 
 Options:
   --input k=v        Extra input carried on every turn (JSON-parsed like runs create).
@@ -197,7 +197,7 @@ const SESSIONS_HELP = `Usage:
   openwop chat sessions board <sessionId> --board-id <id> [--json]
   openwop chat sessions bind-run <sessionId> --run-id <runId>
 
-Persistent conversations: GET|POST /v1/host/openwop-app/chat/sessions,
+Persistent conversations: GET|POST /host/openwop-app/chat/sessions,
 GET|PATCH|DELETE …/chat/sessions/{id}, POST …/{id}/branch (fork at message
 --from-seq), POST …/{id}/read (mark read), POST …/{id}/board (convene a board's
 cohort), PUT …/{id}/conversation-run (bind the conversation's run).
@@ -308,7 +308,7 @@ const MESSAGES_HELP = `Usage:
   openwop chat messages delete <sessionId> <messageId> --yes
   openwop chat messages react|unreact <sessionId> <messageId> <emoji> [--json]
 
-GET|POST /v1/host/openwop-app/chat/sessions/{id}/messages (--limit pages newest
+GET|POST /host/openwop-app/chat/sessions/{id}/messages (--limit pages newest
 first; pass the returned nextCursor as --before for older pages),
 PUT|DELETE …/messages/{messageId} (edit / tombstone), and
 PUT|DELETE …/messages/{messageId}/reactions/{emoji}. The host accepts the
@@ -391,7 +391,7 @@ const PARTICIPANTS_HELP = `Usage:
   openwop chat participants add <sessionId> <subjectRef> [--json]
   openwop chat participants remove <sessionId> <subjectRef> [--json]
 
-GET|PUT /v1/host/openwop-app/chat/sessions/{id}/participants and
+GET|PUT /host/openwop-app/chat/sessions/{id}/participants and
 DELETE …/participants/{subjectRef}. Owner-gated on the host; channel
 membership is managed with \`openwop channels members\` instead.
 `;
@@ -428,7 +428,7 @@ async function runChatOpen(ctx: Ctx, argv: string[]): Promise<number> {
     write(ctx.io.stdout, `Usage: openwop chat open --subject <subjectRef> [--type agent|person] [--title t] [--json]
 
 Open (or resume) the persistent 1:1 conversation with an agent or person —
-POST /v1/host/openwop-app/chat/conversations/open. Idempotent: a second open
+POST /host/openwop-app/chat/conversations/open. Idempotent: a second open
 returns the SAME conversation.
 `);
     return options.help ? 0 : 2;
@@ -446,7 +446,7 @@ const FEEDBACK_HELP = `Usage:
   openwop chat feedback list <sessionId> [--json]
 
 Your own thumbs on a chat message: POST|GET
-/v1/host/openwop-app/chat/messages/{messageId}/feedback and, for a whole
+/host/openwop-app/chat/messages/{messageId}/feedback and, for a whole
 conversation in one read, GET …/chat/sessions/{id}/feedback.
 `;
 
@@ -489,7 +489,7 @@ async function runChatFeedback(ctx: Ctx, argv: string[]): Promise<number> {
 async function runChatModels(ctx: Ctx, argv: string[]): Promise<number> {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) {
-    write(ctx.io.stdout, 'Usage: openwop chat models [--json]\n\nThe chat model picker: selectable providers + models with their capabilities —\nGET /v1/host/openwop-app/chat/model-capabilities.\n');
+    write(ctx.io.stdout, 'Usage: openwop chat models [--json]\n\nThe chat model picker: selectable providers + models with their capabilities —\nGET /host/openwop-app/chat/model-capabilities.\n');
     return 0;
   }
   const res = await requestJson(ctx, `${CHAT_BASE}/model-capabilities`);
@@ -517,7 +517,7 @@ async function runChatSearch(ctx: Ctx, argv: string[]): Promise<number> {
     write(ctx.io.stdout, `Usage: openwop chat search <query> [--type agent|person|group|workspace] [--role r] [--limit n] [--post] [--json]
 
 Full-text search over the conversations you can see —
-GET /v1/host/openwop-app/chat/search?q=… (or POST with a JSON body via --post).
+GET /host/openwop-app/chat/search?q=… (or POST with a JSON body via --post).
 `);
     return options.help ? 0 : 2;
   }
@@ -542,14 +542,14 @@ async function runChatExport(ctx: Ctx, argv: string[]): Promise<number> {
   if (options.help || positionals.length !== 1) {
     write(ctx.io.stdout, `Usage: openwop chat export <sessionId> [--format md|json] [--output path]
 
-Export a conversation transcript — GET /v1/host/openwop-app/chat-export/{id}?format=md|json.
+Export a conversation transcript — GET /host/openwop-app/chat-export/{id}?format=md|json.
 Markdown is the default; --output writes the transcript to a file instead of stdout.
 `);
     return options.help ? 0 : 2;
   }
   const format = options.format ?? (ctx.json ? 'json' : 'md');
   if (format !== 'md' && format !== 'json') throw new CliError('--format must be md or json', 2);
-  const res = await requestJson(ctx, `/v1/host/openwop-app/chat-export/${enc(positionals[0])}?format=${format}`);
+  const res = await requestJson(ctx, `/host/openwop-app/chat-export/${enc(positionals[0])}?format=${format}`);
   const text = format === 'json'
     ? JSON.stringify(res.body, null, 2)
     : (typeof res.body?.raw === 'string' ? res.body.raw : typeof res.body === 'string' ? res.body : JSON.stringify(res.body, null, 2));
@@ -568,7 +568,7 @@ async function runChatImport(ctx: Ctx, argv: string[]): Promise<number> {
     write(ctx.io.stdout, `Usage: openwop chat import --file <export.json> [--format openwop|chatgpt] [--json]
 
 Import a transcript as a NEW conversation you own —
-POST /v1/host/openwop-app/chat-export/import { format, data }. Accepts an
+POST /host/openwop-app/chat-export/import { format, data }. Accepts an
 \`openwop chat export --format json\` file (default) or a ChatGPT export.
 Requires a signed-in account.
 `);
@@ -582,7 +582,7 @@ Requires a signed-in account.
   }
   const body: Record<string, any> = { data };
   if (options.format) body.format = options.format;
-  const res = await requestJson(ctx, '/v1/host/openwop-app/chat-export/import', { method: 'POST', body });
+  const res = await requestJson(ctx, '/host/openwop-app/chat-export/import', { method: 'POST', body });
   return emit(ctx, res.body, () => writeLine(ctx.io.stdout, `Imported ${res.body?.imported ?? '?'} message(s) into conversation ${res.body?.sessionId}.`));
 }
 
@@ -594,7 +594,7 @@ const TOOLS_HELP = `Usage:
   openwop chat tools approve|deny <sessionId> <toolName> [--json]
 
 Per-conversation tool scope (narrows, never widens, the agent's tools):
-GET|PUT /v1/host/openwop-app/conversation-tools/sessions/{id}/capability-scope and
+GET|PUT /host/openwop-app/conversation-tools/sessions/{id}/capability-scope and
 POST …/approvals/{toolName} { decision: approved|denied }. 'set' reads the
 current scope first and changes only the lists you pass (the host replaces the
 whole scope on write). Owner-gated on the host.
@@ -611,7 +611,7 @@ async function runChatTools(ctx: Ctx, argv: string[]): Promise<number> {
   if (options.help) { write(ctx.io.stdout, TOOLS_HELP); return 0; }
   const [sessionId, toolName] = positionals;
   if (!sessionId) throw new CliError(`chat tools ${sub} requires <sessionId>.\nRun \`openwop chat tools --help\` for usage.`, 2);
-  const base = `/v1/host/openwop-app/conversation-tools/sessions/${enc(sessionId)}`;
+  const base = `/host/openwop-app/conversation-tools/sessions/${enc(sessionId)}`;
   const renderScope = (scope: any) => {
     writeLine(ctx.io.stdout, `mode: ${scope?.mode ?? 'agent-default'}`);
     for (const k of ['enabled', 'disabled', 'requireApproval']) {

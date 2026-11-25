@@ -20,28 +20,28 @@ export const AGENTS_HELP = `Usage:
 Manifest agents (RFC 0070). The host loads pack agents[] (RFC 0003) into an
 AgentRegistry and advertises capabilities.agents.manifestRuntime. 'list'/'info'
 render that registry-backed inventory from the NORMATIVE read (RFC 0072 §A):
-GET /v1/agents and GET /v1/agents/{agentId}. When the host does not serve the
+GET /agents and GET /agents/{agentId}. When the host does not serve the
 normative read (404/405/501) they fall back to the host-extension alias
-GET /v1/host/openwop-app/agents[/{agentId}]; --host forces the alias (which also
+GET /host/openwop-app/agents[/{agentId}]; --host forces the alias (which also
 reports the host's runtime posture); --verbose names the path that answered.
 With no credential, a v2 host refuses the normative read (401); the command
 then shows the host's anonymous view from the alias and says so on stderr.
 'run' dispatches one agent turn via
-POST /v1/host/openwop-app/agents/{agentId}/dispatch — the tool surface is filtered to
+POST /host/openwop-app/agents/{agentId}/dispatch — the tool surface is filtered to
 the agent's toolAllowlist (RFC 0002 §A14), task/return payloads are validated
 against the agent's handoff schemas (RFC 0003 §D, unless --no-validate), and a
 sub-threshold decision escalates rather than proceeding (RFC 0002 §F).
 
 'eval-run' grades a batch of agent results against typed criteria (RFC 0081,
-POST /v1/host/openwop-app/agents/eval-run; parallel tasks[]/results[] arrays;
+POST /host/openwop-app/agents/eval-run; parallel tasks[]/results[] arrays;
 404 when the host's eval suite is off; exits 0 only when every task passed).
 'verify-run' drives the RFC 0090
 verifier commit gate with a simulated verdict (POST
-/v1/host/openwop-app/agents/verify-run; 404 when verifier gating is off) and
+/host/openwop-app/agents/verify-run; 404 when verifier gating is off) and
 exits 0 when the result was committed, 1 when it was withheld.
 
 'create'/'update'/'delete' manage tenant-scoped user-defined agents on the demo
-host (POST/PATCH/DELETE /v1/host/openwop-app/agents) — distinct from the pack-loaded
+host (POST/PATCH/DELETE /host/openwop-app/agents) — distinct from the pack-loaded
 manifest agents that 'list'/'run' operate on.
 
   --task-json J        Inbound task payload (validated against handoff.taskSchemaRef).
@@ -92,7 +92,7 @@ export async function runAgents(ctx: Ctx, argv: string[]) {
 }
 
 // User-defined (tenant-scoped) agent CRUD — POST/PATCH/DELETE
-// /v1/host/openwop-app/agents. Distinct from the manifest agents 'list'/'run' read.
+// /host/openwop-app/agents. Distinct from the manifest agents 'list'/'run' read.
 function userAgentBody(options: Record<string, any>): Record<string, any> {
   const body: Record<string, any> = {};
   if (options.persona) body.persona = options.persona;
@@ -119,7 +119,7 @@ async function runAgentsCreate(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop agents create --persona <name> [--label <t>] [--description <t>] [--model-class <c>] [--system-prompt <t>] [--tool <id>]... [--threshold <n>] [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/agents', { method: 'POST', body: userAgentBody(options) });
+  const res = await requestJson(ctx, '/host/openwop-app/agents', { method: 'POST', body: userAgentBody(options) });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Created agent ${res.body?.agentId ?? ''} (${res.body?.persona ?? options.persona}).`);
   return 0;
@@ -137,7 +137,7 @@ async function runAgentsUpdate(ctx: Ctx, argv: string[]) {
   }
   const body = userAgentBody(options);
   if (Object.keys(body).length === 0) throw new CliError('Nothing to update — pass at least one field.', 2);
-  const res = await requestJson(ctx, `/v1/host/openwop-app/agents/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
+  const res = await requestJson(ctx, `/host/openwop-app/agents/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Updated agent ${positionals[0]}.`);
   return 0;
@@ -153,7 +153,7 @@ async function runAgentsDelete(ctx: Ctx, argv: string[]) {
     writeLine(ctx.io.stderr, `Refusing to delete agent ${positionals[0]} without --yes.`);
     return 2;
   }
-  await requestJson(ctx, `/v1/host/openwop-app/agents/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/host/openwop-app/agents/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted agent ${positionals[0]}.`);
   return 0;
 }
@@ -164,7 +164,7 @@ async function runAgentsList(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, AGENTS_HELP);
     return 0;
   }
-  const res = await requestNormativeOrHost(ctx, '/v1/agents', '/v1/host/openwop-app/agents', { forceHost: options.host });
+  const res = await requestNormativeOrHost(ctx, '/agents', '/host/openwop-app/agents', { forceHost: options.host });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -192,7 +192,7 @@ async function runAgentsInfo(ctx: Ctx, argv: string[]) {
     return options.help ? 0 : 2;
   }
   const agentId = encodeURIComponent(positionals[0]);
-  const res = await requestNormativeOrHost(ctx, `/v1/agents/${agentId}`, `/v1/host/openwop-app/agents/${agentId}`, { forceHost: options.host });
+  const res = await requestNormativeOrHost(ctx, `/agents/${agentId}`, `/host/openwop-app/agents/${agentId}`, { forceHost: options.host });
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
     return 0;
@@ -241,7 +241,7 @@ async function runAgentsRun(ctx: Ctx, argv: string[]) {
   }
   if (options.noValidate) body.validateHandoff = false;
 
-  const res = await requestJson(ctx, `/v1/host/openwop-app/agents/${encodeURIComponent(agentId)}/dispatch`, {
+  const res = await requestJson(ctx, `/host/openwop-app/agents/${encodeURIComponent(agentId)}/dispatch`, {
     method: 'POST',
     body,
   });
@@ -278,7 +278,7 @@ async function runAgentsEvalRun(ctx: Ctx, argv: string[]) {
   }
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/openwop-app/agents/eval-run', { method: 'POST', body: { tasks: body.tasks, results: body.results } });
+    res = await requestJson(ctx, '/host/openwop-app/agents/eval-run', { method: 'POST', body: { tasks: body.tasks, results: body.results } });
   } catch (err) {
     failClosedOn404(err, 'agents eval-run');
   }
@@ -311,7 +311,7 @@ async function runAgentsVerifyRun(ctx: Ctx, argv: string[]) {
   if (options.task) body.task = options.task;
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/openwop-app/agents/verify-run', { method: 'POST', body });
+    res = await requestJson(ctx, '/host/openwop-app/agents/verify-run', { method: 'POST', body });
   } catch (err) {
     failClosedOn404(err, 'agents verify-run');
   }

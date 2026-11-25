@@ -14,7 +14,7 @@ export const MAINTENANCE_HELP = `Usage:
   openwop maintenance rekey-member-subjects [--tenant <tenantId>] [--json]
 
 Super-admin data maintenance (host extension).
-  rekey-member-subjects  POST /v1/host/openwop-app/maintenance/rekey-member-subjects
+  rekey-member-subjects  POST /host/openwop-app/maintenance/rekey-member-subjects
                          Re-key legacy member subjects to durable user ids for the
                          caller's workspace (or --tenant). Idempotent; audited.
 
@@ -35,7 +35,7 @@ export async function runMaintenance(ctx: Ctx, argv: string[]) {
   if (options.help) { write(ctx.io.stdout, MAINTENANCE_HELP); return 0; }
   const body: Record<string, any> = {};
   if (options.tenant) body.tenantId = options.tenant;
-  const res = await gatedRequest(ctx, '/v1/host/openwop-app/maintenance/rekey-member-subjects', { method: 'POST', body }, 'Subject re-key maintenance', 'superadmin');
+  const res = await gatedRequest(ctx, '/host/openwop-app/maintenance/rekey-member-subjects', { method: 'POST', body }, 'Subject re-key maintenance', 'superadmin');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const { tenantId, ...counts } = res.body ?? {};
   writeLine(ctx.io.stdout, `Re-keyed member subjects for ${tenantId ?? '?'}: ${Object.entries(counts).map(([k, v]) => `${k}=${v}`).join(' ') || '(no changes)'}`);

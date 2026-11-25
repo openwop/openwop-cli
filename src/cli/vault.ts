@@ -14,7 +14,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { gatedRequest, readSecretInput } from './adminShared.js';
 
-const BASE = '/v1/host/openwop-app/vault';
+const BASE = '/host/openwop-app/vault';
 const SURFACE = 'The secrets vault';
 
 export const VAULT_HELP = `Usage:

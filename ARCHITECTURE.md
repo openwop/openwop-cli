@@ -27,7 +27,7 @@ flag, channel plugin, or helper:
   field, capability flag, endpoint contract, auth profile, error semantic, or a
   normative `MUST`, that belongs in the upstream `openwop/openwop` RFC/spec
   process before or with the CLI work. Don't bake a command against an unsettled
-  wire contract. Host-extension surfaces under `/v1/host/openwop-app/*` are
+  wire contract. Host-extension surfaces under `/host/openwop-app/*` are
   non-normative and may be driven freely.
 - **Use the command-group seam.** A "feature" is a module under `src/cli/<id>.ts`
   exporting `<ID>_HELP` + `run<Id>(ctx, argv)`, wired into the `src/cli.ts`
@@ -50,8 +50,8 @@ flag, channel plugin, or helper:
   rule the host obeys.
 - **Stay host-agnostic.** Drive commands off what `/.well-known/openwop`
   advertises and what `api/openapi.yaml` defines, not off the reference app's
-  internals. Prefer normative `/v1/*` paths when a host serves them; fall back to
-  `/v1/host/openwop-app/*` only for demo-only surfaces — and **say which path a command
+  internals. Prefer normative unversioned v2 paths when a host serves them; fall back to
+  `/host/openwop-app/*` only for demo-only surfaces — and **say which path a command
   hits in its help text**.
 - **Stay zero-dependency.** The CLI bundles to a single file with
   `esbuild --packages=external` and ships **no runtime dependencies**. Use Node
@@ -164,15 +164,19 @@ run lifecycle, stream modes, interrupts, replay/fork, capability discovery, auth
 profiles, host capabilities, BYOK semantics, pack execution, canonical errors, and
 workflow definitions.
 
-- **Normative `/v1/*`** — defined in `openwop/openwop` `api/openapi.yaml` + an
-  Accepted RFC. Host-agnostic; **prefer these** when a host serves them.
-- **Host-extension `/v1/host/openwop-app/*`** — non-normative surfaces the reference app
-  (org `openwop-app`; the pre-2026-06 name `/v1/host/sample/*` now 404s) exposes
-  for product features (orgs, kanban, messaging, memory, …). Rich and durable, but
-  not the wire. Commands write the `/v1/host/<org>/…` twin; under negotiated major
-  2, `src/protocol.ts` sends it to the unversioned `/host/<org>/…` root the host
-  advertises in discovery `extensions.*` (`versioning.md` §5), with no
-  `OpenWOP-Version` header. When a sample pattern becomes generally needed across
+The CLI speaks **protocol major 2 only** (major 1 ended support 2026-10-04,
+RFC 0234; a conformant host answers every `/v1/*` path with `410`).
+
+- **Normative, unversioned** (`/runs`, `/agents`, `/prompts:render`, …) — defined
+  in `openwop/openwop` `api/v2/openapi.yaml` (`spec/v2/path-manifest.json`) + an
+  Accepted RFC. Host-agnostic; **prefer these** when a host serves them. Sent with
+  `OpenWOP-Version: 2.0`.
+- **Host-extension `/host/openwop-app/*`** — non-normative surfaces the reference app
+  (org `openwop-app`) exposes for product features (orgs, kanban, messaging,
+  memory, …), under the root the host advertises in discovery `extensions.*`
+  (`versioning.md` §5). Rich and durable, but not the wire. Commands write the
+  `/host/<org>/…` path they send, with no `OpenWOP-Version` header (a `/host/<org>/`
+  path has no major). When a sample pattern becomes generally needed across
   hosts, it is promoted through an RFC; the command then switches to the normative
   path (noted in help + CHANGELOG).
 
@@ -189,8 +193,8 @@ itself. Four seams own that, so a protocol or host change lands once:
 | Seam | File | Owns |
 |---|---|---|
 | `requestJson` / `safeRequest` / `probeEndpoint` | `src/api.ts` | every JSON request: joins to `--base-url` (keeping a path prefix), bearer, error envelope → `HttpError` |
-| `negotiateMajor` + `resolveRequest` | `src/protocol.ts` | ONE discovery read per process (`OpenWOP-Version: 2`; a `406` answer lists what the host serves); under major 2 a manifest `/v1/<op>` → `/<op>` + `OpenWOP-Version: 2.0`, tenant-bound run ids projected (`~2F`), `/v1/host/<org>/…` → the advertised `/host/<org>/…` root. `OPENWOP_PROTOCOL_MAJOR=1\|2` pins it |
-| `resolveStreamRequest` | `src/protocol.ts` | every event stream (run events, host streams, `kanban watch`, `present`): the same path negotiation, joined to the **stream origin** — `--stream-base-url` > `OPENWOP_STREAM_BASE_URL` > config `host.streamBaseUrl` > a host-advertised `extensions.*.streamBase` (https-only, no credentials) > `--base-url` — because a front door may buffer streams entirely (openwop-app ADR 0761: 0 bytes in 25 s). The run stream adds `Last-Event-ID` resume and an idle watchdog (`src/sse.ts`) |
+| `negotiateMajor` + `resolveRequest` | `src/protocol.ts` | ONE discovery read per process (`OpenWOP-Version: 2`); a host that serves no `2.x` (or answers `406` listing none) is refused with a message naming major 1's end of support. The path is sent as written: `OpenWOP-Version: 2.0` is added except on a host-proprietary `/host/<org>/…` route, and tenant-bound run ids are projected (`~2F`). `OPENWOP_PROTOCOL_MAJOR=2` skips the discovery read; any other value is refused |
+| `resolveStreamRequest` | `src/protocol.ts` | every event stream (run events, host streams, `kanban watch`, `present`): the same headers, joined to the **stream origin** — `--stream-base-url` > `OPENWOP_STREAM_BASE_URL` > config `host.streamBaseUrl` > a host-advertised `extensions.*.streamBase` (https-only, no credentials) > `--base-url` — because a front door may buffer streams entirely (openwop-app ADR 0761: 0 bytes in 25 s). The run stream adds `Last-Event-ID` resume and an idle watchdog (`src/sse.ts`) |
 | `requestNormativeOrHost` | `src/cli/requestHelpers.ts` | a normative read with a host-extension fallback: on 404/405/501, or on the RFC 0200 §B.1 **no-credential** 401 (`Bearer` challenge without `error=`) when the request carried no credential — never on a refused credential, a bare 401 or a 403. The fallback is announced on stderr |
 
 **Why they are seams and not conventions:** each replaced several hand-rolled

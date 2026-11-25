@@ -7,7 +7,7 @@ import type { Ctx } from '../context.js';
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
 export const WORK_SELECTION_ROUTES: RouteCmd[] = [
-  { words: ['ranking'], method: 'GET', path: '/v1/host/openwop-app/work-selection/boards/:boardId/ranking', summary: 'Ranked cards on a board with the reasons for each score.',
+  { words: ['ranking'], method: 'GET', path: '/host/openwop-app/work-selection/boards/:boardId/ranking', summary: 'Ranked cards on a board with the reasons for each score.',
     table: { key: 'ranked', columns: ['rank', 'cardId', 'title', 'score'], empty: 'Nothing ranked (empty board, or no access).' } },
 ];
 

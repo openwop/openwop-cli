@@ -4,7 +4,7 @@ import type { Ctx } from '../context.js';
  * (openwop-app ADR 0038 per-agent knowledge memory; ADR 0041 memory tab).
  *
  * Host-extension surface (non-normative) under
- * /v1/host/openwop-app/agents/{agentId}/knowledge. Every route is gated by the
+ * /host/openwop-app/agents/{agentId}/knowledge. Every route is gated by the
  * HOST, in order: the agent must be yours (a missing or cross-tenant agent is
  * a uniform 404), then RBAC (workspace:read for view/retrieve/notes,
  * workspace:write for writes), then the agent's own profile policy on the write
@@ -19,7 +19,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const base = (agentId: string) => `/v1/host/openwop-app/agents/${encodeURIComponent(agentId)}/knowledge`;
+const base = (agentId: string) => `/host/openwop-app/agents/${encodeURIComponent(agentId)}/knowledge`;
 
 export const AGENT_KNOWLEDGE_HELP = `Usage:
   openwop agent-knowledge show <agentId> [--json]
@@ -36,7 +36,7 @@ export const AGENT_KNOWLEDGE_HELP = `Usage:
   openwop agent-knowledge memory-writable <agentId> (--on | --off) [--json]
 
 Per-agent knowledge curation (host-extension, ADR 0038). Every command hits
-/v1/host/openwop-app/agents/{agentId}/knowledge[...]:
+/host/openwop-app/agents/{agentId}/knowledge[...]:
 
   show               GET    .../knowledge                       — bindings, collections, notes summary
   retrieve           POST   .../knowledge/retrieve              — read-only cited retrieval { query }

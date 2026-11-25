@@ -21,9 +21,9 @@ function recorder(reply) {
   };
   return { calls, f };
 }
-const CB = '/v1/host/openwop-app/creative-briefs/orgs/o1';
-const CV = '/v1/host/openwop-app/creative-video/orgs/o1';
-const PR = '/v1/host/openwop-app/production/orgs/o1';
+const CB = '/host/openwop-app/creative-briefs/orgs/o1';
+const CV = '/host/openwop-app/creative-video/orgs/o1';
+const PR = '/host/openwop-app/production/orgs/o1';
 
 describe('creative-briefs', () => {
   it('list renders a table from {briefs}', async () => {

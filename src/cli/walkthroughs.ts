@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop walkthroughs ...` — product walkthrough progress + the run-derived
  * funnel (feature: walkthroughs, ADR 0368 / ADR 0378 P3).
  *
- * Hits `/v1/host/openwop-app/walkthroughs/{progress,funnel}` (host-extension,
+ * Hits `/host/openwop-app/walkthroughs/{progress,funnel}` (host-extension,
  * toggle-gated by `walkthroughs`). Progress is per-caller and server-stamped;
  * the funnel is a tenant-wide aggregate that needs workspace read scope.
  */
@@ -13,7 +13,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { renderDone, renderList, withQuery } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/walkthroughs';
+const BASE = '/host/openwop-app/walkthroughs';
 
 export const WALKTHROUGHS_HELP = `Usage:
   openwop walkthroughs progress [--json]

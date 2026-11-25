@@ -13,8 +13,8 @@ function capture() {
   };
 }
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
-const C = '/v1/host/openwop-app/crm';
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
+const C = '/host/openwop-app/crm';
 
 /** Run one command against a recording fetch; returns { code, cap, calls }. */
 async function run(argv, response = { ok: true }, status = 200) {

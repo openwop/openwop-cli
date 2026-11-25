@@ -32,7 +32,7 @@ export function mockHost(routes) {
 }
 
 export function opts(fetchImpl, cap, env = {}) {
-  return { io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1', ...env } };
+  return { io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2', ...env } };
 }
 
 export const forbidden = { status: 403, body: { error: 'forbidden', message: 'This administration surface requires a superadmin principal.', details: { hint: 'add your tenant id to OPENWOP_SUPERADMIN_TENANTS' } } };

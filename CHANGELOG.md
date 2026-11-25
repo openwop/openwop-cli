@@ -6,6 +6,28 @@ versioned on its own SemVer line.
 
 ## [Unreleased]
 
+> **Release order:** needs a host that serves OpenWOP protocol major 2 (app.openwop.dev has served only major 2 since 2026-10-03). Against a host that serves only major 1, every command now stops with a message instead of sending `/v1/…`. **This is a breaking change: release it as 3.0.0.**
+
+### Breaking
+- **Protocol major 1 support is removed** (RFC 0234: major 1 reached end of support on 2026-10-04, and a conformant host answers every `/v1/*` path with `410`). The CLI speaks major 2 only.
+  - A host whose discovery lists no `2.x` in `protocolVersions` (or answers the v2 discovery read with `406` listing none) is refused with exit 1 and a message naming major 1's end of support. Nothing is sent to `/v1`. `openwop doctor` shows it as a failed `protocol` row. An unreachable discovery is not a refusal; the command still reports its own failure.
+  - `OPENWOP_PROTOCOL_MAJOR=1` is refused with exit 2, before any request. `OPENWOP_PROTOCOL_MAJOR=2` still skips the discovery read.
+  - `runs events --since N` sends only `afterSequence` (v1's `lastSequence` cursor is gone), and a poll ends only on `isTerminal` (v1's `isComplete` is no longer read).
+  - `--last-event-id` must be an integer sequence. The v1 opaque id is no longer sent verbatim.
+  - `catalog packs search|get|export` read only `/host/openwop-app/packs…`. The `/v1/packs` fallback on a 404 is gone.
+  - Host-extension surfaces (`approvals`, `connections`, `workforces`) are found through the host's advertised `extensions.*.root` only. A v1 discovery `paths` map no longer counts, and `a2a status` / `proposals` / `goals` read capability records from the v2 discovery document only.
+  - To drive a host that still serves only major 1, stay on `@openwop/cli` 2.x (2.2.0).
+
+### Changed
+- **Every command now writes the path it sends.** About 800 `/v1/…` literals in 165 source files were respelled as their v2 paths: the unversioned operation (`/runs`, `/agents/{agentId}`, `/prompts:render`) or the host-extension root (`/host/openwop-app/…`). The request-time rewrite (manifest twin, `/v1/host/<org>/` → advertised root, seams twin) is gone. `src/protocol.ts` now only adds `OpenWOP-Version: 2.0` (not on a `/host/<org>/…` route the path manifest does not name) and projects tenant-bound run ids. Help text names the v2 paths.
+- `workspace` always uses `/conformance/seams/workspace/files` (the only v2 home of the workspace operations), with or without the host's `conformance.seamsProfile` advertisement.
+- `ui-plugin rpc --conformance-alias` posts to the host-global test seam `/host/sample/ui-plugin/rpc`.
+
+### Fixed
+- **`prompts render` and `runs bulk-cancel` failed against a v2 host.** Their paths (`/prompts:render`, `/runs:bulk-cancel`) lost the leading slash when joined to the base URL, so the first segment parsed as a URL scheme (`prompts:`). Every request is now joined as `./<path>`.
+- Commands whose operation is not named in the v2 path manifest went to `/v1/…` and got `410` from a v2-only host: `runs debug-bundle`, `webhooks test`, `triggers get|update|ingest`, and any host-extension route on a host with no advertised root. They now use the v2 path. A tenant-bound run id is projected on every `/runs/{runId}…` path, not only the manifest ones.
+- `goals` read discovery twice. It now reads it once.
+
 ## [2.2.0] — 2026-11-24 — read large kanban boards a page at a time
 
 > **Release order:** works against any openwop-app server. A server with ADR 1155's paged board read (0.19.1) is read a page at a time; an older one still answers in one read.

@@ -17,8 +17,10 @@ ships independently of the `openwop/openwop` spec corpus.
 
 1. **Host-agnostic, advertisement-driven.** Drive commands off
    `/.well-known/openwop` + `api/openapi.yaml`, not the reference app's internals.
-   Prefer normative `/v1/*`; fall back to `/v1/host/openwop-app/*` only for demo
-   surfaces — and **say which path a command hits** in its help text.
+   Speak protocol major 2 only (major 1 ended support 2026-10-04, RFC 0234):
+   prefer the normative unversioned path (`/runs`, `/agents`); fall back to
+   `/host/openwop-app/*` only for demo surfaces — and **say which path a command
+   hits** in its help text. Never write a `/v1/…` path.
 2. **Capability-honest, fail closed.** Probe with `safeRequest`/`probeEndpoint`;
    when a host doesn't advertise a surface, fail closed with a legible
    `HOST_CAPABILITY_MISSING`-style message and a non-zero exit — never a stack
@@ -33,7 +35,7 @@ ships independently of the `openwop/openwop` spec corpus.
 5. **Don't fork the protocol here.** A new run-event field, capability flag,
    endpoint contract, or normative `MUST` belongs in the `openwop/openwop` RFC
    process (≥ Accepted) before/with the CLI work. Host-extension surfaces under
-   `/v1/host/openwop-app/*` are non-normative and may be driven freely.
+   `/host/openwop-app/*` are non-normative and may be driven freely.
 
 ## The unit of work: a command group
 

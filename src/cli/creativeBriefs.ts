@@ -2,7 +2,7 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop creative-briefs ...` — Creative Briefs (openwop-app ADR 0353; ad-layout
  * renders ADR 0399; text-to-video reel ADR 0411 P3b). Host-extension, org-scoped:
- * `/v1/host/openwop-app/creative-briefs/orgs/<orgId>/...`. Reads need
+ * `/host/openwop-app/creative-briefs/orgs/<orgId>/...`. Reads need
  * workspace:read, writes workspace:write; approving a brief (`transition
  * --status approved`) is privileged (host:members:manage) — the host decides.
  */
@@ -12,11 +12,11 @@ import { requestJson, parseJsonResponse } from '../api.js';
 import { CliError, HttpError } from '../errors.js';
 import { write, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
-import { resolveRequest } from '../protocol.js';
+import { joinBase, resolveRequest } from '../protocol.js';
 import { requireOrg } from './shared.js';
 import { csv, enc, mergeBody, parseJsonFlag, pickArray, renderDone, renderList, withQuery } from './contentHelpers.js';
 
-const base = (org: string) => `/v1/host/openwop-app/creative-briefs/orgs/${enc(org)}`;
+const base = (org: string) => `/host/openwop-app/creative-briefs/orgs/${enc(org)}`;
 
 export const CREATIVE_BRIEFS_HELP = `Usage:
   openwop creative-briefs list --org <orgId> [--json]
@@ -36,7 +36,7 @@ export const CREATIVE_BRIEFS_HELP = `Usage:
   openwop creative-briefs renders delete <briefId> <renderId> --org <orgId> --yes
 
 Creative briefs (host-extension, ADR 0353/0399/0411). Hits
-/v1/host/openwop-app/creative-briefs/orgs/<orgId>/... — briefs, their version
+/host/openwop-app/creative-briefs/orgs/<orgId>/... — briefs, their version
 history + field-level diff, a mood board assembled from the media library, a
 PDF export, ad-layout renders from the render-template catalog, and an async
 text-to-video reel (returns a runId; follow it with \`openwop runs events\`).
@@ -202,7 +202,7 @@ async function renders(ctx: Ctx, argv: string[]): Promise<number> {
 /** POST a JSON body and return the raw response bytes (PDF export). */
 async function postForBytes(ctx: Ctx, requestedPath: string, body: unknown): Promise<Buffer> {
   const { path, headers } = await resolveRequest(ctx, requestedPath, { accept: 'application/pdf, application/json', 'content-type': 'application/json' });
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
+  const url = joinBase(ctx.baseUrl, path);
   if (ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
   const res = await ctx.fetchImpl(url, { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok) {

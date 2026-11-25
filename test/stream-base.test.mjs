@@ -2,9 +2,7 @@
 //
 // Stream origin (openwop-app ADR 0761) + idle watchdog. Helpers copied from sse-resume.test.mjs.
 // SSE resume + stream mode (spec/v2/core/events.md §The events channel —
-// §Stream modes, §SSE frames, §Resuming with `Last-Event-ID`; v1
-// spec/v1/stream-modes.md §Mode selection / §Resumption and
-// rest-endpoints.md §Server-Sent Events).
+// §Stream modes, §SSE frames, §Resuming with `Last-Event-ID`).
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runCli, streamRunEvents, streamBaseFrom, explicitStreamBase } from '../dist/cli.js';
@@ -40,16 +38,16 @@ function capture() {
 /**
  * A host whose events stream is scripted per connection: `connections[i]` is
  * the i-th SSE response factory. Run status reads answer `status`. Records
- * every request (path, search, headers). Discovery answers `major`.
+ * every request (path, search, headers). Discovery advertises major 2.
  */
-function host({ connections, status = () => 'running', major = '2', extensions }) {
+function host({ connections, status = () => 'running', extensions }) {
   const seen = [];
   let n = 0;
   const fetchImpl = async (url, init = {}) => {
     const u = new URL(String(url));
     const headers = init.headers ?? {};
     seen.push({ origin: u.origin, path: u.pathname, search: u.search, headers });
-    if (u.pathname.endsWith('/.well-known/openwop')) return json({ protocolVersions: major === '2' ? ['1.1', '2.0'] : ['1.1'], ...(extensions ? { extensions } : {}) });
+    if (u.pathname.endsWith('/.well-known/openwop')) return json({ protocolVersions: ['2.0'], ...(extensions ? { extensions } : {}) });
     if (/\/events$/.test(u.pathname)) {
       const make = connections[n++];
       if (!make) throw new Error(`unexpected connection #${n}`);

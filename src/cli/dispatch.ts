@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop dispatch fanout` — the RFC 0118 parallel fan-out witness seam
  * (host-extension path; the join semantics it exercises are normative).
  *
- *   POST /v1/host/openwop-app/dispatch/fanout   { nextWorkerIds[≥2], config }
+ *   POST /host/openwop-app/dispatch/fanout   { nextWorkerIds[≥2], config }
  *
  * The host runs its REAL bounded-concurrency coordinator + join fold over a
  * deterministic child dispatcher (each worker id → a completed child), and
@@ -22,7 +22,7 @@ export const DISPATCH_HELP = `Usage:
   openwop dispatch fanout --worker <id> --worker <id> [...] [--join wait-all|quorum|first|race] [--quorum n] [--on-child-failure collect|fail-fast|absorb] [--max-concurrency n] [--json]
   openwop dispatch fanout (--body '{"nextWorkerIds":[...],"config":{...}}' | --body-file <f>) [--json]
 
-Parallel fan-out (RFC 0118). POST /v1/host/openwop-app/dispatch/fanout with
+Parallel fan-out (RFC 0118). POST /host/openwop-app/dispatch/fanout with
 { nextWorkerIds, config: { fanOutPolicy: "parallel", maxConcurrency?, joinPolicy? } }.
 The host runs its real coordinator and join fold over deterministic children
 and reports joinOutcome, children[], mergeOrder and the completed/failed/
@@ -66,7 +66,7 @@ export async function runDispatch(ctx: Ctx, argv: string[]): Promise<number> {
   }
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/openwop-app/dispatch/fanout', { method: 'POST', body });
+    res = await requestJson(ctx, '/host/openwop-app/dispatch/fanout', { method: 'POST', body });
   } catch (err) {
     failClosedOn404(err, 'dispatch fanout');
   }

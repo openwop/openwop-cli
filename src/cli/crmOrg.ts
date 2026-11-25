@@ -6,16 +6,16 @@
  * (ADR 0402 `docs/adr/0402-crm-booking-and-esign.md`), including their public
  * visitor routes (`/public-book/...`, `/public-sign/...`, sent WITHOUT auth).
  *
- * Authed routes live under `/v1/host/openwop-app/crm/orgs/:orgId` (toggle `crm`;
+ * Authed routes live under `/host/openwop-app/crm/orgs/:orgId` (toggle `crm`;
  * read = workspace:read, write = workspace:write). The public routes authorize
  * by slug (published booking links) or by a capability token (booking manage /
  * signer link) — possession of the token is the identity; the CLI never mints one.
  */
 import type { CommandSpec } from './resourceCommands.js';
 
-const O = '/v1/host/openwop-app/crm/orgs/:org';
-const PB = '/v1/host/openwop-app/public-book';
-const PS = '/v1/host/openwop-app/public-sign';
+const O = '/host/openwop-app/crm/orgs/:org';
+const PB = '/host/openwop-app/public-book';
+const PS = '/host/openwop-app/public-sign';
 
 const COMPANY_FIELDS = ['domain', 'industry', 'size:number', 'revenue:number', 'tags:json', 'customFields:json'];
 const DEAL_FIELDS = [
@@ -97,7 +97,7 @@ export const CRM_ORG_SPECS: CommandSpec[] = [
   { cmd: ['public-sign', 'decline'], method: 'POST', route: `${PS}/:token/decline`, summary: 'Decline to sign.', auth: false, confirm: true },
 ];
 
-export const CRM_ORG_INTRO = `Org-scoped CRM (host-extension /v1/host/openwop-app/crm/orgs/<orgId>/…, pass
+export const CRM_ORG_INTRO = `Org-scoped CRM (host-extension /host/openwop-app/crm/orgs/<orgId>/…, pass
 --org): pipelines, companies (+ merge/unmerge, duplicates with
 --entity-type company), deals (+ stage history, pipeline report), tasks
 (status open|doing|done), activities (kind note|call|email|meeting|webinar; the activity's \`body\` field
@@ -108,7 +108,7 @@ JSON import (--rows '[{…}]', or the whole body via --body-file) and CSV export
 through exactly as the host stores it.
 
 Booking links + e-signature (ADR 0402). \`public-book\` and \`public-sign\` are
-the visitor surfaces (/v1/host/openwop-app/public-book|public-sign/…) and are
+the visitor surfaces (/host/openwop-app/public-book|public-sign/…) and are
 sent without your API key: a published link's slug, or the capability token
 from a manage/signer link. --target is {"kind":"<kind>","id":"<id>"};
 --signers is [{"email":"…","name":"…","order":1}]. Signing requires

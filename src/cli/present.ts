@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop present ...` — the presentation remote (ADR 0328 Phase 4): the phone
  * controller's surface for a presenting canvas.
  *
- * Hits `/v1/host/openwop-app/present/<token>/{outline,command,state,events}`.
+ * Hits `/host/openwop-app/present/<token>/{outline,command,state,events}`.
  * TOKEN-AUTHED: the signed present token IS the credential, so these calls send
  * no API key. Every failure (unknown, expired, forged) is a uniform 404.
  * `events` is a server-sent-event feed of `nav` events.
@@ -16,7 +16,7 @@ import { resolveStreamRequest } from '../protocol.js';
 import { consumeSse } from '../sse.js';
 import { enc, renderDone } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/present';
+const BASE = '/host/openwop-app/present';
 const ACTIONS = ['next', 'prev', 'goto', 'blank'];
 
 export const PRESENT_HELP = `Usage:

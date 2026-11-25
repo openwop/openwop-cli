@@ -4,7 +4,7 @@ import type { Ctx } from '../context.js';
  * upgrade ticket, run the seeder election, and read the operator debug view
  * (ADR 0359 + its cross-origin ticket correction; ADR 0610 collab-lane member gate).
  *
- * Hits `/v1/host/openwop-app/canvas-collab/*` (host-extension). Gated by the
+ * Hits `/host/openwop-app/canvas-collab/*` (host-extension). Gated by the
  * `realtime-collab` toggle + the canvas type's own toggle + tenant canvas
  * authorization — every miss is a uniform 404. A ticket is a short-lived
  * CREDENTIAL scoped to one canvas: it is printed once, never logged or saved.
@@ -15,7 +15,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { enc, renderList } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/canvas-collab';
+const BASE = '/host/openwop-app/canvas-collab';
 
 export const CANVAS_COLLAB_HELP = `Usage:
   openwop canvas-collab ticket <canvasId> [--json]

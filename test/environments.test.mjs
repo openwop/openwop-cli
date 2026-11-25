@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, mockHost, opts } from './helpers/mockHost.mjs';
 
-const B = '/v1/host/openwop-app/environments';
+const B = '/host/openwop-app/environments';
 
 describe('environments', () => {
   it('list renders the chain; --drift adds the query', async () => {

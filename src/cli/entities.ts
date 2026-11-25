@@ -8,7 +8,7 @@ import type { Ctx } from '../context.js';
  * Sources: openwop-app ADR 0386 (entities headless content modeling), ADR 0406
  * (entities localization), ADR 0407 (entity content-delivery bridge — the
  * `public-entities` sibling prefix). All paths are host-extension routes under
- * `/v1/host/openwop-app/entities` and `/v1/host/openwop-app/public-entities`.
+ * `/host/openwop-app/entities` and `/host/openwop-app/public-entities`.
  * The host is the authority for RBAC, the publish gate and validation.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -19,8 +19,8 @@ import { write, writeJson, writeLine } from '../io.js';
 import { parseOptions } from '../options.js';
 import { csv, enc, mergeBody, parseJsonFlag, pickArray, renderDone, renderList, withQuery } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/entities';
-const PUBLIC_BASE = '/v1/host/openwop-app/public-entities';
+const BASE = '/host/openwop-app/entities';
+const PUBLIC_BASE = '/host/openwop-app/public-entities';
 
 export const ENTITIES_HELP = `Usage:
   openwop entities locale-context [--json]
@@ -54,8 +54,8 @@ export const ENTITIES_HELP = `Usage:
   openwop entities public get <tenantId> <type> <entityId> [--locale <l>] [--json]
 
 Headless content modeling (host-extension, ADR 0386/0406/0407). Hits
-/v1/host/openwop-app/entities/* with your credentials; \`public\` hits the
-anonymous /v1/host/openwop-app/public-entities/* surface WITHOUT auth (a type
+/host/openwop-app/entities/* with your credentials; \`public\` hits the
+anonymous /host/openwop-app/public-entities/* surface WITHOUT auth (a type
 must be published + opted into public read, otherwise the server answers one
 uniform 404). Every command accepts --project <id> to scope to a project.
 \`types export\` writes NDJSON (one entity per line) to --output or stdout;

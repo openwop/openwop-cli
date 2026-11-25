@@ -2,7 +2,7 @@ import type { Ctx } from './context.js';
 /** Host HTTP client — typed-ish wrapper over ctx.fetchImpl with bearer + JSON. */
 
 import { HttpError, httpErrorLine } from './errors.js';
-import { resolveRequest } from './protocol.js';
+import { joinBase, resolveRequest } from './protocol.js';
 import { checkMinClientVersion } from './wire.js';
 
 const floorWarned = new WeakSet<object>();
@@ -32,8 +32,9 @@ export interface RequestOptions {
 
 /** Perform a JSON request against `ctx.baseUrl`; throws HttpError on non-2xx. */
 export async function requestJson(ctx: Ctx, requestedPath: string, options: RequestOptions = {}): Promise<{ status: number; headers: Headers; body: any }> {
-  // Negotiate the protocol major once per process and rewrite manifest-named
-  // `/v1/<op>` paths for it (src/protocol.ts). Commands keep their literals.
+  // Read discovery once per process (refusing a major-1-only host), add
+  // `OpenWOP-Version: 2.0` and project run ids (src/protocol.ts). The path is
+  // sent as the command wrote it.
   const { path, headers } = await resolveRequest(ctx, requestedPath, {
     accept: 'application/json',
     ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
@@ -44,7 +45,7 @@ export async function requestJson(ctx: Ctx, requestedPath: string, options: Requ
   // (e.g. https://app.openwop.dev/api) is preserved. `new URL(path, base)`
   // with an absolute `path` would otherwise reset the base path to '/' —
   // silently breaking any host that proxies under a prefix.
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
+  const url = joinBase(ctx.baseUrl, path);
   if (options.auth !== false && ctx.apiKey) {
     headers.authorization = `Bearer ${ctx.apiKey}`;
   }

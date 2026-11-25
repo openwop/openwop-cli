@@ -9,13 +9,13 @@ import { dispatchSpecs, specsUsage, type CommandSpec } from './resourceCommands.
 
 /** ADR 0469 Phase B — the workspace tool catalog the anonymous-visitor grant editor picks from. */
 export const CHAT_WIDGET_EXT_SPECS: CommandSpec[] = [
-  { cmd: ['tool-catalog'], method: 'GET', route: '/v1/host/openwop-app/chat-widget/orgs/:org/tool-catalog', summary: 'Tools a widget can grant to anonymous visitors (read-only).' },
+  { cmd: ['tool-catalog'], method: 'GET', route: '/host/openwop-app/chat-widget/orgs/:org/tool-catalog', summary: 'Tools a widget can grant to anonymous visitors (read-only).' },
 ];
 import { writeFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { APP, dispatchTable, detail, qs, requestRaw, writeText, type Cmd } from './marketingShared.js';
 
-const base = (org: string) => `/v1/host/openwop-app/chat-widget/orgs/${encodeURIComponent(org)}/widgets`;
+const base = (org: string) => `/host/openwop-app/chat-widget/orgs/${encodeURIComponent(org)}/widgets`;
 
 export const CHAT_WIDGET_HELP = `Usage:
   openwop chat-widget list --org <orgId> [--json]
@@ -31,13 +31,13 @@ token; \`rotate-token\` invalidates the old one. Every command needs --org.
 
 Public visitor legs (UNAUTHENTICATED — exactly what the embedded widget calls; no --org):
   openwop chat-widget public config --token <t> --origin <https://site> [--json]
-      GET /v1/host/openwop-app/public/widget/config?token=… — the public projection
+      GET /host/openwop-app/public/widget/config?token=… — the public projection
       (widgetId, agentId, caps, businessName, privacyUrl).
   openwop chat-widget public message --token <t> --origin <https://site> --message <text> [--session <id>] [--json]
-      POST /v1/host/openwop-app/public/widget/message — one visitor turn; prints the reply.
+      POST /host/openwop-app/public/widget/message — one visitor turn; prints the reply.
       Counts against the widget's per-session/day caps (429 when exhausted).
   openwop chat-widget public embed [--out <file>]
-      GET /v1/host/openwop-app/public/widget/embed.js — the served embed script.
+      GET /host/openwop-app/public/widget/embed.js — the served embed script.
 --origin is sent as the Origin header and must be on the widget's allowed-domain
 list (403 otherwise); the token is the embed token from 'create'/'rotate-token'.
 Exit codes: 0 ok; 2 usage error or host 4xx (404 = unknown token, 429 = cap hit);
@@ -99,7 +99,7 @@ export async function runChatWidget(ctx: Ctx, argv: string[]) {
   }
 }
 
-// ── public visitor legs (/v1/host/openwop-app/public/widget/*) ───────────────
+// ── public visitor legs (/host/openwop-app/public/widget/*) ───────────────
 const PUB_WIDGET = `${APP}/public/widget`;
 
 const WIDGET_PUBLIC: Record<string, Cmd> = {

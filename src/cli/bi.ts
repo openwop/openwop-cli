@@ -9,7 +9,7 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const M = '/v1/host/openwop-app/bi/orgs/:orgId/metrics';
+const M = '/host/openwop-app/bi/orgs/:orgId/metrics';
 
 const DEF_FIELDS = [
   { flag: '--title', key: 'title' },

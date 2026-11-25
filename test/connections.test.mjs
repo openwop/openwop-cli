@@ -22,9 +22,8 @@ function opts(fetchImpl, cap) {
 }
 
 function wellKnown(withConnections = true) {
-  const paths = { '/v1/runs': { get: {} } };
-  if (withConnections) paths['/v1/host/openwop-app/connections'] = { get: {} };
-  return { protocolVersion: '1.0', paths };
+  // v2 discovery advertises the host-extension ROOT (versioning.md §5), not a paths map.
+  return { protocolVersions: ['2.0'], ...(withConnections ? { extensions: { 'openwop-app.host': { root: '/host/openwop-app/' } } } : {}) };
 }
 
 function host(handler, { advertised = true } = {}) {
@@ -39,7 +38,7 @@ describe('connections list', () => {
   it('renders connections as a table', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/connections$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/connections$/);
       return jsonResponse({ connections: [
         { connectionId: 'conn:1', provider: 'google', kind: 'oauth2', userId: 'u1', displayName: 'Google', status: 'active', expiresAt: '2026-07-01' },
         { connectionId: 'conn:2', provider: 'slack', kind: 'api_key', orgId: 'o1', displayName: 'Slack', status: 'revoked' },

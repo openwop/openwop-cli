@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const H = '/v1/host/openwop-app';
+const H = '/host/openwop-app';
 
 /**
  * Declared agent-ops commands (routeKit), checked before the hand-written switch

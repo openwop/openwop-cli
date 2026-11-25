@@ -12,7 +12,7 @@
  * two segments and a 404. Measured on app.openwop.dev (2026-09-27): the
  * percent form 404s, the projected form answers 200. The projected form is the
  * one every host MUST accept and every link is emitted in, so it is what the
- * CLI sends under major 2.
+ * CLI sends.
  *
  * A projected id is ONE segment, so it never carries a raw `/`. A value with
  * `~` and no `/` is taken to be projected already and passes through —
@@ -63,13 +63,12 @@ function splitRunSegment(bare: string): [string, string] | null {
 }
 
 /**
- * Re-encode the tenant-bound `{runId}` parameters of an UNVERSIONED (major-2)
- * manifest path into the projected wire form: the segment after `/runs/`
- * (every manifest template carrying `{runId}` is `/runs/{runId}…`, with an
- * optional `:fork`/`:diff`/`:pause`/`:resume` suffix) and the `against=` query
- * parameter of `diffRun`. Commands keep building `/v1/…` paths with
- * `encodeURIComponent`, so the segment is decoded first; under major 1 this is
- * never called and the `/v1/` path is sent exactly as written.
+ * Re-encode the tenant-bound `{runId}` parameters of a `/runs/{runId}…` path
+ * (with an optional `:fork`/`:diff`/`:pause`/`:resume` suffix) into the
+ * projected wire form, plus the `against=` query parameter of `diffRun`.
+ * Commands build these paths with `encodeURIComponent`, so the segment is
+ * decoded first. Every request goes through this (src/protocol.ts
+ * `resolveRequest`); a path that does not start with `/runs/` is unchanged.
  */
 export function projectRunIdsInPath(path: string): string {
   const q = path.indexOf('?');

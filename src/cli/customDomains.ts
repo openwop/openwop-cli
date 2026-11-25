@@ -13,7 +13,7 @@ import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 import { arrayOf } from './adminShared.js';
 
-const base = (orgId: string) => `/v1/host/openwop-app/custom-domains/orgs/${encodeURIComponent(orgId)}/domains`;
+const base = (orgId: string) => `/host/openwop-app/custom-domains/orgs/${encodeURIComponent(orgId)}/domains`;
 
 export const CUSTOM_DOMAINS_HELP = `Usage:
   openwop custom-domains list --org <orgId> [--json]
@@ -22,10 +22,10 @@ export const CUSTOM_DOMAINS_HELP = `Usage:
   openwop custom-domains remove <hostname> --org <orgId> --yes [--json]
 
 Custom domains for an org's published pages (host extension; toggle 'custom-domains').
-  list    GET    /v1/host/openwop-app/custom-domains/orgs/:orgId/domains                    [workspace:read]
-  add     POST   /v1/host/openwop-app/custom-domains/orgs/:orgId/domains                    [workspace:write]
-  verify  POST   /v1/host/openwop-app/custom-domains/orgs/:orgId/domains/:hostname/verify   [workspace:write]
-  remove  DELETE /v1/host/openwop-app/custom-domains/orgs/:orgId/domains/:hostname          [workspace:write]
+  list    GET    /host/openwop-app/custom-domains/orgs/:orgId/domains                    [workspace:read]
+  add     POST   /host/openwop-app/custom-domains/orgs/:orgId/domains                    [workspace:write]
+  verify  POST   /host/openwop-app/custom-domains/orgs/:orgId/domains/:hostname/verify   [workspace:write]
+  remove  DELETE /host/openwop-app/custom-domains/orgs/:orgId/domains/:hostname          [workspace:write]
 
 After \`add\`, publish the returned verification token as a DNS TXT record at
 _openwop-verify.<hostname>, then run \`verify\`. Status: pending | live | failed (the

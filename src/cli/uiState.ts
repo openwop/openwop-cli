@@ -2,7 +2,7 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop ui-state ...` — your per-resource saved UI state (ADR 0071).
  *
- * Hits `/v1/host/openwop-app/ui-state` (host-extension, non-normative). Rows are
+ * Hits `/host/openwop-app/ui-state` (host-extension, non-normative). Rows are
  * keyed by the AUTHENTICATED caller server-side — you only ever read/write your
  * own. Non-authoritative display preferences (selected revision, expanded
  * panels, dismissed notices), never product state.
@@ -13,7 +13,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { enc, parseJsonFlag, renderDone, renderList, withQuery } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/ui-state';
+const BASE = '/host/openwop-app/ui-state';
 
 export const UI_STATE_HELP = `Usage:
   openwop ui-state list [--resource-type <t>] [--resource-id <id>] [--json]

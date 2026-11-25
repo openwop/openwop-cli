@@ -13,8 +13,8 @@ function capture() {
   };
 }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-// Pin protocol major 1 so the mock sees the literal /v1/host/openwop-app paths (no discovery fetch).
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+// Pin protocol major 1 so the mock sees the literal /host/openwop-app paths (no discovery fetch).
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 
 /** A fetch mock that records every call and answers from `reply(url, init)`. */
 function recorder(reply) {
@@ -27,7 +27,7 @@ function recorder(reply) {
   return { calls, fetchImpl };
 }
 
-const F = '/v1/host/openwop-app/funnels/orgs/org_1/funnels';
+const F = '/host/openwop-app/funnels/orgs/org_1/funnels';
 
 describe('funnels command', () => {
   it('list renders a table from GET …/funnels', async () => {
@@ -102,7 +102,7 @@ describe('funnels command', () => {
     assert.equal(await runCli(['funnels', 'public', 'view', 'org_1', 'w', '--vk', 'v1', '--utm', 'source=x'], opts(r.fetchImpl, cap)), 0);
     assert.equal(await runCli(['funnels', 'public', 'step', 'org_1', 'w', '1'], opts(r.fetchImpl, cap)), 0);
     assert.equal(await runCli(['funnels', 'public', 'next', 'org_1', 'w', '--from', 's1', '--outcome', 'accepted'], opts(r.fetchImpl, cap)), 0);
-    const P = '/v1/host/openwop-app/public/org_1/funnels/w';
+    const P = '/host/openwop-app/public/org_1/funnels/w';
     assert.deepEqual(r.calls.map((c) => `${c.path}${c.search}`), [`${P}?vk=v1&utm_source=x`, `${P}/steps/1`, `${P}/next?from=s1&outcome=accepted`]);
     assert.ok(r.calls.every((c) => !c.headers.authorization));
     assert.match(cap.stdout, /step: 0 s1 \(page\)/);

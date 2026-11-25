@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, mockHost, opts } from './helpers/mockHost.mjs';
 
-const base = '/v1/host/openwop-app/custom-domains/orgs/o%2F1/domains';
+const base = '/host/openwop-app/custom-domains/orgs/o%2F1/domains';
 
 describe('custom-domains', () => {
   it('requires --org', async () => {

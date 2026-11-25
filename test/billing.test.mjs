@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { runCli } from '../dist/cli.js';
 import { capture, mockHost, opts, forbidden } from './helpers/mockHost.mjs';
 
-const B = '/v1/host/openwop-app/billing';
+const B = '/host/openwop-app/billing';
 
 describe('billing', () => {
   it('reads subscription / balance / entitlements / bundles', async () => {

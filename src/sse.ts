@@ -5,7 +5,7 @@ import { createInterface } from 'node:readline';
 import { requestJson } from './api.js';
 import { CliError, HttpError, httpErrorLine } from './errors.js';
 import { TERMINAL_STATUSES } from './constants.js';
-import { negotiateMajor, resolveStreamRequest } from './protocol.js';
+import { resolveStreamRequest } from './protocol.js';
 import { sleep } from './util.js';
 import { canonicalEventType, isTerminalRunEvent } from './eventTypes.js';
 import { idempotencyHeaders } from './wire.js';
@@ -20,7 +20,7 @@ export async function submitTurn(ctx: Ctx, { workflowId, inputs, tenantId, scope
   };
   // A fresh Idempotency-Key per turn (runs.md §Create — RECOMMENDED): a
   // transport-level retry of this POST can never start the turn twice.
-  const res = await requestJson(ctx, '/v1/runs', { method: 'POST', body, headers: idempotencyHeaders() });
+  const res = await requestJson(ctx, '/runs', { method: 'POST', body, headers: idempotencyHeaders() });
   if (!res.body || typeof res.body.runId !== 'string') {
     throw new CliError('Run create response did not include a runId');
   }
@@ -28,11 +28,9 @@ export async function submitTurn(ctx: Ctx, { workflowId, inputs, tenantId, scope
 }
 
 /**
- * `streamMode` (v2 events.md §Stream modes; v1 stream-modes.md §Mode selection
- * + §Mixed mode): `values` alone, or a comma-separated combination of
- * `updates` / `messages` / `debug`. v2 states this as the query parameter's
- * pattern; v1's openapi pattern is looser but its prose forbids `values` in a
- * combination, so the one pattern serves both majors.
+ * `streamMode` (v2 events.md §Stream modes): `values` alone, or a
+ * comma-separated combination of `updates` / `messages` / `debug` — the query
+ * parameter's pattern.
  */
 export const STREAM_MODE_PATTERN = /^(values|(updates|messages|debug)(,(updates|messages|debug))*)$/;
 export const STREAM_MODES = ['updates', 'values', 'messages', 'debug'] as const;
@@ -42,14 +40,12 @@ const NON_EVENT_FRAMES = new Set(['state.snapshot', 'ai.message.chunk']);
 
 /**
  * Validate the `--since` / `--last-event-id` / `--stream-mode` flags of a
- * streaming run command into StreamRunEventsOptions. Both majors resume SSE
- * with the `Last-Event-ID` header (v2 events.md §Resuming, headers.md; v1
- * stream-modes.md §Resumption, rest-endpoints.md §SSE) — neither defines a
- * `since` query parameter on the stream. v2 makes the id a sequence (a
- * non-integer SHOULD be refused `400 validation_error`), so it is checked
- * here; a v1 id is opaque and sent verbatim.
+ * streaming run command into StreamRunEventsOptions. SSE resumes with the
+ * `Last-Event-ID` header (v2 events.md §Resuming, headers.md) — there is no
+ * `since` query parameter on the stream. The id is a sequence (a non-integer
+ * SHOULD be refused `400 validation_error`), so it is checked here.
  */
-export async function parseStreamStart(ctx: Ctx, options: { since?: unknown; lastEventId?: unknown; streamMode?: unknown }): Promise<Pick<StreamRunEventsOptions, 'afterSequence' | 'lastEventId' | 'streamMode'>> {
+export async function parseStreamStart(_ctx: Ctx, options: { since?: unknown; lastEventId?: unknown; streamMode?: unknown }): Promise<Pick<StreamRunEventsOptions, 'afterSequence' | 'lastEventId' | 'streamMode'>> {
   const out: Pick<StreamRunEventsOptions, 'afterSequence' | 'lastEventId' | 'streamMode'> = {};
   if (options.since !== undefined && options.lastEventId !== undefined) throw new CliError('--since and --last-event-id are the same cursor; pass one');
   if (options.since !== undefined) {
@@ -60,8 +56,8 @@ export async function parseStreamStart(ctx: Ctx, options: { since?: unknown; las
   if (options.lastEventId !== undefined) {
     const v = String(options.lastEventId);
     if (v === '') throw new CliError('--last-event-id must not be empty');
-    if ((await negotiateMajor(ctx)) === 2 && !/^\d+$/.test(v)) {
-      throw new CliError(`--last-event-id must be a non-negative integer under protocol v2 (an SSE id is the event's sequence; got '${v}')`);
+    if (!/^\d+$/.test(v)) {
+      throw new CliError(`--last-event-id must be a non-negative integer (a v2 SSE id is the event's sequence; got '${v}')`);
     }
     out.lastEventId = v;
   }
@@ -198,12 +194,10 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
     // would hold the process open for up to its full span after a failure.
     let idle: ReturnType<typeof idleWatchdog> | undefined;
     try {
-      // Same negotiation as requestJson (src/protocol.ts): under major 2 this is
-      // `/runs/{runId}/events` + `OpenWOP-Version: 2.0`. Joined relative to the
-      // base for the same reason api.ts does — a base with a path prefix survives.
-      // Built by the one stream seam (src/protocol.ts resolveStreamRequest):
-      // same negotiation as requestJson, joined to the stream origin.
-      const { url, headers } = await resolveStreamRequest(ctx, `/v1/runs/${encodeURIComponent(runId)}/events${query}`, {});
+      // `/runs/{runId}/events` + `OpenWOP-Version: 2.0`, built by the one stream
+      // seam (src/protocol.ts resolveStreamRequest) and joined to the stream
+      // origin, keeping any base path prefix.
+      const { url, headers } = await resolveStreamRequest(ctx, `/runs/${encodeURIComponent(runId)}/events${query}`, {});
       if (lastEventId !== undefined && lastEventId !== '') headers['last-event-id'] = lastEventId;
       // Idle watchdog: a half-open connection (no FIN, no bytes) would block
       // the reader forever and resume would never fire. ANY bytes — keep-alive
@@ -276,7 +270,7 @@ async function streamViaSse(ctx: Ctx, runId: string, deliver: ReturnType<typeof 
 /** Whether the run's status is terminal; false when the status cannot be read (keep resuming). */
 async function runIsTerminal(ctx: Ctx, runId: string): Promise<boolean> {
   try {
-    const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(runId)}`);
+    const res = await requestJson(ctx, `/runs/${encodeURIComponent(runId)}`);
     const status = res.body?.status ?? res.body?.run?.status;
     return typeof status === 'string' && TERMINAL_STATUSES.has(status);
   } catch {
@@ -332,15 +326,16 @@ export async function consumeSse(stream: any, onFrame: any, onControl?: (c: { id
 
 async function streamViaPoll(ctx: Ctx, runId: string, onEvent: any, timeoutMs: number, after = -1) {
   const started = Date.now();
-  const cursorParam = await pollCursorParam(ctx);
-  let lastSequence = after;
+  // v2 `pollRunEvents` takes `afterSequence` (exclusive: `sequence > N`);
+  // "`lastSequence` and `since` are not parameters" (events.md §Poll).
+  let afterSequence = after;
   while (Date.now() - started < timeoutMs) {
-    const query = lastSequence >= 0 ? `?${cursorParam}=${lastSequence}` : '';
-    const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(runId)}/events/poll${query}`);
+    const query = afterSequence >= 0 ? `?afterSequence=${afterSequence}` : '';
+    const res = await requestJson(ctx, `/runs/${encodeURIComponent(runId)}/events/poll${query}`);
     const events = Array.isArray(res.body?.events) ? res.body.events : [];
     for (const ev of events) {
       onEvent(ev);
-      if (typeof ev.sequence === 'number' && ev.sequence > lastSequence) lastSequence = ev.sequence;
+      if (typeof ev.sequence === 'number' && ev.sequence > afterSequence) afterSequence = ev.sequence;
     }
     if (pollIsTerminal(res.body) || events.some(isTerminalRunEvent)) return;
     await sleep(250);
@@ -348,20 +343,9 @@ async function streamViaPoll(ctx: Ctx, runId: string, onEvent: any, timeoutMs: n
   throw new CliError(`Timed out streaming run ${runId} after ${timeoutMs}ms`, 1);
 }
 
-/**
- * The poll cursor's query-parameter name for the negotiated major. v2
- * `pollRunEvents` takes `afterSequence` ("`lastSequence` and `since` are not
- * parameters" — events.md §Poll); v1 takes `lastSequence`. Both are exclusive
- * (`sequence > N`). A v2 host ignores the v1 name and replays from 0, which is
- * why sending the wrong one is silent rather than an error.
- */
-export async function pollCursorParam(ctx: Ctx): Promise<'afterSequence' | 'lastSequence'> {
-  return (await negotiateMajor(ctx)) === 2 ? 'afterSequence' : 'lastSequence';
-}
-
-/** Terminal flag of a poll response: v2 `isTerminal` (events.md §Poll), v1 `isComplete`. */
+/** Terminal flag of a poll response (v2 `isTerminal`, events.md §Poll). */
 export function pollIsTerminal(body: any): boolean {
-  return body?.isTerminal === true || body?.isComplete === true;
+  return body?.isTerminal === true;
 }
 
 /**

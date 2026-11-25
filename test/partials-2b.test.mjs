@@ -57,7 +57,7 @@ describe('triggers partials', () => {
     await runCli(['triggers', 'update', 's1', '--state', 'paused'], base(cap, async (url, init) => {
       seen = { path: new URL(url).pathname, method: init?.method, body: JSON.parse(init.body) }; return json({ state: 'paused' });
     }));
-    assert.match(seen.path, /\/v1\/trigger-subscriptions\/s1$/); assert.equal(seen.method, 'PATCH');
+    assert.match(seen.path, /\/trigger-subscriptions\/s1$/); assert.equal(seen.method, 'PATCH');
     assert.deepEqual(seen.body, { state: 'paused' });
   });
   it('ingest posts the event body', async () => {
@@ -65,7 +65,7 @@ describe('triggers partials', () => {
     await runCli(['triggers', 'ingest', 's1', '--event-json', '{"hello":"world"}'], base(cap, async (url, init) => {
       seen = { path: new URL(url).pathname, method: init?.method, body: JSON.parse(init.body) }; return json({ accepted: true });
     }));
-    assert.match(seen.path, /\/v1\/trigger-subscriptions\/s1\/ingest$/); assert.equal(seen.method, 'POST');
+    assert.match(seen.path, /\/trigger-subscriptions\/s1\/ingest$/); assert.equal(seen.method, 'POST');
     assert.deepEqual(seen.body, { hello: 'world' });
   });
 });

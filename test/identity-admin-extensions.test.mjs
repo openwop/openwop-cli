@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { runCli } from '../dist/cli.js';
 import { capture, mockHost, opts, forbidden } from './helpers/mockHost.mjs';
 
-const H = '/v1/host/openwop-app';
+const H = '/host/openwop-app';
 function tmpFile(name, content) {
   const dir = mkdtempSync(join(tmpdir(), 'owp-b2-'));
   const p = join(dir, name);

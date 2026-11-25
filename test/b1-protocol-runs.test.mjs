@@ -18,8 +18,8 @@ function json(body, status = 200) {
 }
 
 /**
- * A fake v1 host: `/.well-known/openwop` advertises protocol 1.x (so paths are
- * sent exactly as written); every other request is recorded and answered by
+ * A fake v2 host: `/.well-known/openwop` advertises protocol 2.0 and the
+ * host-extension root; every other request is recorded and answered by
  * `handler(method, path, body, url)`.
  */
 function fakeHost(handler, wellKnown) {
@@ -35,7 +35,7 @@ function fakeHost(handler, wellKnown) {
   return { fetchImpl, calls };
 }
 
-async function run(argv, handler, env = {}, wellKnown = V1) {
+async function run(argv, handler, env = {}, wellKnown = V2) {
   const cap = capture();
   const { fetchImpl, calls } = fakeHost(handler, wellKnown);
   const code = await runCli(argv, { io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', ...env } });
@@ -44,29 +44,28 @@ async function run(argv, handler, env = {}, wellKnown = V1) {
 
 const forbidden = () => json({ error: 'forbidden', message: 'Missing required scope' }, 403);
 
-// The approvals group gates on the advertised path, so the v1 discovery doc names it.
-const V1 = { protocolVersions: ['1.1'], paths: { '/v1/host/openwop-app/approvals': { get: {} } } };
-const V2 = { protocolVersions: ['2.0', '1.1'], extensions: { 'openwop-app': { root: '/host/openwop-app/', twin: '/v1/host/openwop-app/' } } };
+// The approvals group gates on the advertised host-extension root (versioning.md §5).
+const V2 = { protocolVersions: ['2.0'], extensions: { 'openwop-app': { root: '/host/openwop-app/' } } };
 const notFound = () => json({ error: 'not_found', message: 'Cannot GET' }, 404);
 
 describe('agents / roster / org-chart — normative first, host fallback', () => {
-  it('agents list reads GET /v1/agents', async () => {
+  it('agents list reads GET /agents', async () => {
     const r = await run(['agents', 'list'], () => json({ agents: [{ agentId: 'a1', persona: 'P', modelClass: 'fast', packName: 'pk' }], total: 1 }));
     assert.equal(r.code, 0, r.stderr);
-    assert.deepEqual(r.calls.map((c) => c.path), ['/v1/agents']);
+    assert.deepEqual(r.calls.map((c) => c.path), ['/agents']);
     assert.match(r.stdout, /a1\s+P\s+fast\s+pk/);
   });
 
   it('agents list falls back to the host path when the normative read 404s, and --verbose says so', async () => {
-    const r = await run(['--verbose', 'agents', 'list'], (m, p) => p === '/v1/agents' ? notFound() : json({ agents: [], total: 0 }));
+    const r = await run(['--verbose', 'agents', 'list'], (m, p) => p === '/agents' ? notFound() : json({ agents: [], total: 0 }));
     assert.equal(r.code, 0, r.stderr);
-    assert.deepEqual(r.calls.map((c) => c.path), ['/v1/agents', '/v1/host/openwop-app/agents']);
-    assert.match(r.stderr, /host-extension path \/v1\/host\/openwop-app\/agents/);
+    assert.deepEqual(r.calls.map((c) => c.path), ['/agents', '/host/openwop-app/agents']);
+    assert.match(r.stderr, /host-extension path \/host\/openwop-app\/agents/);
   });
 
   it('agents info --host skips the normative read', async () => {
     const r = await run(['--json', 'agents', 'info', 'a1', '--host'], () => json({ agentId: 'a1' }));
-    assert.deepEqual(r.calls.map((c) => c.path), ['/v1/host/openwop-app/agents/a1']);
+    assert.deepEqual(r.calls.map((c) => c.path), ['/host/openwop-app/agents/a1']);
     assert.equal(JSON.parse(r.stdout).agentId, 'a1');
   });
 
@@ -85,19 +84,19 @@ describe('agents / roster / org-chart — normative first, host fallback', () =>
 
   it('roster list --host reads the host-extension roster', async () => {
     const r = await run(['roster', 'list', '--host'], () => json({ roster: [] }));
-    assert.deepEqual(r.calls.map((c) => c.path), ['/v1/host/openwop-app/roster']);
+    assert.deepEqual(r.calls.map((c) => c.path), ['/host/openwop-app/roster']);
   });
 
   it('org-chart dept reads the normative department view with ?recursive', async () => {
     const r = await run(['org-chart', 'dept', 'eng', '--no-recursive'], () => json({ departmentId: 'eng' }));
-    assert.equal(r.calls[0].path, '/v1/agents/org-chart/eng');
+    assert.equal(r.calls[0].path, '/agents/org-chart/eng');
     assert.equal(r.calls[0].search, '?recursive=false');
   });
 
   it('org-chart get falls back to the host chart on 404', async () => {
-    const r = await run(['org-chart', 'get'], (m, p) => p === '/v1/agents/org-chart' ? notFound() : json({ departments: [], members: [] }));
+    const r = await run(['org-chart', 'get'], (m, p) => p === '/agents/org-chart' ? notFound() : json({ departments: [], members: [] }));
     assert.equal(r.code, 0, r.stderr);
-    assert.deepEqual(r.calls.map((c) => c.path), ['/v1/agents/org-chart', '/v1/host/openwop-app/org-chart']);
+    assert.deepEqual(r.calls.map((c) => c.path), ['/agents/org-chart', '/host/openwop-app/org-chart']);
   });
 });
 
@@ -106,7 +105,7 @@ describe('agents eval-run / verify-run', () => {
     const body = JSON.stringify({ tasks: [{ taskId: 't1', criterion: { kind: 'golden', expected: 'x' } }], results: ['x'] });
     let r = await run(['agents', 'eval-run', '--body', body], () => json({ total: 1, passed: 1, passRate: 1, meanScore: 1, tasks: [{ taskId: 't1', score: 1, passed: true }] }));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/agents/eval-run');
+    assert.equal(r.calls[0].path, '/host/openwop-app/agents/eval-run');
     assert.deepEqual(r.calls[0].body.results, ['x']);
     assert.match(r.stdout, /t1\s+1\s+true/);
     r = await run(['--json', 'agents', 'eval-run', '--body', body], () => json({ total: 1, passed: 0, tasks: [] }));
@@ -131,7 +130,7 @@ describe('agent-profile capability-on/off', () => {
   it('PUT / DELETE …/capabilities/{id}', async () => {
     let r = await run(['agent-profile', 'capability-on', 'a1', 'deep-investigation'], () => json({ capabilities: ['deep-investigation'] }));
     assert.equal(r.code, 0, r.stderr);
-    assert.deepEqual([r.calls[0].method, r.calls[0].path], ['PUT', '/v1/host/openwop-app/agents/a1/capabilities/deep-investigation']);
+    assert.deepEqual([r.calls[0].method, r.calls[0].path], ['PUT', '/host/openwop-app/agents/a1/capabilities/deep-investigation']);
     assert.match(r.stdout, /Active capabilities: deep-investigation/);
     r = await run(['agent-profile', 'capability-off', 'a1', 'deep-investigation'], () => json({ capabilities: [] }));
     assert.equal(r.calls[0].method, 'DELETE');
@@ -139,17 +138,17 @@ describe('agent-profile capability-on/off', () => {
 });
 
 describe('interrupts inspect / respond', () => {
-  it('inspect GETs /v1/interrupts/{token}', async () => {
+  it('inspect GETs /interrupts/{token}', async () => {
     const r = await run(['interrupts', 'inspect', 'tok1'], () => json({ kind: 'approval', key: 'i1', resolved: false, data: { prompt: 'Ship it?' } }));
     assert.equal(r.code, 0, r.stderr);
-    assert.deepEqual([r.calls[0].method, r.calls[0].path], ['GET', '/v1/interrupts/tok1']);
+    assert.deepEqual([r.calls[0].method, r.calls[0].path], ['GET', '/interrupts/tok1']);
     assert.match(r.stdout, /prompt: Ship it\?/);
   });
 
-  it('respond POSTs { resumeValue } to /v1/runs/{runId}/interrupts/{nodeId} with an Idempotency-Key', async () => {
+  it('respond POSTs { resumeValue } to /runs/{runId}/interrupts/{nodeId} with an Idempotency-Key', async () => {
     const r = await run(['interrupts', 'respond', 'r1', 'gate', '--data-json', '{"action":"approve"}'], () => json({ runId: 'r1', nodeId: 'gate', status: 'running' }));
     assert.equal(r.code, 0, r.stderr);
-    assert.deepEqual([r.calls[0].method, r.calls[0].path, r.calls[0].body], ['POST', '/v1/runs/r1/interrupts/gate', { resumeValue: { action: 'approve' } }]);
+    assert.deepEqual([r.calls[0].method, r.calls[0].path, r.calls[0].body], ['POST', '/runs/r1/interrupts/gate', { resumeValue: { action: 'approve' } }]);
     assert.ok(r.calls[0].headers['idempotency-key']);
   });
 
@@ -169,13 +168,13 @@ describe('runs effects / revision / pin / redrive', () => {
   it('effects tabulates the ledger', async () => {
     const r = await run(['runs', 'effects', 'r1'], () => json({ runId: 'r1', effects: [{ effectId: 'e1', nodeId: 'n1', attempt: 1, state: 'completed', at: 't' }] }));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(r.calls[0].path, '/v1/runs/r1/effects');
+    assert.equal(r.calls[0].path, '/runs/r1/effects');
     assert.match(r.stdout, /e1\s+n1\s+1\s+completed\s+t/);
   });
 
   it('revision reads the host-extension provenance (v2: projected run segment on the host root)', async () => {
     let r = await run(['runs', 'revision', 'r1'], () => json({ runId: 'r1', workflowId: 'w1', definitionRevision: 'h1', headMoved: true }));
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/runs/r1/revision');
+    assert.equal(r.calls[0].path, '/host/openwop-app/runs/r1/revision');
     assert.match(r.stdout, /headMoved: yes/);
     r = await run(['runs', 'revision', 'acme/r1'], () => json({}), {}, V2);
     assert.equal(r.calls[0].path, '/host/openwop-app/runs/acme~2Fr1/revision');
@@ -183,7 +182,7 @@ describe('runs effects / revision / pin / redrive', () => {
 
   it('pin / unpin POST { pinned }', async () => {
     let r = await run(['runs', 'unpin', 'r1'], () => json({ runId: 'r1', pinned: false }));
-    assert.deepEqual([r.calls[0].method, r.calls[0].path, r.calls[0].body], ['POST', '/v1/host/openwop-app/runs/r1/pin', { pinned: false }]);
+    assert.deepEqual([r.calls[0].method, r.calls[0].path, r.calls[0].body], ['POST', '/host/openwop-app/runs/r1/pin', { pinned: false }]);
     assert.match(r.stdout, /Unpinned run r1/);
     r = await run(['runs', 'pin', 'r1'], () => json({ runId: 'r1', pinned: true }));
     assert.deepEqual(r.calls[0].body, { pinned: true });
@@ -203,7 +202,7 @@ describe('approvals sla-policy / email-pref / delegations / decision fields', ()
       m === 'GET' ? json({ enabled: false, escalateAfterMs: 120000 }) : json({ enabled: true }));
     assert.equal(r.code, 0, r.stderr);
     const put = r.calls.find((c) => c.method === 'PUT');
-    assert.equal(put.path, '/v1/host/openwop-app/approvals/sla-policy');
+    assert.equal(put.path, '/host/openwop-app/approvals/sla-policy');
     assert.deepEqual(put.body, { enabled: true, remindAfterMs: 60000, escalateAfterMs: 120000 });
   });
 
@@ -221,14 +220,14 @@ describe('approvals sla-policy / email-pref / delegations / decision fields', ()
 
   it('delegations list / create / revoke', async () => {
     let r = await run(['approvals', 'delegations', 'list', '--all'], () => json({ delegations: [{ delegationId: 'dlg:1', fromSubject: 'u1', toSubject: 'u2', startsAt: 's', endsAt: 'e' }] }));
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/approval-delegations');
+    assert.equal(r.calls[0].path, '/host/openwop-app/approval-delegations');
     assert.equal(r.calls[0].search, '?all=1');
     assert.match(r.stdout, /dlg:1\s+u1\s+u2/);
     r = await run(['approvals', 'delegations', 'create', '--to', 'u2', '--starts-at', '2026-10-01T00:00:00Z', '--ends-at', '2026-10-08T00:00:00Z', '--reason', 'PTO'],
       () => json({ delegation: { delegationId: 'dlg:2', toSubject: 'u2' } }, 201));
     assert.deepEqual(r.calls[0].body, { toSubject: 'u2', startsAt: '2026-10-01T00:00:00Z', endsAt: '2026-10-08T00:00:00Z', reason: 'PTO' });
     r = await run(['approvals', 'delegations', 'revoke', 'dlg:2'], () => json({ delegation: {} }));
-    assert.deepEqual([r.calls[0].method, r.calls[0].path], ['POST', '/v1/host/openwop-app/approval-delegations/dlg%3A2/revoke']);
+    assert.deepEqual([r.calls[0].method, r.calls[0].path], ['POST', '/host/openwop-app/approval-delegations/dlg%3A2/revoke']);
   });
 
   it('claim carries --acted-for and --expected-hash', async () => {
@@ -253,7 +252,7 @@ describe('reviews', () => {
 });
 
 describe('prompts library + render', () => {
-  const PL = '/v1/host/openwop-app/prompts/orgs/o1/entries';
+  const PL = '/host/openwop-app/prompts/orgs/o1/entries';
   it('list / get / update / delete / render', async () => {
     let r = await run(['prompts', 'library', 'list', '--org', 'o1'], () => json({ entries: [{ entryId: 'pe1', name: 'Weekly', promptRef: 'summary', visibility: 'org', tags: ['x'] }] }));
     assert.equal(r.calls[0].path, PL);
@@ -275,9 +274,9 @@ describe('prompts library + render', () => {
     assert.equal(r.code, 2);
   });
 
-  it('render carries --content-trust to /v1/prompts:render', async () => {
+  it('render carries --content-trust to /prompts:render', async () => {
     const r = await run(['prompts', 'render', 'summary@1', '--content-trust', 'untrusted'], () => json({ text: 'x' }));
-    assert.equal(r.calls[0].path, '/v1/prompts:render');
+    assert.equal(r.calls[0].path, '/prompts:render');
     assert.deepEqual(r.calls[0].body, { ref: 'summary@1', variables: {}, contentTrust: 'untrusted' });
   });
 });
@@ -288,7 +287,7 @@ describe('webhooks rotate-secret / dead-letters', () => {
     const r = await run(['webhooks', 'rotate-secret', 'sub1', '--secret-env', 'NEW_SECRET', '--tenant-id', 't1'],
       () => json({ rotatedAt: '2026-09-27T00:00:00Z', previousSecretExpiresAt: '2026-09-28T00:00:00Z' }), { NEW_SECRET: secret });
     assert.equal(r.code, 0, r.stderr);
-    assert.deepEqual([r.calls[0].method, r.calls[0].path, r.calls[0].search, r.calls[0].body], ['POST', '/v1/webhooks/sub1/rotate-secret', '?tenantId=t1', { secret }]);
+    assert.deepEqual([r.calls[0].method, r.calls[0].path, r.calls[0].search, r.calls[0].body], ['POST', '/webhooks/sub1/rotate-secret', '?tenantId=t1', { secret }]);
     assert.doesNotMatch(r.stdout + r.stderr, /whsec_/);
   });
 
@@ -309,7 +308,7 @@ describe('webhooks rotate-secret / dead-letters', () => {
   it('dead-letters pages and fails closed when the host has no dead-letter read', async () => {
     let r = await run(['webhooks', 'dead-letters', 'sub1', '--limit', '5'], () => json({ deliveries: [{ deliveryId: 'd1', runId: 'r1', eventType: 'run.completed', attempts: 8, reason: 'retries_exhausted', deadLetteredAt: 't', expiresAt: 'u' }], nextCursor: 'c2' }));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(r.calls[0].path, '/v1/webhooks/sub1/dead-letters');
+    assert.equal(r.calls[0].path, '/webhooks/sub1/dead-letters');
     assert.equal(r.calls[0].search, '?limit=5');
     assert.match(r.stdout, /d1\s+r1\s+run\.completed\s+8\s+retries_exhausted/);
     assert.match(r.stdout, /--cursor c2/);
@@ -319,24 +318,24 @@ describe('webhooks rotate-secret / dead-letters', () => {
 });
 
 describe('catalog packs search / get / export (host)', () => {
-  // v1 end-of-support (2026-10-04): the reads go to the host's vendor address
-  // first, because the /v1/packs Registry HTTP API retires with v1.
+  // v1 end-of-support (2026-10-04): the reads go to the host's vendor address;
+  // the major-1 installed-packs API has no v2 operation.
   it('search / get / export hit the host vendor pack routes first', async () => {
     let r = await run(['catalog', 'packs', 'search', 'ai'], () => json({ results: [{ typeId: 'core.ai.call', version: 'in-process' }], total: 1, q: 'ai' }));
-    assert.deepEqual([r.calls[0].path, r.calls[0].search], ['/v1/host/openwop-app/packs/-/search', '?q=ai']);
+    assert.deepEqual([r.calls[0].path, r.calls[0].search], ['/host/openwop-app/packs/-/search', '?q=ai']);
     assert.match(r.stdout, /core\.ai\.call\s+in-process/);
     r = await run(['catalog', 'packs', 'get', 'core.openwop.ai'], () => json({ name: 'core.openwop.ai', nodes: ['core.openwop.ai.call'] }));
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/packs/core.openwop.ai');
+    assert.equal(r.calls[0].path, '/host/openwop-app/packs/core.openwop.ai');
     assert.match(r.stdout, /core\.openwop\.ai\.call/);
     r = await run(['--json', 'catalog', 'packs', 'export'], () => json({ manifests: [], total: 0 }));
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/packs/export');
+    assert.equal(r.calls[0].path, '/host/openwop-app/packs/export');
     assert.deepEqual(JSON.parse(r.stdout), { manifests: [], total: 0 });
   });
-  it('a host that predates the vendor alias (404) is read at /v1/packs, and only then', async () => {
-    const legacy = (_m, path) => (path.startsWith('/v1/host/') ? new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'content-type': 'application/json' } }) : json({ results: [], total: 0, q: 'x' }));
+  it('a 404 from the vendor address is the answer: there is no /v1/packs fallback (major 1 ended 2026-10-04)', async () => {
+    const legacy = (_m, path) => (path.startsWith('/host/') ? new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'content-type': 'application/json' } }) : json({ results: [], total: 0, q: 'x' }));
     const r = await run(['catalog', 'packs', 'search', 'x'], legacy);
-    assert.deepEqual(r.calls.map((c) => c.path), ['/v1/host/openwop-app/packs/-/search', '/v1/packs/-/search']);
-    assert.equal(r.code, 0);
+    assert.deepEqual(r.calls.map((c) => c.path), ['/host/openwop-app/packs/-/search']);
+    assert.notEqual(r.code, 0);
   });
   it('a non-404 error from the vendor address is the answer, not a fallback', async () => {
     const r = await run(['catalog', 'packs', 'search', 'x'], () => new Response(JSON.stringify({ error: 'internal_error' }), { status: 500, headers: { 'content-type': 'application/json' } }));
@@ -346,7 +345,7 @@ describe('catalog packs search / get / export (host)', () => {
 });
 
 describe('workflows lifecycle / revisions / pins / evals', () => {
-  const W = '/v1/host/openwop-app/workflows/w1';
+  const W = '/host/openwop-app/workflows/w1';
   it('lifecycle verbs, rollback, revisions', async () => {
     let r = await run(['workflows', 'promote', 'w1'], () => json({ workflowId: 'w1', publishedRevision: 'h2' }));
     assert.deepEqual([r.calls[0].method, r.calls[0].path], ['POST', `${W}/promote`]);
@@ -361,7 +360,7 @@ describe('workflows lifecycle / revisions / pins / evals', () => {
 
   it('stats / estimate read JSON', async () => {
     let r = await run(['workflows', 'stats'], () => json({ windowDays: 30 }));
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/workflows/stats');
+    assert.equal(r.calls[0].path, '/host/openwop-app/workflows/stats');
     r = await run(['workflows', 'estimate', 'w1'], () => json({ historical: {} }));
     assert.equal(r.calls[0].path, `${W}/estimate`);
   });

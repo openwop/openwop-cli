@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const R = '/v1/host/openwop-app/capability-firewall';
+const R = '/host/openwop-app/capability-firewall';
 
 describe('capability-firewall', () => {
   it('rules GETs; --json raw', async () => {

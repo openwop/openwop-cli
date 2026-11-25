@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop widgets ...` — the reference host-extension vertical slice
  * (white-label PRD §4; HOST-EXTENSIONS.md; src/host/examples/widgetService.ts).
  *
- * Hits `/v1/host/openwop-app/widgets*`. ENV-GATED on the host
+ * Hits `/host/openwop-app/widgets*`. ENV-GATED on the host
  * (`OPENWOP_EXAMPLE_WIDGETS_ENABLED=true`) — a host without it 404s every route,
  * which this group reports as "not enabled on this host". A conflicting mutation
  * (e.g. archiving an archived widget) is a 409 with `details.reason`.
@@ -14,7 +14,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { enc, renderDone, renderList } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/widgets';
+const BASE = '/host/openwop-app/widgets';
 
 export const WIDGETS_HELP = `Usage:
   openwop widgets list [--json]

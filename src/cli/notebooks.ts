@@ -2,7 +2,7 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop notebooks ...` — Research Notebooks (feature: notebooks, ADR 0084).
  *
- * Host-extension surface under /v1/host/openwop-app/notebooks: a notebook is a
+ * Host-extension surface under /host/openwop-app/notebooks: a notebook is a
  * project Subject with a bound KB collection — sources (text, file, audio/video
  * transcription, YouTube), notes, transformations, a grounded chat and semantic
  * search. RBAC is the project model (workspace:read / workspace:write); a
@@ -16,7 +16,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { enc, pickArray, renderDone, renderList } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/notebooks';
+const BASE = '/host/openwop-app/notebooks';
 
 export const NOTEBOOKS_HELP = `Usage:
   openwop notebooks list [--json]
@@ -39,7 +39,7 @@ export const NOTEBOOKS_HELP = `Usage:
   openwop notebooks search <notebookId> <query...> [--top-k <n>] [--json]
 
 Research notebooks (host-extension, ADR 0084) under
-/v1/host/openwop-app/notebooks. A notebook holds sources + notes + a grounded chat.
+/host/openwop-app/notebooks. A notebook holds sources + notes + a grounded chat.
 
   create       POST /notebooks {orgId, name}
   ensure       POST /notebooks/<id>/ensure — provision sources for an EXISTING project (idempotent)

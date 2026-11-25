@@ -2,16 +2,16 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop dealers ...` — the dealer network / partner-relationship surface
  * (openwop-app ADR 0281, dealer-network PRM). Host-extension routes under
- * `/v1/host/openwop-app/dealers/orgs/:orgId/*` (toggle `dealers`; reads need
+ * `/host/openwop-app/dealers/orgs/:orgId/*` (toggle `dealers`; reads need
  * workspace:read, dealer/outlet admin workspace:write) plus the PUBLIC partner
- * portal `/v1/host/openwop-app/partner/:token` (no auth — the token is the
+ * portal `/host/openwop-app/partner/:token` (no auth — the token is the
  * credential). Deal-registration DECISIONS go through the shared reviews inbox,
  * not a dealers route — the CLI only lists registrations.
  */
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
-const B = '/v1/host/openwop-app/dealers/orgs/:org';
-const P = '/v1/host/openwop-app/partner/:token';
+const B = '/host/openwop-app/dealers/orgs/:org';
+const P = '/host/openwop-app/partner/:token';
 
 export const DEALERS_SPECS: CommandSpec[] = [
   { cmd: ['list'], method: 'GET', route: `${B}/dealers`, summary: 'List dealers.', query: ['territoryId', 'status'], list: { key: 'dealers', columns: ['dealerId', 'name', 'tier', 'status', 'companyId', 'territoryId'], empty: 'No dealers.' } },
@@ -32,11 +32,11 @@ export const DEALERS_SPECS: CommandSpec[] = [
 ];
 
 export const DEALERS_HELP = buildGroupHelp('dealers', `
-Dealer network (host-extension /v1/host/openwop-app/dealers/…, org-scoped). A
+Dealer network (host-extension /host/openwop-app/dealers/…, org-scoped). A
 dealer references a CRM company (--company-id); --status is active | suspended
 for dealers and active | closed for outlets. \`portal-token\` mints the dealer's
 partner-portal link (a bearer credential, shown once). \`partner get|register\`
-drive the PUBLIC portal (/v1/host/openwop-app/partner/<token>, no auth) exactly
+drive the PUBLIC portal (/host/openwop-app/partner/<token>, no auth) exactly
 as a dealer would. Registrations are approved/rejected in the reviews inbox.
 `, DEALERS_SPECS, `Examples:
   openwop dealers list --org org_1 --status active

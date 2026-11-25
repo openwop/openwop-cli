@@ -8,7 +8,7 @@ import { parseOptions } from '../options.js';
 import { enc, intFlag, renderFrame, streamHostSse } from './chatShared.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const PREFS = '/v1/host/openwop-app/notifications/preferences';
+const PREFS = '/host/openwop-app/notifications/preferences';
 
 /** Your notification preferences (ADR 0010 Phase 2) — per user, cross-device. */
 export const NOTIFICATIONS_ROUTES: RouteCmd[] = [
@@ -37,7 +37,7 @@ export const NOTIFICATIONS_HELP = `Usage:
   openwop notifications push subscribe --endpoint <https-url> --p256dh <key> --auth <secret> [--user-agent ua] [--json]
   openwop notifications push unsubscribe <subscriptionId> [--json]
 
-Operate the demo notification inbox (/v1/host/openwop-app/notifications) — a
+Operate the demo notification inbox (/host/openwop-app/notifications) — a
 sample-extension surface, tenant-scoped, not part of the normative wire.
 
   stream   GET …/notifications/stream — live new notifications (server-sent events);
@@ -57,7 +57,7 @@ export async function runNotifications(ctx: Ctx, argv: string[]): Promise<number
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, NOTIFICATIONS_HELP); return 0; }
   const ext = await dispatchRoutes(ctx, 'notifications', NOTIFICATIONS_ROUTES, argv);
   if (ext !== undefined) return ext;
-  const base = '/v1/host/openwop-app/notifications';
+  const base = '/host/openwop-app/notifications';
   const rest = argv.slice(1);
   switch (sub) {
     case 'list': {
@@ -120,7 +120,7 @@ export async function runNotifications(ctx: Ctx, argv: string[]): Promise<number
 
 async function runPush(ctx: Ctx, argv: string[]): Promise<number> {
   const sub = argv[0] ?? 'list';
-  const base = '/v1/host/openwop-app/notifications/push';
+  const base = '/host/openwop-app/notifications/push';
   const { options, positionals } = parseOptions(argv.slice(1), { value: ['--endpoint', '--p256dh', '--auth', '--user-agent'] });
   switch (sub) {
     case 'config': {

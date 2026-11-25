@@ -41,7 +41,7 @@ describe('goals list', () => {
   it('renders the goals as a table with iterations/bounds', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/goals$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/goals$/);
       return jsonResponse({ goals: [
         { goalId: 'goal_1', state: 'active', completion: { check: 'verifier' }, objective: 'Keep backlog under 20', progress: { iterations: 3 }, bounds: { maxLoopIterations: 50 }, createdAt: '2026-06-13' },
       ] });
@@ -200,7 +200,7 @@ describe('goals arm / evaluate / record-run', () => {
     const fetchImpl = host(async (url, init) => { seen = { path: new URL(url).pathname, method: init.method, body: JSON.parse(init.body) }; return jsonResponse({ id: 'g1', state: 'active' }); });
     const code = await runCli(['goals', 'arm', 'g1', '--workflow-id', 'wf', '--cron-expr', '0 * * * *'], opts(fetchImpl, cap));
     assert.equal(code, 0, cap.stderr);
-    assert.deepEqual(seen, { path: '/v1/host/openwop-app/goals/g1/arm', method: 'POST', body: { workflowId: 'wf', cronExpr: '0 * * * *' } });
+    assert.deepEqual(seen, { path: '/host/openwop-app/goals/g1/arm', method: 'POST', body: { workflowId: 'wf', cronExpr: '0 * * * *' } });
   });
 
   it('record-run coerces --cost-usd; evaluate needs both snapshot fields', async () => {

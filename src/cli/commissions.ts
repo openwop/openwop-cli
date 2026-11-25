@@ -1,7 +1,7 @@
 import type { Ctx } from '../context.js';
 /**
  * `openwop commissions ...` — sales commissions (openwop-app ADR 0280).
- * Host-extension routes under `/v1/host/openwop-app/commissions/orgs/:orgId/*`
+ * Host-extension routes under `/host/openwop-app/commissions/orgs/:orgId/*`
  * (toggle `sales-commissions`; reads need workspace:read, plan admin + statement
  * compute/approve/pay need `host:commissions:manage` — built-in admin/owner).
  * The host computes every statement total; `approve` only submits a draft to the
@@ -10,7 +10,7 @@ import type { Ctx } from '../context.js';
  */
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
-const B = '/v1/host/openwop-app/commissions/orgs/:org';
+const B = '/host/openwop-app/commissions/orgs/:org';
 const PLAN_FIELDS = ['currency', 'assignment:json', 'rules:json', 'effectiveFrom', 'effectiveTo'];
 
 export const COMMISSIONS_SPECS: CommandSpec[] = [
@@ -27,7 +27,7 @@ export const COMMISSIONS_SPECS: CommandSpec[] = [
 ];
 
 export const COMMISSIONS_HELP = buildGroupHelp('commissions', `
-Sales commissions (host-extension /v1/host/openwop-app/commissions/…,
+Sales commissions (host-extension /host/openwop-app/commissions/…,
 org-scoped). A plan has --currency (ISO-4217, e.g. USD), --effective-from /
 --effective-to (YYYY-MM-DD), --assignment {"kind":"territory"|"role"|"rep","ref":"…"}
 and --rules [{"basis":"deal-won","type":"percentage"|"fixed","rate":n,

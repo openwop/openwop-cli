@@ -3,10 +3,10 @@ import type { Ctx } from '../context.js';
  * `openwop campaign-connectors ...` — ad-platform connectors + performance data
  * (ADR 0159 — Campaign Studio connectors & performance).
  *
- * Operator surface: /v1/host/openwop-app/campaign-connectors/* (toggle
+ * Operator surface: /host/openwop-app/campaign-connectors/* (toggle
  * `campaign-connectors`; read = workspace:read, write = workspace:write in the org).
- * Visitor surface (`public ...`): /v1/host/openwop-app/public/{orgId}/pixels and
- * /v1/host/openwop-app/public/{orgId}/conversions — anonymous, consent-gated on the
+ * Visitor surface (`public ...`): /host/openwop-app/public/{orgId}/pixels and
+ * /host/openwop-app/public/{orgId}/conversions — anonymous, consent-gated on the
  * visitor key (`vk`, the 'marketing' consent category).
  */
 import { requestJson } from '../api.js';
@@ -36,7 +36,7 @@ export const CAMPAIGN_CONNECTORS_HELP = `Usage:
   openwop campaign-connectors public conversion <orgId> --vk <visitorKey> --event-id <id> --event-name <n> [--email <e>] [--value <n>] [--currency <c>] [--json]
 
 Ad-platform connectors + performance (ADR 0159). Operator commands hit
-/v1/host/openwop-app/campaign-connectors/* and need --org:
+/host/openwop-app/campaign-connectors/* and need --org:
   sync           POST …/sync — pull yesterday's metrics from Meta or Google (a 429 = cooldown).
   audience-sync  POST …/audience-sync — upload a CRM segment as a hashed custom audience
                  (202 = held for approval).
@@ -48,8 +48,8 @@ Ad-platform connectors + performance (ADR 0159). Operator commands hit
                  to send queued server-side conversions to the platforms.
 
 'public' drives the anonymous visitor legs exactly as the frontend does (no auth):
-GET /v1/host/openwop-app/public/{orgId}/pixels?vk= (empty unless the visitor has
-marketing consent) and POST /v1/host/openwop-app/public/{orgId}/conversions (202;
+GET /host/openwop-app/public/{orgId}/pixels?vk= (empty unless the visitor has
+marketing consent) and POST /host/openwop-app/public/{orgId}/conversions (202;
 recorded:false with a reason when the feature is off or consent is missing).
 
 Exit codes: 0 ok; 2 usage error or host 4xx (429 = sync cooldown); 4 auth/permission

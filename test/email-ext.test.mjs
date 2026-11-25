@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const E = '/v1/host/openwop-app/email/orgs/org_1';
+const E = '/host/openwop-app/email/orgs/org_1';
 
 describe('email — settings, provider status, webhooks, engagement', () => {
   it('settings set PUTs the sender address', async () => {

@@ -8,7 +8,7 @@ import { parseOptions } from '../options.js';
 import { probeEndpoint, safeRequest } from '../api.js';
 import { readDiscovery } from './capabilities.js';
 import { checkMinClientVersion } from '../wire.js';
-import { errText } from '../errors.js';
+import { CliError, errText } from '../errors.js';
 import { readDaemonRecord, processAlive } from '../daemon.js';
 import { demoProjects } from '../repo.js';
 import { ok, warn, fail, formatCheckTable, parseNodeVersion, npmCommand, type CheckResult } from './shared.js';
@@ -17,7 +17,7 @@ import { loadRelayConfig, detectChannelAvailability } from './relayShared.js';
 export const DOCTOR_HELP = `Usage: openwop doctor [--json]
 
 Checks Node/npm, local demo app dependencies, repository layout, whether the demo
-backend is reachable, the demo daemon status (via /v1/host/openwop-app/daemon-status or
+backend is reachable, the demo daemon status (via /host/openwop-app/daemon-status or
 the ~/.openwop/ PID file), and reachability of each stored BYOK provider credential.
 `;
 
@@ -63,23 +63,23 @@ export async function runDoctor(ctx: Ctx, argv: string[]) {
   if (health.ok) checks.push(ok('demo health', `${ctx.baseUrl}/health responded`));
   else checks.push(warn('demo health', `demo is not reachable at ${ctx.baseUrl} (${health.message})`));
 
-  // Protocol rows — the CLI negotiates the major once per process
-  // (src/protocol.ts; versioning.md §1.5) and reuses that discovery read here
-  // (no second fetch). Report what the host advertises and what this process
-  // selected; fail when the two share no major, when the host names a client
+  // Protocol rows — the CLI reads discovery once per process and speaks only
+  // major 2 (src/protocol.ts; versioning.md §1.5); that read is reused here
+  // (no second fetch). Report what the host advertises; fail when it does not
+  // serve major 2 (major 1 ended support 2026-10-04), when the host names a client
   // floor above this CLI (§1.5 minClientVersion), or when the response header
   // names a different major than the one asked for (§1.4 — a silent downgrade).
   checks.push(...(await protocolChecks(ctx)));
 
   // Daemon-status row — prefer the live D-1 route; fall back to the PID file.
-  const daemon = await safeRequest(ctx, '/v1/host/openwop-app/daemon-status');
+  const daemon = await safeRequest(ctx, '/host/openwop-app/daemon-status');
   if (daemon.ok && daemon.body) {
     const b = daemon.body;
     checks.push(ok('daemon', `pid ${b.pid ?? '?'}, up ${b.uptimeSeconds ?? '?'}s (since ${b.startTime ?? '?'})`));
   } else {
     const record = readDaemonRecord(ctx.env);
     if (record && record.pid && processAlive(record.pid)) {
-      checks.push(warn('daemon', `PID file says pid ${record.pid} is running but ${ctx.baseUrl}/v1/host/openwop-app/daemon-status is unreachable`));
+      checks.push(warn('daemon', `PID file says pid ${record.pid} is running but ${ctx.baseUrl}/host/openwop-app/daemon-status is unreachable`));
     } else if (record && record.pid) {
       checks.push(warn('daemon', `stale PID file (pid ${record.pid} not running); run \`openwop demo stop\` to clear it`));
     } else {
@@ -88,7 +88,7 @@ export async function runDoctor(ctx: Ctx, argv: string[]) {
   }
 
   // Provider-reachability rows — one per stored BYOK credential ref.
-  const byok = await safeRequest(ctx, '/v1/host/openwop-app/byok/secrets');
+  const byok = await safeRequest(ctx, '/host/openwop-app/byok/secrets');
   if (byok.ok) {
     const secrets = Array.isArray(byok.body?.secrets) ? byok.body.secrets : [];
     if (secrets.length === 0) {
@@ -130,6 +130,8 @@ async function protocolChecks(ctx: Ctx): Promise<CheckResult[]> {
   try {
     discovery = await readDiscovery(ctx);
   } catch (err) {
+    // A host that serves only major 1 (or an OPENWOP_PROTOCOL_MAJOR other than 2) is refused, not unreadable.
+    if (err instanceof CliError) return [fail('protocol', err.message)];
     return [warn('protocol', `could not read /.well-known/openwop (${errText(err)})`)];
   }
   const { doc, servedVersion, major } = discovery;
@@ -140,18 +142,16 @@ async function protocolChecks(ctx: Ctx): Promise<CheckResult[]> {
     const preferred = typeof doc?.preferredVersion === 'string' ? doc.preferredVersion : '?';
     const detail = `protocolVersions ${advertised.join(', ')}; preferredVersion ${preferred}; CLI speaks major ${major}`;
     if (advertised.some((v) => v.startsWith(`${major}.`))) rows.push(ok('protocol', detail));
-    else rows.push(fail('protocol', `${detail} — host advertises neither major this CLI implements; see README §"Protocol version support"`));
+    else rows.push(fail('protocol', `${detail} — host does not advertise major 2, the only major this CLI speaks; see README §"Protocol version support"`));
   }
   // versioning.md §1.4: every protocol response MUST carry OpenWOP-Version
-  // naming the contract that produced it. A pre-overlap v1 host never sent it.
+  // naming the contract that produced it.
   if (servedVersion === undefined) {
-    rows.push(major === 2
-      ? warn('response version', 'discovery answered without an OpenWOP-Version header (versioning.md §1.4 requires one on every protocol response)')
-      : ok('response version', 'discovery answered without an OpenWOP-Version header (a v1-only host)'));
+    rows.push(warn('response version', 'discovery answered without an OpenWOP-Version header (versioning.md §1.4 requires one on every protocol response)'));
   } else if (servedVersion.startsWith(`${major}.`)) {
     rows.push(ok('response version', `host answered OpenWOP-Version ${servedVersion}`));
   } else {
-    rows.push(fail('response version', `asked for major ${major}, host answered OpenWOP-Version ${servedVersion} — a silent downgrade (versioning.md §1.4); pin OPENWOP_PROTOCOL_MAJOR to the major it serves`));
+    rows.push(fail('response version', `asked for major ${major}, host answered OpenWOP-Version ${servedVersion} — a silent downgrade (versioning.md §1.4); this CLI speaks only major 2`));
   }
   // versioning.md §1.5 / axis 15 — only the v2 representation carries it.
   const floor = checkMinClientVersion(doc?.minClientVersion, major);

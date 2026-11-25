@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const PM = '/v1/host/openwop-app/priority-matrix';
+const PM = '/host/openwop-app/priority-matrix';
 const L = `${PM}/lists/l1`;
 
 describe('priority-matrix (extended)', () => {

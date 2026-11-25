@@ -26,7 +26,7 @@ function fakeHost(handler) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     const u = new URL(url);
-    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['1.1'] });
+    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['2.0'] });
     const method = init.method ?? 'GET';
     const body = init.body ? JSON.parse(init.body) : undefined;
     calls.push({ method, path: u.pathname, search: u.search, body, headers: init.headers ?? {} });
@@ -44,7 +44,7 @@ async function run(argv, handler, env = {}) {
 
 const forbidden = () => json({ error: 'forbidden', message: 'Missing required scope' }, 403);
 
-const HE = '/v1/host/openwop-app/host-events/bindings';
+const HE = '/host/openwop-app/host-events/bindings';
 
 describe('host-events (ADR 0208)', () => {
   it('list renders bindings; --json passes through', async () => {

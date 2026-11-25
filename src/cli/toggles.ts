@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { gatedRequest, readBodyOption, arrayOf } from './adminShared.js';
 
-const TOGGLES_BASE = '/v1/host/openwop-app/feature-toggles';
+const TOGGLES_BASE = '/host/openwop-app/feature-toggles';
 
 export const TOGGLES_HELP = `Usage:
   openwop toggles list [--json]

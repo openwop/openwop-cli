@@ -13,8 +13,8 @@ function capture() {
   };
 }
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-const opts = (fetchImpl, cap, env = {}) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1', ...env } });
-const H = '/v1/host/openwop-app/commerce';
+const opts = (fetchImpl, cap, env = {}) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2', ...env } });
+const H = '/host/openwop-app/commerce';
 
 function recorder(respond) {
   const calls = [];

@@ -60,7 +60,7 @@ describe('workflow-author', () => {
     const host = mockHost({
       [`GET ${base}/catalog`]: { nodes: [{ typeId: 'core.http', version: '1.0.0', category: 'io', label: 'HTTP' }], excluded: [{ typeId: 'x', reason: 'r' }] },
       [`POST ${base}/draft`]: () => jsonResponse({ runId: 'r1', workflowId: 'meta', status: 'pending' }, 201),
-      'GET /v1/runs/r1/events': () => sseResponse([{ event: 'run.completed', data: { type: 'run.completed', sequence: 1, payload: {} } }]),
+      'GET /runs/r1/events': () => sseResponse([{ event: 'run.completed', data: { type: 'run.completed', sequence: 1, payload: {} } }]),
     });
     const c = await run(['workflow-author', 'catalog'], host);
     assert.match(c.stdout, /core\.http\s+1\.0\.0\s+io/);

@@ -8,7 +8,7 @@ import { requestJson } from '../api.js';
 import { sleep } from '../util.js';
 import { TERMINAL_STATUSES } from '../constants.js';
 import { buildInputs } from './shared.js';
-import { pollCursorParam, pollIsTerminal, streamRunEvents, renderEvent, parseStreamStart } from '../sse.js';
+import { pollIsTerminal, streamRunEvents, renderEvent, parseStreamStart } from '../sse.js';
 import { canonicalEventType, isTerminalRunEvent } from '../eventTypes.js';
 import { idempotencyHeaders, isIdempotentReplay } from '../wire.js';
 import { hostRunSegment } from './requestHelpers.js';
@@ -35,11 +35,11 @@ export const RUNS_HELP = `Usage:
   openwop runs unpin <runId> [--json]
   openwop runs redrive <runId...> [--json]
 
-\`runs effects\` reads the run's side-effect ledger (GET /v1/runs/{runId}/effects;
+\`runs effects\` reads the run's side-effect ledger (GET /runs/{runId}/effects;
 idempotency.md §Layer 2): one row per effect attempt, with a stable effectId,
 nodeId, attempt, state (claimed | completed) and time.
 
-Host-extension run tools (non-normative, /v1/host/openwop-app/…):
+Host-extension run tools (non-normative, /host/openwop-app/…):
   revision  GET  …/runs/{runId}/revision — which workflow revision the run pinned,
             whether the head has moved since, and its launch/debug/redrive provenance.
   pin/unpin POST …/runs/{runId}/pin { pinned } — keep a run from retention cleanup.
@@ -47,21 +47,19 @@ Host-extension run tools (non-normative, /v1/host/openwop-app/…):
             pinned revision; each id reports a new redriveRunId or an error code.
             Exits 1 when any id failed to redrive.
 
-\`runs events\` polls GET /v1/runs/{runId}/events/poll (JSON, not SSE); --since N
-returns events with sequence > N (sent as \`afterSequence\` to a v2 host,
-\`lastSequence\` to a v1 host).
+\`runs events\` polls GET /runs/{runId}/events/poll (JSON, not SSE); --since N
+returns events with sequence > N (sent as \`afterSequence\`).
 
-\`runs events --follow\` (alias \`runs watch\`) streams GET /v1/runs/{runId}/events
+\`runs events --follow\` (alias \`runs watch\`) streams GET /runs/{runId}/events
 as SSE until the run's terminal event, falling back to the poll endpoint when
 the host does not serve SSE (--no-stream forces the poll). A dropped stream is
 resumed automatically with the \`Last-Event-ID\` header (bounded retries,
 honouring the server's \`retry:\` field), and no event is printed twice.
   --since N           start after sequence N — sent as \`Last-Event-ID: N\` on
-                      SSE (both majors: the header is the only SSE cursor;
-                      \`since\` is not a query parameter) and as the poll cursor
-                      on the fallback.
-  --last-event-id ID  start after this SSE id, sent verbatim. Under v2 an id is
-                      a sequence, so it must be a non-negative integer.
+                      SSE (the header is the only SSE cursor; \`since\` is not
+                      a query parameter) and as the poll cursor on the fallback.
+  --last-event-id ID  start after this SSE id. An id is a sequence, so it must
+                      be a non-negative integer.
   --stream-mode M     \`?streamMode=\`: updates (default) | values | messages |
                       debug, or a comma list of updates/messages/debug
                       (\`values\` never combines). A host that does not serve
@@ -97,7 +95,7 @@ Input parsing for \`runs create\`:
                     \`--input list=[1,2,3]\` yields an array. Quote shell-special characters.
   --inputs-json J   Pass the whole \`inputs\` object as one JSON literal. Merged BEFORE
                     --input k=v pairs (which override).
-  --wait            Poll GET /v1/runs/{runId} every 250ms until terminal status or
+  --wait            Poll GET /runs/{runId} every 250ms until terminal status or
                     --timeout-ms (default 30000) elapses. Exit 0 only on \`completed\`.
 `;
 
@@ -166,7 +164,7 @@ async function runRunsList(ctx: Ctx, argv: string[]) {
   if (options.tenantId) query.set('tenantId', options.tenantId);
   if (options.workflowId) query.set('workflowId', options.workflowId);
   if (options.cursor) query.set('cursor', options.cursor);
-  const path = `/v1/runs${query.size ? `?${query.toString()}` : ''}`;
+  const path = `/runs${query.size ? `?${query.toString()}` : ''}`;
   const res = await requestJson(ctx, path);
   if (ctx.json) {
     writeJson(ctx.io.stdout, res.body);
@@ -202,7 +200,7 @@ async function runRunsCreate(ctx: Ctx, argv: string[]) {
     ...(options.scopeId ? { scopeId: options.scopeId } : {}),
     inputs: buildInputs(options),
   };
-  const res = await requestJson(ctx, '/v1/runs', { method: 'POST', body, headers: idempotencyHeaders(options.idempotencyKey) });
+  const res = await requestJson(ctx, '/runs', { method: 'POST', body, headers: idempotencyHeaders(options.idempotencyKey) });
   const replayed = isIdempotentReplay(res.headers) ? ' — replayed from the idempotency cache, no new run started' : '';
   if (options.wait) {
     const snap = await waitForRun(ctx, res.body.runId, Number(options.timeoutMs ?? 30000));
@@ -224,7 +222,7 @@ async function runRunsGet(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop runs get <runId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}`);
+  const res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}`);
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else {
     writeLine(ctx.io.stdout, `runId: ${res.body.runId}`);
@@ -244,13 +242,13 @@ async function runRunsCancel(ctx: Ctx, argv: string[]) {
     return options.help ? 0 : 2;
   }
   const body = options.reason ? { reason: options.reason } : {};
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/cancel`, { method: 'POST', body });
+  const res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}/cancel`, { method: 'POST', body });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Cancelled ${positionals[0]}`);
   return 0;
 }
 
-/** POST /v1/runs/{id}:fork — replay/branch a run from a sequence (RFC 0054). */
+/** POST /runs/{id}:fork — replay/branch a run from a sequence (RFC 0054). */
 async function runRunsFork(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--mode', '--from-sequence', '--idempotency-key'] });
   if (options.help || positionals.length !== 1) {
@@ -260,13 +258,13 @@ async function runRunsFork(ctx: Ctx, argv: string[]) {
   const body: Record<string, unknown> = {};
   if (options.mode) body.mode = String(options.mode);
   if (options.fromSequence !== undefined) body.fromSeq = Number(options.fromSequence);
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}:fork`, { method: 'POST', body, headers: idempotencyHeaders(options.idempotencyKey) });
+  const res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}:fork`, { method: 'POST', body, headers: idempotencyHeaders(options.idempotencyKey) });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Forked ${positionals[0]} → ${res.body?.runId ?? '(see --json)'}`);
   return 0;
 }
 
-/** GET /v1/runs/{id}:diff?against={other} — a deterministic structured diff (RFC 0054). */
+/** GET /runs/{id}:diff?against={other} — a deterministic structured diff (RFC 0054). */
 async function runRunsDiff(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--against'] });
   if (options.help || positionals.length !== 1 || !options.against) {
@@ -275,13 +273,13 @@ async function runRunsDiff(ctx: Ctx, argv: string[]) {
   }
   const res = await requestJson(
     ctx,
-    `/v1/runs/${encodeURIComponent(positionals[0])}:diff?against=${encodeURIComponent(String(options.against))}`,
+    `/runs/${encodeURIComponent(positionals[0])}:diff?against=${encodeURIComponent(String(options.against))}`,
   );
   writeJson(ctx.io.stdout, res.body); // a diff is inherently structured
   return 0;
 }
 
-/** DELETE /v1/runs/{id} — remove a run + its event log (guarded). */
+/** DELETE /runs/{id} — remove a run + its event log (guarded). */
 async function runRunsDelete(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'] });
   if (options.help || positionals.length !== 1) {
@@ -289,12 +287,12 @@ async function runRunsDelete(ctx: Ctx, argv: string[]) {
     return options.help ? 0 : 2;
   }
   if (!options.yes) throw new CliError(`Refusing to delete run ${positionals[0]} without --yes (this removes the run and its event log).`, 2);
-  await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted ${positionals[0]}`);
   return 0;
 }
 
-/** POST /v1/runs:bulk-cancel — cancel many runs in one call. */
+/** POST /runs:bulk-cancel — cancel many runs in one call. */
 async function runRunsBulkCancel(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--reason'] });
   if (options.help || positionals.length === 0) {
@@ -303,7 +301,7 @@ async function runRunsBulkCancel(ctx: Ctx, argv: string[]) {
   }
   const body: Record<string, unknown> = { runIds: positionals };
   if (options.reason) body.reason = options.reason;
-  const res = await requestJson(ctx, '/v1/runs:bulk-cancel', { method: 'POST', body });
+  const res = await requestJson(ctx, '/runs:bulk-cancel', { method: 'POST', body });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Requested cancel of ${positionals.length} run(s)`);
   return 0;
@@ -320,10 +318,10 @@ async function runRunsEvents(ctx: Ctx, argv: string[]) {
     throw new CliError('--last-event-id and --stream-mode apply to the SSE stream: add --follow');
   }
   const query = new URLSearchParams();
-  if (options.since !== undefined) query.set(await pollCursorParam(ctx), String(options.since));
+  if (options.since !== undefined) query.set('afterSequence', String(options.since));
   if (options.limit !== undefined) query.set('limit', String(options.limit));
   const qs = query.toString();
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/events/poll${qs ? `?${qs}` : ''}`);
+  const res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}/events/poll${qs ? `?${qs}` : ''}`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const events = Array.isArray(res.body?.events) ? res.body.events : [];
   if (events.length === 0) { writeLine(ctx.io.stdout, 'No events.'); return 0; }
@@ -361,7 +359,7 @@ async function runRunsAnnotations(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop runs annotations <runId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/annotations`);
+  const res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}/annotations`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const annotations = Array.isArray(res.body?.annotations) ? res.body.annotations : [];
   if (annotations.length === 0) { writeLine(ctx.io.stdout, 'No annotations. Add one with `openwop runs annotate <runId> --rating 5`.'); return 0; }
@@ -403,7 +401,7 @@ async function runRunsAnnotate(ctx: Ctx, argv: string[]) {
     ...(Object.keys(target).length ? { target } : {}),
     ...(options.note ? { note: options.note } : {}),
   };
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/annotations`, { method: 'POST', body });
+  const res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}/annotations`, { method: 'POST', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `✓ Annotation ${res.body.annotationId} (${res.body.signal?.kind}) on ${positionals[0]}`);
   return 0;
@@ -418,7 +416,7 @@ async function runRunsDebugBundle(ctx: Ctx, argv: string[]) {
   const query = new URLSearchParams();
   if (options.maxEvents !== undefined) query.set('maxEvents', String(options.maxEvents));
   const qs = query.toString();
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/debug-bundle${qs ? `?${qs}` : ''}`);
+  const res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}/debug-bundle${qs ? `?${qs}` : ''}`);
   if (options.out) {
     writeFileSync(options.out, JSON.stringify(res.body, null, 2) + '\n', 'utf8');
     if (!ctx.quiet) writeLine(ctx.io.stdout, `✓ Wrote debug bundle for ${res.body.runId} → ${options.out} (${(res.body.events ?? []).length} events${res.body.truncated ? ', truncated' : ''})`);
@@ -439,7 +437,7 @@ async function runRunsAncestry(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop runs ancestry <runId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  // RFC 0040 §C — GET /v1/runs/{runId}/ancestry. Each run carries a single
+  // RFC 0040 §C — GET /runs/{runId}/ancestry. Each run carries a single
   // cross-host parent link (`parent`), so the ancestry is a linear chain.
   // Walk it from the requested run up to the top-level root, following the
   // same-host `parent.runId` until `parent === null`. A depth cap guards
@@ -451,7 +449,7 @@ async function runRunsAncestry(ctx: Ctx, argv: string[]) {
   for (let depth = 0; depth < MAX_DEPTH; depth++) {
     let res;
     try {
-      res = await requestJson(ctx, `/v1/runs/${current}/ancestry`);
+      res = await requestJson(ctx, `/runs/${current}/ancestry`);
     } catch (err) {
       if (err instanceof HttpError && err.status === 404) {
         // Distinguish "endpoint not enabled" from "run not found" via the body.
@@ -495,21 +493,21 @@ async function runRunsAncestry(ctx: Ctx, argv: string[]) {
 async function waitForRun(ctx: Ctx, runId: any, timeoutMs: any) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
-    const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(runId)}`);
+    const res = await requestJson(ctx, `/runs/${encodeURIComponent(runId)}`);
     if (TERMINAL_STATUSES.has(res.body.status)) return res.body;
     await sleep(250);
   }
   throw new CliError(`Timed out waiting for run ${runId} after ${timeoutMs}ms`, 1);
 }
 
-/** GET /v1/runs/{runId}/effects — the run's effect ledger (idempotency.md §Layer 2). */
+/** GET /runs/{runId}/effects — the run's effect ledger (idempotency.md §Layer 2). */
 async function runRunsEffects(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) {
     write(ctx.io.stdout, 'Usage: openwop runs effects <runId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/runs/${encodeURIComponent(positionals[0])}/effects`);
+  const res = await requestJson(ctx, `/runs/${encodeURIComponent(positionals[0])}/effects`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const effects = Array.isArray(res.body?.effects) ? res.body.effects : [];
   if (effects.length === 0) { writeLine(ctx.io.stdout, `No recorded effects for run ${positionals[0]}.`); return 0; }
@@ -523,14 +521,14 @@ async function runRunsEffects(ctx: Ctx, argv: string[]) {
   return 0;
 }
 
-/** GET /v1/host/openwop-app/runs/{runId}/revision — pinned revision + provenance (ADR 0474/0475). */
+/** GET /host/openwop-app/runs/{runId}/revision — pinned revision + provenance (ADR 0474/0475). */
 async function runRunsRevision(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) {
     write(ctx.io.stdout, 'Usage: openwop runs revision <runId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/openwop-app/runs/${await hostRunSegment(ctx, positionals[0])}/revision`);
+  const res = await requestJson(ctx, `/host/openwop-app/runs/${await hostRunSegment(ctx, positionals[0])}/revision`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const r = res.body ?? {};
   writeLine(ctx.io.stdout, `runId: ${r.runId ?? positionals[0]}`);
@@ -544,27 +542,27 @@ async function runRunsRevision(ctx: Ctx, argv: string[]) {
   return 0;
 }
 
-/** POST /v1/host/openwop-app/runs/{runId}/pin — { pinned } (default true). */
+/** POST /host/openwop-app/runs/{runId}/pin — { pinned } (default true). */
 async function runRunsPin(ctx: Ctx, argv: string[], pinned: boolean) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) {
     write(ctx.io.stdout, `Usage: openwop runs ${pinned ? 'pin' : 'unpin'} <runId> [--json]\n`);
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/openwop-app/runs/${await hostRunSegment(ctx, positionals[0])}/pin`, { method: 'POST', body: { pinned } });
+  const res = await requestJson(ctx, `/host/openwop-app/runs/${await hostRunSegment(ctx, positionals[0])}/pin`, { method: 'POST', body: { pinned } });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `${res.body?.pinned === false ? 'Unpinned' : 'Pinned'} run ${res.body?.runId ?? positionals[0]}.`);
   return 0;
 }
 
-/** POST /v1/host/openwop-app/runs/redrive — { runIds } (1–25). Exit 1 when any id failed. */
+/** POST /host/openwop-app/runs/redrive — { runIds } (1–25). Exit 1 when any id failed. */
 async function runRunsRedrive(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length === 0) {
     write(ctx.io.stdout, 'Usage: openwop runs redrive <runId...> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/runs/redrive', { method: 'POST', body: { runIds: positionals } });
+  const res = await requestJson(ctx, '/host/openwop-app/runs/redrive', { method: 'POST', body: { runIds: positionals } });
   const results = Array.isArray(res.body?.results) ? res.body.results : [];
   const anyFailed = results.some((r: any) => !r.redriveRunId);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return anyFailed ? 1 : 0; }

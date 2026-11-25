@@ -26,7 +26,7 @@ function fakeHost(handler) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     const u = new URL(url);
-    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['1.1'] });
+    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['2.0'] });
     const method = init.method ?? 'GET';
     const body = init.body ? JSON.parse(init.body) : undefined;
     calls.push({ method, path: u.pathname, search: u.search, body, headers: init.headers ?? {} });
@@ -48,7 +48,7 @@ describe('client-support (ADR 0413)', () => {
   it('asks unauthenticated with build + platform and exits 0 when supported', async () => {
     const r = await run(['client-support', '--build', '41', '--platform', 'ios'], () => json({ platform: 'ios', minBuild: 40, build: 41, supported: true }));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/client-support');
+    assert.equal(r.calls[0].path, '/host/openwop-app/client-support');
     assert.equal(r.calls[0].search, '?build=41&platform=ios');
     assert.equal(r.calls[0].headers.authorization, undefined);
     assert.match(r.stdout, /supported: yes/);

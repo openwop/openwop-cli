@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const BOARDS = '/v1/host/openwop-app/advisors/boards';
+const BOARDS = '/host/openwop-app/advisors/boards';
 
 /** Board strategy preview (ADR 0079 P5) + shared planning knowledge (ADR 0100 D2 / ADR 0277). */
 export const ADVISORS_ROUTES: RouteCmd[] = [

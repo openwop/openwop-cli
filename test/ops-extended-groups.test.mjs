@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const H = '/v1/host/openwop-app';
+const H = '/host/openwop-app';
 const tmp = () => mkdtempSync(join(tmpdir(), 'owcli-'));
 
 describe('analytics (extended)', () => {
@@ -65,7 +65,7 @@ describe('connections (extended)', () => {
     const host = mockHost(handler);
     const inner = host.fetchImpl;
     host.fetchImpl = async (url, init) => (new URL(url).pathname.endsWith('/.well-known/openwop')
-      ? json({ protocolVersion: '1.0', paths: { '/v1/host/openwop-app/connections': {} } })
+      ? json({ protocolVersions: ['2.0'], extensions: { 'openwop-app.host': { root: '/host/openwop-app/' } } })
       : inner(url, init));
     return host;
   };

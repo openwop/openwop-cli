@@ -5,19 +5,19 @@ import type { Ctx } from '../context.js';
  *
  * A binding maps a host-extension event type (`host.crm.contact.created`, …)
  * to a workflow so a record change starts a run. Host-extension surface
- * (non-normative), deliberately NOT the RFC 0099 `/v1/trigger-subscriptions`
+ * (non-normative), deliberately NOT the RFC 0099 `/trigger-subscriptions`
  * surface (see `openwop triggers`):
- *   GET    /v1/host/openwop-app/host-events/bindings
- *   POST   /v1/host/openwop-app/host-events/bindings            { eventType, workflowId }
- *   PATCH  /v1/host/openwop-app/host-events/bindings/{bindingId} { enabled }
- *   DELETE /v1/host/openwop-app/host-events/bindings/{bindingId}
+ *   GET    /host/openwop-app/host-events/bindings
+ *   POST   /host/openwop-app/host-events/bindings            { eventType, workflowId }
+ *   PATCH  /host/openwop-app/host-events/bindings/{bindingId} { enabled }
+ *   DELETE /host/openwop-app/host-events/bindings/{bindingId}
  */
 import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const BASE = '/v1/host/openwop-app/host-events/bindings';
+const BASE = '/host/openwop-app/host-events/bindings';
 
 export const HOST_EVENTS_HELP = `Usage:
   openwop host-events list [--json]
@@ -31,11 +31,11 @@ starts with "host.", e.g. host.crm.contact.created) to a workflow so the event
 starts a run. This is NOT the protocol trigger-subscription surface — use
 \`openwop triggers\` for RFC 0099 subscriptions.
 
-  list     GET    /v1/host/openwop-app/host-events/bindings
-  bind     POST   /v1/host/openwop-app/host-events/bindings   { eventType, workflowId }
-  enable   PATCH  /v1/host/openwop-app/host-events/bindings/{id}   { enabled: true }
-  disable  PATCH  /v1/host/openwop-app/host-events/bindings/{id}   { enabled: false }
-  unbind   DELETE /v1/host/openwop-app/host-events/bindings/{id}
+  list     GET    /host/openwop-app/host-events/bindings
+  bind     POST   /host/openwop-app/host-events/bindings   { eventType, workflowId }
+  enable   PATCH  /host/openwop-app/host-events/bindings/{id}   { enabled: true }
+  disable  PATCH  /host/openwop-app/host-events/bindings/{id}   { enabled: false }
+  unbind   DELETE /host/openwop-app/host-events/bindings/{id}
 
 The server refuses a non-"host." event name (400), an unknown workflow (422),
 and a tenant past its binding cap (409).

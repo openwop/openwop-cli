@@ -6,7 +6,7 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const E = '/v1/host/openwop-app/model-router/orgs/:orgId/config/enable';
+const E = '/host/openwop-app/model-router/orgs/:orgId/config/enable';
 
 export const MODEL_ROUTER_ROUTES: RouteCmd[] = [
   { words: ['enable'], method: 'POST', path: E, fixed: { enabled: true }, summary: 'Enable the org\'s saved model-router config.' },

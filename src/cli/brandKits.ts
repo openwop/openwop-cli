@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop brand-kits ...` — marketing brand kits (ADR 0155 brand guardrails;
  * custom fonts ADR 0399; guardrail audit trail ADR 0354 P5).
  *
- * Surface: /v1/host/openwop-app/brand/{channels,brands[/...]} — always-on (no
+ * Surface: /host/openwop-app/brand/{channels,brands[/...]} — always-on (no
  * toggle). Read = workspace:read in the brand's org (a miss is a uniform 404);
  * write = workspace:write plus the brand's governance lock (full → org admin;
  * partial → creator / listed editor / org admin). Changing governance itself
@@ -35,11 +35,11 @@ export const BRAND_KITS_HELP = `Usage:
 
 Marketing brand kits (ADR 0155): per-org brands carrying voice, positioning,
 key phrases, channel voice rules, identity and governance. Hits
-/v1/host/openwop-app/brand/brands[/{brandId}[/audit|/fonts[/{role}]]] and
-/v1/host/openwop-app/brand/channels (the channel vocabulary).
+/host/openwop-app/brand/brands[/{brandId}[/audit|/fonts[/{role}]]] and
+/host/openwop-app/brand/channels (the channel vocabulary).
 
 Not to be confused with 'openwop brand', which reads/edits the single
-white-label APP identity (/v1/host/openwop-app/public-brand + /app-brand).
+white-label APP identity (/host/openwop-app/public-brand + /app-brand).
 
 'update' is a PATCH: only the fields you pass change. Pass
 --expected-updated-at (the brand's updatedAt) to fail with a 409 instead of

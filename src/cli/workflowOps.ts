@@ -1,7 +1,7 @@
 import type { Ctx } from '../context.js';
 /**
  * Workflow lifecycle, revision, debug and eval subcommands of `openwop workflows`
- * (host-extension, /v1/host/openwop-app/workflows/{workflowId}/…):
+ * (host-extension, /host/openwop-app/workflows/{workflowId}/…):
  *
  *  - lifecycle — archive / unarchive / promote (openwop-app ADR 0369; promote =
  *    publish = pin the head revision, ADR 0474, gated on a green run + any
@@ -21,7 +21,7 @@ import { requestJson } from '../api.js';
 import { buildInputs } from './shared.js';
 import { readBodyOption, parseJsonFlag } from './contentHelpers.js';
 
-const WF = '/v1/host/openwop-app/workflows';
+const WF = '/host/openwop-app/workflows';
 const wf = (id: string) => `${WF}/${encodeURIComponent(id)}`;
 
 export const WORKFLOW_OPS_HELP = `Workflow lifecycle, revisions, debugging and evals (host-extension):

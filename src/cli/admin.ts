@@ -15,14 +15,14 @@ export const ADMIN_HELP = `Usage:
   openwop admin run-retention release <tenantId> [--json]
 
 Operator maintenance for the demo host. \`cleanup\` POSTs to
-/v1/host/openwop-app/admin/cleanup, wiping ephemeral secrets for tenants idle past
+/host/openwop-app/admin/cleanup, wiping ephemeral secrets for tenants idle past
 the cleanup window; \`--status\` is a read-only liveness probe. Admin-token
 gated — pass the host's OPENWOP_ADMIN_TOKEN via --api-key. Without --confirm
 the destructive POST asks for confirmation.
 
 \`run-retention\` (ADR 0371) reads the run-retention posture — default retention days,
 export on/off, the sweep window, the last sweep + proposal sweep, and every legal HOLD —
-from GET /v1/host/openwop-app/admin/run-retention. \`hold\` places a legal hold on a tenant
+from GET /host/openwop-app/admin/run-retention. \`hold\` places a legal hold on a tenant
 (POST /admin/run-retention/hold {tenantId, reason}; its runs are exempt from the sweep);
 \`release\` removes it (DELETE /admin/run-retention/hold/:tenantId). Counters are
 per-instance; holds are durable and global.
@@ -44,7 +44,7 @@ export async function runAdmin(ctx: Ctx, argv: string[]) {
 
   const { options } = parseOptions(argv.slice(1), { bool: ['--status', '--confirm', '--yes'] });
   if (options.status) {
-    const res = await requestJson(ctx, '/v1/host/openwop-app/admin/cleanup/status');
+    const res = await requestJson(ctx, '/host/openwop-app/admin/cleanup/status');
     if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
     const oldest = res.body.oldestActivityMs == null ? 'n/a' : `${Math.round(res.body.oldestActivityMs / 1000)}s ago`;
     writeLine(ctx.io.stdout, `trackedTenants=${res.body.trackedTenants} oldestActivity=${oldest}`);
@@ -55,13 +55,13 @@ export async function runAdmin(ctx: Ctx, argv: string[]) {
     const ok = await promptYesNo(ctx, 'Run cleanup now? This wipes ephemeral secrets for tenants idle past the window.', false);
     if (!ok) { writeLine(ctx.io.stdout, 'Aborted.'); return 1; }
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/admin/cleanup', { method: 'POST', body: {} });
+  const res = await requestJson(ctx, '/host/openwop-app/admin/cleanup', { method: 'POST', body: {} });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `✓ Cleanup ran — activeTenants=${res.body.activeTenants} wipedSecrets=${res.body.wipedSecrets} window=${Math.round((res.body.windowMs ?? 0) / 3_600_000)}h`);
   return 0;
 }
 
-const RETENTION = '/v1/host/openwop-app/admin/run-retention';
+const RETENTION = '/host/openwop-app/admin/run-retention';
 const SURFACE = 'Run-retention administration';
 
 async function runRetention(ctx: Ctx, argv: string[]) {

@@ -1,9 +1,7 @@
 // Run via `npm test` (builds dist/ first) — imports the esbuild bundle at ../dist/cli.js.
 //
 // SSE resume + stream mode (spec/v2/core/events.md §The events channel —
-// §Stream modes, §SSE frames, §Resuming with `Last-Event-ID`; v1
-// spec/v1/stream-modes.md §Mode selection / §Resumption and
-// rest-endpoints.md §Server-Sent Events).
+// §Stream modes, §SSE frames, §Resuming with `Last-Event-ID`).
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { runCli, streamRunEvents, consumeSse, parseStreamStart } from '../dist/cli.js';
@@ -41,14 +39,14 @@ function capture() {
  * the i-th SSE response factory. Run status reads answer `status`. Records
  * every request (path, search, headers). Discovery answers `major`.
  */
-function host({ connections, status = () => 'running', major = '2' }) {
+function host({ connections, status = () => 'running' }) {
   const seen = [];
   let n = 0;
   const fetchImpl = async (url, init = {}) => {
     const u = new URL(String(url));
     const headers = init.headers ?? {};
     seen.push({ path: u.pathname, search: u.search, headers });
-    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: major === '2' ? ['1.1', '2.0'] : ['1.1'] });
+    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['2.0'] });
     if (/\/events$/.test(u.pathname)) {
       const make = connections[n++];
       if (!make) throw new Error(`unexpected connection #${n}`);
@@ -64,9 +62,9 @@ function host({ connections, status = () => 'running', major = '2' }) {
 const ctxFor = (h, env = {}) => ({ baseUrl: 'http://h', apiKey: 'k', fetchImpl: h.fetchImpl, env, io: capture().io, json: false, cwd: '/tmp' });
 const streams = (h) => h.seen.filter((r) => /\/events$/.test(r.path));
 
-describe('SSE resume with Last-Event-ID (events.md §Resuming; v1 stream-modes.md §Resumption)', () => {
-  for (const major of ['1', '2']) {
-    it(`reconnects after a mid-stream drop with the last id seen, without duplicates (major ${major})`, async () => {
+describe('SSE resume with Last-Event-ID (events.md §Resuming)', () => {
+  {
+    it('reconnects after a mid-stream drop with the last id seen, without duplicates', async () => {
       const h = host({
         connections: [
           // retry: 1 — the server-set reconnection delay (keeps the test fast).
@@ -76,13 +74,14 @@ describe('SSE resume with Last-Event-ID (events.md §Resuming; v1 stream-modes.m
         ],
       });
       const events = [];
-      await streamRunEvents(ctxFor(h, { OPENWOP_PROTOCOL_MAJOR: major }), 'r', { onEvent: (e) => events.push(e.sequence) });
+      await streamRunEvents(ctxFor(h), 'r', { onEvent: (e) => events.push(e.sequence) });
       assert.deepEqual(events, [0, 1, 2, 3]);
       const s = streams(h);
       assert.equal(s.length, 2);
       assert.equal(s[0].headers['last-event-id'], undefined);
       assert.equal(s[1].headers['last-event-id'], '2');
-      assert.equal(s[0].path, major === '2' ? '/runs/r/events' : '/v1/runs/r/events');
+      assert.equal(s[0].path, '/runs/r/events');
+      assert.equal(s[0].headers['openwop-version'], '2.0');
     });
   }
 
@@ -160,19 +159,19 @@ describe('SSE resume with Last-Event-ID (events.md §Resuming; v1 stream-modes.m
 });
 
 describe('streaming run commands: --since / --last-event-id / --stream-mode', () => {
-  for (const major of ['1', '2']) {
-    it(`runs events --follow --since 4 sends Last-Event-ID: 4 (no since query param) under major ${major}`, async () => {
+  {
+    it('runs events --follow --since 4 sends Last-Event-ID: 4 (no since query param)', async () => {
       const cap = capture();
-      const h = host({ major, connections: [() => sse(sseBody([frame(5, 'node.completed', 'ok'), frame(6, 'run.completed')]))] });
+      const h = host({ connections: [() => sse(sseBody([frame(5, 'node.completed', 'ok'), frame(6, 'run.completed')]))] });
       const code = await runCli(['--base-url', 'http://h', 'runs', 'events', 'r', '--follow', '--since', '4', '--stream-mode', 'updates,messages'], {
-        io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: major },
+        io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: { OPENWOP_API_KEY: 'k' },
       });
       assert.equal(code, 0, cap.stderr);
       const [s] = streams(h);
       assert.equal(s.headers['last-event-id'], '4');
       assert.equal(s.search, '?streamMode=updates%2Cmessages');
-      assert.equal(s.path, major === '2' ? '/runs/r/events' : '/v1/runs/r/events');
-      if (major === '2') assert.equal(s.headers['openwop-version'], '2.0');
+      assert.equal(s.path, '/runs/r/events');
+      assert.equal(s.headers['openwop-version'], '2.0');
       assert.match(cap.stdout, /\[5\] assistant> ok/);
       assert.match(cap.stdout, /\[6\] · run completed/);
     });
@@ -188,10 +187,8 @@ describe('streaming run commands: --since / --last-event-id / --stream-mode', ()
     assert.deepEqual(cap.stdout.trim().split('\n').map((l) => JSON.parse(l).sequence), [0, 1]);
   });
 
-  it('--last-event-id is sent verbatim under v1 (opaque id) and must be an integer under v2', async () => {
-    const v1 = await parseStreamStart({ env: { OPENWOP_PROTOCOL_MAJOR: '1' } }, { lastEventId: 'evt-abc' });
-    assert.deepEqual(v1, { lastEventId: 'evt-abc' });
-    await assert.rejects(parseStreamStart({ env: { OPENWOP_PROTOCOL_MAJOR: '2' } }, { lastEventId: 'evt-abc' }), /non-negative integer under protocol v2/);
+  it('--last-event-id must be an integer (a v2 SSE id is a sequence; the v1 opaque id is gone)', async () => {
+    await assert.rejects(parseStreamStart({ env: {} }, { lastEventId: 'evt-abc' }), /must be a non-negative integer/);
     assert.deepEqual(await parseStreamStart({ env: { OPENWOP_PROTOCOL_MAJOR: '2' } }, { lastEventId: '7' }), { lastEventId: '7' });
     await assert.rejects(parseStreamStart({ env: {} }, { since: '3', lastEventId: '3' }), /pass one/);
     await assert.rejects(parseStreamStart({ env: {} }, { since: '-1' }), /non-negative integer/);
@@ -199,9 +196,9 @@ describe('streaming run commands: --since / --last-event-id / --stream-mode', ()
 
   it('--last-event-id seeds dedupe: a host replaying from the resumption point prints nothing twice', async () => {
     const cap = capture();
-    const h = host({ major: '1', connections: [() => sse(sseBody([frame(7, 'node.started'), frame(8, 'run.completed')]))] });
+    const h = host({ connections: [() => sse(sseBody([frame(7, 'node.started'), frame(8, 'run.completed')]))] });
     const code = await runCli(['--base-url', 'http://h', 'runs', 'watch', 'r', '--last-event-id', '7'], {
-      io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' },
+      io: cap.io, fetchImpl: h.fetchImpl, cwd: '/tmp', env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' },
     });
     assert.equal(code, 0);
     assert.equal(streams(h)[0].headers['last-event-id'], '7');

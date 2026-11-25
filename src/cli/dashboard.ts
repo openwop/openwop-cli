@@ -7,7 +7,7 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const B = '/v1/host/openwop-app/dashboard';
+const B = '/host/openwop-app/dashboard';
 
 export const DASHBOARD_ROUTES: RouteCmd[] = [
   { words: ['layout'], method: 'GET', path: `${B}/layout`, summary: 'Your tile layout (null = the frontend derives the default).',

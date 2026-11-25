@@ -13,8 +13,8 @@ function capture() {
   };
 }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-// Pin protocol major 1 so the mock sees the literal /v1/host/openwop-app paths (no discovery fetch).
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+// Pin protocol major 1 so the mock sees the literal /host/openwop-app paths (no discovery fetch).
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 
 /** A fetch mock that records every call and answers from `reply(url, init)`. */
 function recorder(reply) {
@@ -33,7 +33,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const E = '/v1/host/openwop-app/public-email';
+const E = '/host/openwop-app/public-email';
 const html = (status = 200) => new Response('<html>page</html>', { status, headers: { 'content-type': 'text/html; charset=utf-8' } });
 
 describe('email public legs', () => {
@@ -111,7 +111,7 @@ describe('forms public legs', () => {
     const r = recorder((u) => json(u.pathname.endsWith('/submit') ? { ok: true, submissionId: 'sub_1', message: 'Thanks!' } : { formId: 'f_1', title: 'Contact', fields: [] }, u.pathname.endsWith('/submit') ? 201 : 200));
     assert.equal(await runCli(['forms', 'public', 'get', 'f_1'], opts(r.fetchImpl, cap)), 0, cap.stderr);
     assert.equal(await runCli(['forms', 'public', 'submit', 'f_1', '--values-json', '{"email":"a@x.test"}', '--referrer', 'https://site', '--session-key', 's1', '--utm-json', '{"source":"x"}', '--client-key', 'ck1'], opts(r.fetchImpl, cap)), 0, cap.stderr);
-    assert.deepEqual(lines(r), ['GET /v1/host/openwop-app/public-forms/f_1', 'POST /v1/host/openwop-app/public-forms/f_1/submit']);
+    assert.deepEqual(lines(r), ['GET /host/openwop-app/public-forms/f_1', 'POST /host/openwop-app/public-forms/f_1/submit']);
     assert.deepEqual(r.calls[1].body, { values: { email: 'a@x.test' }, referrer: 'https://site', sessionKey: 's1', utm: { source: 'x' }, clientKey: 'ck1' });
     assert.ok(r.calls.every((c) => !c.headers.authorization));
     assert.match(cap.stdout, /Submitted \(submission sub_1\) — Thanks!/);
@@ -136,7 +136,7 @@ describe('chat-widget public legs', () => {
     const r = recorder((u) => json(u.pathname.endsWith('/message') ? { reply: 'Hi there' } : { widgetId: 'w_1', agentId: 'a_1', caps: {} }));
     assert.equal(await runCli(['chat-widget', 'public', 'config', '--token', 't/1', '--origin', 'https://site.test'], opts(r.fetchImpl, cap)), 0, cap.stderr);
     assert.equal(await runCli(['chat-widget', 'public', 'message', '--token', 't1', '--origin', 'https://site.test', '--message', 'hello', '--session', 's1'], opts(r.fetchImpl, cap)), 0, cap.stderr);
-    assert.deepEqual(lines(r), ['GET /v1/host/openwop-app/public/widget/config?token=t%2F1', 'POST /v1/host/openwop-app/public/widget/message']);
+    assert.deepEqual(lines(r), ['GET /host/openwop-app/public/widget/config?token=t%2F1', 'POST /host/openwop-app/public/widget/message']);
     assert.deepEqual(r.calls[1].body, { token: 't1', message: 'hello', hp: '', sessionId: 's1' });
     assert.ok(r.calls.every((c) => c.headers.origin === 'https://site.test' && !c.headers.authorization));
     assert.match(cap.stdout, /Hi there/);
@@ -146,7 +146,7 @@ describe('chat-widget public legs', () => {
     const cap = capture();
     const r = recorder(() => new Response('(function(){})();', { status: 200, headers: { 'content-type': 'application/javascript' } }));
     assert.equal(await runCli(['chat-widget', 'public', 'embed'], opts(r.fetchImpl, cap)), 0, cap.stderr);
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/public/widget/embed.js');
+    assert.equal(r.calls[0].path, '/host/openwop-app/public/widget/embed.js');
     assert.match(cap.stdout, /\(function\(\)\{\}\)\(\);/);
     const r403 = recorder(() => json({ error: 'forbidden', message: 'This domain is not allowed to embed this widget.' }, 403));
     assert.equal(await runCli(['chat-widget', 'public', 'config', '--token', 't', '--origin', 'https://evil.test'], opts(r403.fetchImpl, cap)), 4);

@@ -8,9 +8,9 @@ import { requireOrg } from './shared.js';
 import { dispatchSpecs, specsUsage, type CommandSpec } from './resourceCommands.js';
 import { APP, enc, dispatchTable, requestRaw, readText, writeText, rawJson, type Cmd, type RawResponse } from './marketingShared.js';
 
-const base = (org: string) => `/v1/host/openwop-app/email/orgs/${encodeURIComponent(org)}`;
+const base = (org: string) => `/host/openwop-app/email/orgs/${encodeURIComponent(org)}`;
 
-const EO = '/v1/host/openwop-app/email/orgs/:org';
+const EO = '/host/openwop-app/email/orgs/:org';
 
 /** Sender identity, provider status, bounce-webhook configs (ADR 0241) and campaign engagement (ADR 0218 C4). */
 export const EMAIL_EXT_SPECS: CommandSpec[] = [
@@ -45,7 +45,7 @@ a campaign binds a template + audience; \`send\` dispatches it and \`sends\` rea
 delivery log. Every command needs --org. The host is the authority; the CLI relays.
 
 Public recipient legs (UNAUTHENTICATED — the links a recipient's mail client follows,
-under /v1/host/openwop-app/public-email/…; use them to test a campaign's links):
+under /host/openwop-app/public-email/…; use them to test a campaign's links):
   openwop email public open <token> [--json]                open pixel  GET  …/o/{token}
   openwop email public click <token> [--json]               click link  GET  …/c/{token} (redirect NOT followed; prints the target)
   openwop email public unsubscribe <token> [--html] [--confirm --yes] [--json]
@@ -170,7 +170,7 @@ async function emailCampaigns(ctx: Ctx, argv: string[]) {
   }
 }
 
-// ── public recipient legs (/v1/host/openwop-app/public-email/*) ──────────────
+// ── public recipient legs (/host/openwop-app/public-email/*) ──────────────
 const PUB_EMAIL = `${APP}/public-email`;
 
 function pageResult(ctx: Ctx, res: RawResponse, html: boolean, extra: Record<string, unknown> = {}): number {

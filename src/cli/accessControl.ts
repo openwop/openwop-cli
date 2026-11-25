@@ -31,9 +31,9 @@ export const ORGS_HELP = `Usage:
 
 Organizations + RBAC (RFC 0049, authorization fail-closed). Orgs own teams,
 groups, roles, and members; an effective-access query resolves a subject's
-granted scopes. Drives the host-extension surface under /v1/host/openwop-app/orgs,
-/v1/host/openwop-app/roles, /v1/host/openwop-app/access/effective, and
-/v1/host/openwop-app/authorization/decide.
+granted scopes. Drives the host-extension surface under /host/openwop-app/orgs,
+/host/openwop-app/roles, /host/openwop-app/access/effective, and
+/host/openwop-app/authorization/decide.
 
   effective           GET  /access/effective — the caller's own resolution by default
                       (includes the host's superadmin flag); --member / --subject preview
@@ -119,7 +119,7 @@ export async function runOrgs(ctx: Ctx, argv: string[]) {
 async function orgsList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, ORGS_HELP); return 0; }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/orgs');
+  const res = await requestJson(ctx, '/host/openwop-app/orgs');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const orgs = arrayOf(res.body, 'orgs');
   if (orgs.length === 0) { writeLine(ctx.io.stdout, 'No organizations. Create one with `openwop orgs create --name <name>`.'); return 0; }
@@ -132,7 +132,7 @@ async function orgsList(ctx: Ctx, argv: string[]) {
 async function orgsGet(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop orgs get <orgId> [--json]\n'); return options.help ? 0 : 2; }
-  const res = await requestJson(ctx, `/v1/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`);
+  const res = await requestJson(ctx, `/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`);
   writeJson(ctx.io.stdout, res.body);
   return 0;
 }
@@ -142,7 +142,7 @@ async function orgsCreate(ctx: Ctx, argv: string[]) {
   if (options.help || !options.name) { write(ctx.io.stdout, 'Usage: openwop orgs create --name <name> [--description <text>] [--json]\n'); return options.help ? 0 : 2; }
   const body: Record<string, any> = { name: options.name };
   if (options.description) body.description = options.description;
-  const res = await requestJson(ctx, '/v1/host/openwop-app/orgs', { method: 'POST', body });
+  const res = await requestJson(ctx, '/host/openwop-app/orgs', { method: 'POST', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Created org ${res.body?.orgId ?? res.body?.id} (${res.body?.name}).`);
   return 0;
@@ -155,7 +155,7 @@ async function orgsUpdate(ctx: Ctx, argv: string[]) {
   if (options.name) body.name = options.name;
   if (options.description) body.description = options.description;
   if (Object.keys(body).length === 0) throw new CliError('Nothing to update — pass --name and/or --description.', 2);
-  const res = await requestJson(ctx, `/v1/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
+  const res = await requestJson(ctx, `/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Updated org ${positionals[0]}.`);
   return 0;
@@ -165,7 +165,7 @@ async function orgsDelete(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop orgs delete <orgId> [--yes]\n'); return options.help ? 0 : 2; }
   if (!options.yes) { writeLine(ctx.io.stderr, `Refusing to delete org ${positionals[0]} without --yes (removes its teams, roles, and memberships).`); return 2; }
-  await requestJson(ctx, `/v1/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/host/openwop-app/orgs/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted org ${positionals[0]}.`);
   return 0;
 }
@@ -174,7 +174,7 @@ async function orgsDelete(ctx: Ctx, argv: string[]) {
 async function roleCatalog(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, 'Usage: openwop orgs role-catalog [--json]\n'); return 0; }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/roles');
+  const res = await requestJson(ctx, '/host/openwop-app/roles');
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const roles = arrayOf(res.body, 'roles');
   writeLine(ctx.io.stdout, formatTable(roles.map((r: any) => ({
@@ -191,7 +191,7 @@ async function effectiveAccess(ctx: Ctx, argv: string[]) {
   if (options.subject) qs.set('subject', String(options.subject));
   if (options.org) qs.set('orgId', String(options.org));
   const q = qs.toString() ? `?${qs}` : '';
-  const res = await requestJson(ctx, `/v1/host/openwop-app/access/effective${q}`);
+  const res = await requestJson(ctx, `/host/openwop-app/access/effective${q}`);
   writeJson(ctx.io.stdout, res.body);
   return 0;
 }
@@ -208,7 +208,7 @@ async function decide(ctx: Ctx, argv: string[]) {
   if (options.resource) body.resource = options.resource;
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/openwop-app/authorization/decide', { method: 'POST', body });
+    res = await requestJson(ctx, '/host/openwop-app/authorization/decide', { method: 'POST', body });
   } catch (err) {
     if (err instanceof HttpError && err.status === 404) {
       throw new CliError('This host does not enforce authorization (capabilities.authorization.supported is false) — the decision seam is not served. Failing closed.', 2);
@@ -227,7 +227,7 @@ async function transferOwnership(ctx: Ctx, orgId: string | undefined, argv: stri
     write(ctx.io.stdout, 'Usage: openwop orgs members <orgId> transfer-ownership <memberId> [--step-down] [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/openwop-app/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(positionals[0])}/transfer-ownership`, {
+  const res = await requestJson(ctx, `/host/openwop-app/orgs/${encodeURIComponent(orgId)}/members/${encodeURIComponent(positionals[0])}/transfer-ownership`, {
     method: 'POST', body: options.stepDown ? { stepDown: true } : {},
   });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
@@ -245,7 +245,7 @@ async function memberAddExisting(ctx: Ctx, orgId: string | undefined, verb: stri
       : 'Usage: openwop orgs members <orgId> add-existing (--candidate <id> | --email <e>) [--role <id>]... [--json]\n';
   if (options.help) { write(ctx.io.stdout, usage); return 0; }
   if (!orgId) { write(ctx.io.stderr, usage); return 2; }
-  const base = `/v1/host/openwop-app/orgs/${encodeURIComponent(orgId)}`;
+  const base = `/host/openwop-app/orgs/${encodeURIComponent(orgId)}`;
 
   if (verb === 'candidates') {
     const res = await requestJson(ctx, `${base}/member-candidates${options.forLink ? '?for=link' : ''}`);
@@ -296,7 +296,7 @@ async function runInvites(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop orgs invites <orgId> list | create --email <e> [--role <roleId>] | revoke <inviteId> --yes\n');
     return orgId ? 0 : 2;
   }
-  const base = `/v1/host/openwop-app/orgs/${encodeURIComponent(orgId)}/invites`;
+  const base = `/host/openwop-app/orgs/${encodeURIComponent(orgId)}/invites`;
   const { options, positionals } = parseOptions(argv.slice(2), { bool: ['--help', '--yes'], value: ['--email', '--role'] });
   switch (verb) {
     case 'list': {
@@ -349,8 +349,8 @@ async function runInvitations(ctx: Ctx, argv: string[]) {
   }
   if (!token) throw new CliError('An invitation token is required (--token, or enter it when prompted).', 2);
   const res = verb === 'preview'
-    ? await requestJson(ctx, `/v1/host/openwop-app/orgs/invitations/preview?token=${encodeURIComponent(token)}`)
-    : await requestJson(ctx, `/v1/host/openwop-app/orgs/invitations/${verb}`, { method: 'POST', body: { token } });
+    ? await requestJson(ctx, `/host/openwop-app/orgs/invitations/preview?token=${encodeURIComponent(token)}`)
+    : await requestJson(ctx, `/host/openwop-app/orgs/invitations/${verb}`, { method: 'POST', body: { token } });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const b = res.body ?? {};
   if (verb === 'preview') writeJson(ctx.io.stdout, b);
@@ -368,7 +368,7 @@ async function runEntity(ctx: Ctx, entity: Entity, argv: string[]) {
     return orgId ? 0 : 2;
   }
   const rest = argv.slice(2);
-  const base = `/v1/host/openwop-app/orgs/${encodeURIComponent(orgId)}/${entity}`;
+  const base = `/host/openwop-app/orgs/${encodeURIComponent(orgId)}/${entity}`;
   switch (verb) {
     case 'list': {
       const res = await requestJson(ctx, base);

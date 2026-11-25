@@ -26,7 +26,7 @@ function fakeHost(handler) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     const u = new URL(url);
-    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['1.1'] });
+    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['2.0'] });
     const method = init.method ?? 'GET';
     const body = init.body ? JSON.parse(init.body) : undefined;
     calls.push({ method, path: u.pathname, search: u.search, body, headers: init.headers ?? {} });
@@ -50,7 +50,7 @@ describe('dispatch fanout (RFC 0118)', () => {
       () => json({ joinOutcome: 'satisfied', children: [{ childRunId: 'c0', status: 'completed' }, { childRunId: 'c1', status: 'completed' }], mergeOrder: ['c0', 'c1'], completedCount: 2, failedCount: 0, cancelledCount: 0 }));
     assert.equal(r.code, 0, r.stderr);
     assert.equal(r.calls[0].method, 'POST');
-    assert.equal(r.calls[0].path, '/v1/host/openwop-app/dispatch/fanout');
+    assert.equal(r.calls[0].path, '/host/openwop-app/dispatch/fanout');
     assert.deepEqual(r.calls[0].body, { nextWorkerIds: ['a', 'b'], config: { fanOutPolicy: 'parallel', maxConcurrency: 2, joinPolicy: { mode: 'quorum', quorum: 1 } } });
     assert.match(r.stdout, /joinOutcome: satisfied/);
     assert.match(r.stdout, /mergeOrder: c0, c1/);

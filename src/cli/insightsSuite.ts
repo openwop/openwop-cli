@@ -8,7 +8,7 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const C = '/v1/host/openwop-app/insights-suite/config';
+const C = '/host/openwop-app/insights-suite/config';
 
 export const INSIGHTS_SUITE_ROUTES: RouteCmd[] = [
   { words: ['config'], method: 'GET', path: C, summary: 'The current configuration (null until saved).' },

@@ -5,7 +5,7 @@
  * a loop with backoff and a 30-minute receive watchdog.
  *
  * The host contract it implements is ADR 1043 D1 (host-extension routes under
- * /v1/host/openwop-app/messaging; non-normative). Clock, sleep and randomness
+ * /host/openwop-app/messaging; non-normative). Clock, sleep and randomness
  * are injected so tests drive it without real time.
  */
 import type { Ctx } from '../context.js';

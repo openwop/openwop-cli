@@ -4,9 +4,9 @@ import type { Ctx } from '../context.js';
  * endpoints an org configures (RFC 0108 + openwop-app ADR 0121).
  *
  * Host-extension surface (non-normative):
- *   GET    /v1/host/openwop-app/compat-endpoints?orgId=…   (workspace:read)
- *   POST   /v1/host/openwop-app/compat-endpoints           (workspace:write)
- *   DELETE /v1/host/openwop-app/compat-endpoints/{id}      (workspace:write)
+ *   GET    /host/openwop-app/compat-endpoints?orgId=…   (workspace:read)
+ *   POST   /host/openwop-app/compat-endpoints           (workspace:write)
+ *   DELETE /host/openwop-app/compat-endpoints/{id}      (workspace:write)
  *
  * The whole surface 404s unless the operator opts in
  * (OPENWOP_COMPAT_PROVIDER_ENABLED=true on the server). Secrets are refs: the
@@ -21,7 +21,7 @@ import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 import { failClosedOn404 } from './requestHelpers.js';
 
-const BASE = '/v1/host/openwop-app/compat-endpoints';
+const BASE = '/host/openwop-app/compat-endpoints';
 
 export const COMPAT_ENDPOINTS_HELP = `Usage:
   openwop compat-endpoints list --org <orgId> [--json]
@@ -30,9 +30,9 @@ export const COMPAT_ENDPOINTS_HELP = `Usage:
 
 Self-hosted / OpenAI-compatible model endpoints for an org (RFC 0108, ADR 0121).
 
-  list    GET    /v1/host/openwop-app/compat-endpoints?orgId=…
-  create  POST   /v1/host/openwop-app/compat-endpoints   { orgId, label, baseUrl, apiKey?, models?, capabilities }
-  delete  DELETE /v1/host/openwop-app/compat-endpoints/{id}   (also removes the stored key)
+  list    GET    /host/openwop-app/compat-endpoints?orgId=…
+  create  POST   /host/openwop-app/compat-endpoints   { orgId, label, baseUrl, apiKey?, models?, capabilities }
+  delete  DELETE /host/openwop-app/compat-endpoints/{id}   (also removes the stored key)
 
 The server must opt in (OPENWOP_COMPAT_PROVIDER_ENABLED=true); otherwise every
 command exits 1 with the host's "disabled" message. The endpoint URL must be

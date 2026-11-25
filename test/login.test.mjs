@@ -6,9 +6,9 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, mockHost, opts } from './helpers/mockHost.mjs';
 
-const START = '/api/v1/host/openwop-app/cli-login/start';
-const POLL = '/api/v1/host/openwop-app/cli-login/poll';
-const LOGOUT = '/api/v1/host/openwop-app/cli-login/logout';
+const START = '/api/host/openwop-app/cli-login/start';
+const POLL = '/api/host/openwop-app/cli-login/poll';
+const LOGOUT = '/api/host/openwop-app/cli-login/logout';
 const TOKEN = 'owk_the-secret-the-host-issued';
 
 const home = () => mkdtempSync(join(tmpdir(), 'owp-login-'));

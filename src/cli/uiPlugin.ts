@@ -4,12 +4,12 @@ import type { Ctx } from '../context.js';
  * artifact, and the ui-plugin/1 host RPC (RFC 0117; ADR 0300 sandbox lane,
  * ADR 0367 trusted lane).
  *
- * Hits `/v1/host/openwop-app/ui-plugin/*`. `entry` / `trusted-entry` fetch the
+ * Hits `/host/openwop-app/ui-plugin/*`. `entry` / `trusted-entry` fetch the
  * served JavaScript bytes (print or save with --output). The trusted lane is
  * gated by the `trusted-plugins` toggle and re-verified per serve; every miss is
  * a uniform 404. `rpc` posts a ui-plugin/1 envelope to the product seam; the
- * `--conformance-alias` form targets `/v1/host/sample/ui-plugin/rpc`, which the
- * host mounts only under its test seam (404 in production).
+ * `--conformance-alias` form targets the host-global `/host/sample/ui-plugin/rpc`,
+ * which the host mounts only under its test seam (404 in production).
  */
 import { writeFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
@@ -17,12 +17,12 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson, parseJsonResponse } from '../api.js';
-import { resolveRequest } from '../protocol.js';
+import { joinBase, resolveRequest } from '../protocol.js';
 import { enc, parseJsonFlag, readBodyOption, renderDone, renderList } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/ui-plugin';
+const BASE = '/host/openwop-app/ui-plugin';
 const RPC_PRODUCT = `${BASE}/rpc`;
-const RPC_CONFORMANCE = '/v1/host/sample/ui-plugin/rpc';
+const RPC_CONFORMANCE = '/host/sample/ui-plugin/rpc';
 
 export const UI_PLUGIN_HELP = `Usage:
   openwop ui-plugin packs [--json]
@@ -42,9 +42,9 @@ pack's main-frame ES module (GET ${BASE}/trusted/<name>/plugins/<id>/entry.mjs �
 message is { openwop: "ui-plugin/1", type: "request", id (integer,
 default 1), method, params } unless you pass a
 whole body with --body/--body-file. --conformance-alias posts to the test-seam
-alias ${RPC_CONFORMANCE} instead; that seam has no v2 equivalent (the v2
-seams profile, api/seams-v2.yaml, defines no ui-plugin operation), so it is
-always sent as the v1 path, on either protocol major.
+alias ${RPC_CONFORMANCE} instead (the v2 seams profile, api/seams-v2.yaml,
+defines no ui-plugin operation; the host mounts this one only under its test
+seam).
 
 Exit codes: 0 ok · 2 usage / not found / rejected request · 4 forbidden.
 
@@ -54,10 +54,10 @@ Examples:
   openwop ui-plugin rpc --method artifact.read --params '{"artifactId":"ui-plugin-demo"}'
 `;
 
-/** A non-JSON GET against the host (plugin bundles). Same path rewrite + bearer as requestJson. */
+/** A non-JSON GET against the host (plugin bundles). Same request seam + bearer as requestJson. */
 export async function fetchRawText(ctx: Ctx, requestedPath: string, opts: { auth?: boolean; accept?: string } = {}): Promise<{ status: number; contentType: string; text: string }> {
   const { path, headers } = await resolveRequest(ctx, requestedPath, { accept: opts.accept ?? '*/*' });
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
+  const url = joinBase(ctx.baseUrl, path);
   if (opts.auth !== false && ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
   const res = await ctx.fetchImpl(url, { method: 'GET', headers });
   const text = await res.text();

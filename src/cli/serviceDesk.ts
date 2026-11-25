@@ -11,8 +11,8 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const B = '/v1/host/openwop-app/service-desk/orgs/:orgId';
-const P = '/v1/host/openwop-app/public-service-desk/:intakeKey';
+const B = '/host/openwop-app/service-desk/orgs/:orgId';
+const P = '/host/openwop-app/public-service-desk/:intakeKey';
 
 export const SERVICE_DESK_ROUTES: RouteCmd[] = [
   { words: ['tickets'], method: 'GET', path: `${B}/tickets`, summary: 'List tickets (newest first).',

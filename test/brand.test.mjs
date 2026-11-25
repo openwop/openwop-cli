@@ -25,7 +25,7 @@ describe('brand command', () => {
   it('brand public shows the applied identity (anonymous surface)', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/public-brand$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/public-brand$/);
       return jsonResponse({ identity: { productName: 'Acme', theme: { accentSeed: 'oklch(58% 0.13 250)' } } });
     };
     const code = await runCli(['brand', 'public'], opts(fetchImpl, cap));
@@ -38,7 +38,7 @@ describe('brand command', () => {
     const cap = capture();
     let putBody = null;
     const fetchImpl = async (url, init) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/app-brand$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/app-brand$/);
       if (!init || (init.method ?? 'GET') === 'GET') {
         // Current brand — carries a logo + a mode the CLI must NOT clobber.
         return jsonResponse({ brand: { name: 'App', identity: { logo: { markSrc: '/logo.svg' }, theme: { defaultMode: 'dark' } } } });
