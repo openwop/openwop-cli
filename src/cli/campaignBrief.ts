@@ -4,7 +4,7 @@ import type { Ctx } from '../context.js';
  * brief's voice-of-customer evidence, ad angles, per-platform targeting packs,
  * version history, and the org hook bank.
  *
- * Surface: /v1/host/openwop-app/campaign-brief/* (toggle `campaign-brief`).
+ * Surface: /host/openwop-app/campaign-brief/* (toggle `campaign-brief`).
  * Read = workspace:read in the entity's org (a miss is a uniform 404);
  * write = workspace:write.
  */
@@ -42,7 +42,7 @@ export const CAMPAIGN_BRIEF_HELP = `Usage:
   openwop campaign-brief hooks --org <orgId> [--status candidate|tested|retired] [--json]
   openwop campaign-brief hook-promote <hookId> --org <orgId> --status candidate|tested|retired [--metric-ref-json <json>] [--json]
 
-Campaign briefs (ADR 0156). Hits /v1/host/openwop-app/campaign-brief/:
+Campaign briefs (ADR 0156). Hits /host/openwop-app/campaign-brief/:
   buyer-stages                 GET  buyer-stages (the stage + channel vocabulary)
   personas ...                 GET/POST personas, GET/PATCH/DELETE personas/{personaId}
   briefs ...                   GET/POST briefs, GET/PATCH/DELETE briefs/{briefId},

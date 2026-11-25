@@ -9,7 +9,7 @@ describe('kicktodo', () => {
     const host = mockHost(() => json({ status: 'ready', blockers: [] }));
     const cap = capture();
     assert.equal(await runCli(['kicktodo', 'readiness'], opts(host, cap)), 0);
-    assert.equal(host.last().path, '/v1/host/openwop-app/kicktodo/readiness');
+    assert.equal(host.last().path, '/host/openwop-app/kicktodo/readiness');
   });
 
   it('readiness 503 degraded prints the body (blockers) and exits 1', async () => {
@@ -23,6 +23,6 @@ describe('kicktodo', () => {
     const host = mockHost(() => json({ error: 'forbidden_scope' }, 403));
     const cap = capture();
     assert.equal(await runCli(['kicktodo', 'author'], opts(host, cap)), 4);
-    assert.equal(host.last().path, '/v1/host/openwop-app/kicktodo/creator/author');
+    assert.equal(host.last().path, '/host/openwop-app/kicktodo/creator/author');
   });
 });

@@ -5,7 +5,7 @@ import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
 describe('heartbeat', () => {
-  const P = '/v1/host/openwop-app/heartbeat/settings';
+  const P = '/host/openwop-app/heartbeat/settings';
   it('settings set is read-modify-write over the saved config', async () => {
     const view = { config: { id: 'singleton', status: 'on', enabledUntil: null, hostDefaultIntervalMs: 60000, runBudgetPerHour: 10 }, overridden: true, effective: {} };
     const host = mockHost(() => json(view));
@@ -32,7 +32,7 @@ describe('heartbeat', () => {
 });
 
 describe('settings', () => {
-  const P = '/v1/host/openwop-app/settings/prefs';
+  const P = '/host/openwop-app/settings/prefs';
   it('prefs set edits one privacy opt-out without dropping the others', async () => {
     const current = { personalBudget: { dailyTokenCap: 1000 }, reasoningDirective: 'advisory', privacy: { crashReportsOptOut: true }, usageToday: { day: 'd', tokens: 3 } };
     const host = mockHost((c) => json(c.method === 'GET' ? current : {}));

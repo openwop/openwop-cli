@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const H = '/v1/host/openwop-app';
+const H = '/host/openwop-app';
 
 describe('roster activity/check', () => {
   it('activity passes --limit/--status and renders the table', async () => {

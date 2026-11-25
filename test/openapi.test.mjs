@@ -26,7 +26,7 @@ function fakeHost(handler) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
     const u = new URL(url);
-    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['1.1'] });
+    if (u.pathname === '/.well-known/openwop') return json({ protocolVersions: ['2.0'] });
     const method = init.method ?? 'GET';
     const body = init.body ? JSON.parse(init.body) : undefined;
     calls.push({ method, path: u.pathname, search: u.search, body, headers: init.headers ?? {} });
@@ -45,15 +45,15 @@ async function run(argv, handler, env = {}) {
 const forbidden = () => json({ error: 'forbidden', message: 'Missing required scope' }, 403);
 
 const DOC = { openapi: '3.1.0', info: { title: 'OpenWOP', version: '1.2.3' }, paths: {
-  '/v1/runs': { get: { operationId: 'listRuns' }, post: { operationId: 'createRun' } },
-  '/v1/agents': { get: { operationId: 'listAgents' } },
+  '/runs': { get: { operationId: 'listRuns' }, post: { operationId: 'createRun' } },
+  '/agents': { get: { operationId: 'listAgents' } },
 } };
 
 describe('openapi', () => {
   it('summarises the served document', async () => {
     const r = await run(['openapi'], () => json(DOC));
     assert.equal(r.code, 0, r.stderr);
-    assert.equal(r.calls[0].path, '/v1/openapi.json');
+    assert.equal(r.calls[0].path, '/openapi.json');
     assert.match(r.stdout, /version: 1\.2\.3/);
     assert.match(r.stdout, /operations: 3 across 2 paths/);
   });
@@ -61,7 +61,7 @@ describe('openapi', () => {
   it('paths lists operations, --filter narrows, --json emits rows', async () => {
     let r = await run(['openapi', 'paths', '--filter', 'runs'], () => json(DOC));
     assert.equal(r.code, 0, r.stderr);
-    assert.match(r.stdout, /GET\s+\/v1\/runs\s+listRuns/);
+    assert.match(r.stdout, /GET\s+\/runs\s+listRuns/);
     assert.doesNotMatch(r.stdout, /listAgents/);
     r = await run(['--json', 'openapi', 'paths'], () => json(DOC));
     assert.equal(JSON.parse(r.stdout).length, 3);

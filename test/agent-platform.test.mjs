@@ -26,7 +26,7 @@ describe('roster command (RFC 0086)', () => {
   it('lists roster entries as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/agents\/roster$/); // normative first (RFC 0086)
+      assert.match(new URL(url).pathname, /\/agents\/roster$/); // normative first (RFC 0086)
       return jsonResponse({ roster: [{ rosterId: 'r1', persona: 'Sally', label: 'Lead', workflows: ['w1'], enabled: true }] });
     };
     const code = await runCli(['roster', 'list'], opts(fetchImpl, cap));
@@ -190,7 +190,7 @@ describe('orgs command (RFC 0049 RBAC)', () => {
   it('lists orgs', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/orgs$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/orgs$/);
       return jsonResponse({ orgs: [{ orgId: 'o1', name: 'Acme', description: '' }] });
     };
     const code = await runCli(['orgs', 'list'], opts(fetchImpl, cap));
@@ -248,7 +248,7 @@ describe('workspace command (RFC 0059)', () => {
   it('lists files as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/workspace\/files$/);
+      assert.match(new URL(url).pathname, /\/conformance\/seams\/workspace\/files$/);
       return jsonResponse({ files: [{ path: 'a.md', size: 2, contentType: 'text/markdown', etag: 'e1' }] });
     };
     const code = await runCli(['workspace', 'list'], opts(fetchImpl, cap));
@@ -287,7 +287,7 @@ describe('agents user-defined CRUD', () => {
     const code = await runCli(['agents', 'create', '--persona', 'Triage', '--model-class', 'fast', '--tool', 'openwop:fs.read'], opts(fetchImpl, cap));
     assert.equal(code, 0, cap.stderr);
     assert.equal(method, 'POST');
-    assert.match(path, /\/v1\/host\/openwop-app\/agents$/);
+    assert.match(path, /\/host\/openwop-app\/agents$/);
     assert.equal(sent.persona, 'Triage');
     assert.equal(sent.modelClass, 'fast');
     assert.deepEqual(sent.toolAllowlist, ['openwop:fs.read']);

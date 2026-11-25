@@ -24,9 +24,9 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import type { CommandSpec } from './resourceCommands.js';
 
-const ADMIN = '/v1/host/openwop-app/commerce/orgs/:org/ucp';
-const UCP = '/v1/host/openwop-app/commerce/ucp/orgs/:org';
-const BUYER = '/v1/host/openwop-app/commerce/orgs/:org/ucp-buyer';
+const ADMIN = '/host/openwop-app/commerce/orgs/:org/ucp';
+const UCP = '/host/openwop-app/commerce/ucp/orgs/:org';
+const BUYER = '/host/openwop-app/commerce/orgs/:org/ucp-buyer';
 
 export const COMMERCE_UCP_SPECS: CommandSpec[] = [
   // ── merchant admin: UCP agent client registry ──
@@ -93,7 +93,7 @@ export async function runCommerceUcpCustom(ctx: Ctx, argv: string[]): Promise<nu
   if (!options.org || !options.clientId || !options.clientSecretEnv) { write(ctx.io.stderr, TOKEN_USAGE); return 2; }
   const secret = ctx.env?.[String(options.clientSecretEnv)];
   if (!secret) throw new CliError(`Environment variable ${options.clientSecretEnv} is empty or unset.`, 2);
-  const path = `/v1/host/openwop-app/commerce/ucp/orgs/${encodeURIComponent(String(options.org))}/oauth/token`;
+  const path = `/host/openwop-app/commerce/ucp/orgs/${encodeURIComponent(String(options.org))}/oauth/token`;
   const res = await requestJson(ctx, path, {
     method: 'POST',
     auth: false,

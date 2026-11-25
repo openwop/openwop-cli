@@ -2,14 +2,14 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop promotions ...` — commerce promotions (openwop-app ADR 0274, MERCH-B:
  * cart-threshold / product-discount / loss-leader / tiered / BOGO promotions).
- * Host-extension routes under `/v1/host/openwop-app/promotions/orgs/:orgId`
+ * Host-extension routes under `/host/openwop-app/promotions/orgs/:orgId`
  * (toggle `promotions`; read = workspace:read, write = workspace:write).
  * Promotion EVALUATION happens host-side on the commerce order path — the CLI
  * only manages the promotion rows and renders the host's usage counters.
  */
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
-const B = '/v1/host/openwop-app/promotions/orgs/:org/promotions';
+const B = '/host/openwop-app/promotions/orgs/:org/promotions';
 const FIELDS = [
   'name', 'reward:json', 'scope:json', 'minSpend:number', 'priority:number', 'stackable:bool',
   'active:bool', 'segmentId', 'budget:json', 'schedule:json', 'currency',
@@ -24,7 +24,7 @@ export const PROMOTIONS_SPECS: CommandSpec[] = [
 ];
 
 export const PROMOTIONS_HELP = buildGroupHelp('promotions', `
-Commerce promotions (host-extension /v1/host/openwop-app/promotions/…, org-scoped).
+Commerce promotions (host-extension /host/openwop-app/promotions/…, org-scoped).
 --type is one of cart_threshold | product_discount | loss_leader | tiered | bogo.
 --reward is {"kind":"percentage"|"fixed","value":n}; --scope is
 {"productIds":[…],"categories":[…],"all":true}; --bogo is {"buy":n,"get":m};

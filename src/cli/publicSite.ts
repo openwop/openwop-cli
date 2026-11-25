@@ -9,7 +9,7 @@ import type { Ctx } from '../context.js';
  *   Podcasts             — ADR 0390 (public distribution: JSON, iTunes RSS, prerender, audio)
  *   Pricing              — the billing marketing catalog + ADR 0419 bundle pricing
  *
- * Paths: /v1/host/openwop-app/public/{orgId}/... and /v1/host/openwop-app/public/{pricing,bundle-pricing}.
+ * Paths: /host/openwop-app/public/{orgId}/... and /host/openwop-app/public/{pricing,bundle-pricing}.
  */
 import { writeFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
@@ -44,7 +44,7 @@ export const PUBLIC_HELP = `Usage:
 The anonymous published surface of the demo host — what visitors, crawlers and
 podcast apps read. Every command is UNAUTHENTICATED (no bearer is attached), so
 it shows exactly what the public sees. Paths:
-  GET /v1/host/openwop-app/public/{orgId}/pages[/{slug}|/{slug}.md]   published pages (ADR 0012)
+  GET /host/openwop-app/public/{orgId}/pages[/{slug}|/{slug}.md]   published pages (ADR 0012)
   GET …/public/{orgId}/{sitemap.xml,robots.txt,feed.rss}              SEO + site feed
   GET …/public/{orgId}/blog[/feed.xml|/prerender]                     blog index + RSS (ADR 0027)
   GET …/public/{orgId}/prerender/{slug}                               crawler HTML for one page
@@ -52,7 +52,7 @@ it shows exactly what the public sees. Paths:
                                                                       the docs list is \`openwop docs public\`)
   GET …/public/{orgId}/podcasts[/{show}[/feed.xml|/prerender[/{ep}]|/{ep}]]  podcasts (ADR 0390)
   GET …/public/{orgId}/podcasts/episodes/{episodeId}/audio           episode audio
-  GET /v1/host/openwop-app/public/{pricing,bundle-pricing}           pricing (ADR 0419)
+  GET /host/openwop-app/public/{pricing,bundle-pricing}           pricing (ADR 0419)
 
 Text surfaces (XML, RSS, Markdown, robots, llms.txt, prerendered HTML) print
 verbatim; --json wraps them as {status, contentType, body}. 'page --markdown'

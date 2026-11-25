@@ -4,9 +4,9 @@ import type { Ctx } from '../context.js';
  * The trigger bridge lets an externally-originated event (webhook / email / form)
  * deliver into a durable subscription that starts a run. This group drives the
  * NORMATIVE subscription surface:
- *   POST /v1/trigger-subscriptions       — register a subscription (source → workflow)
- *   GET  /v1/trigger-subscriptions       — list subscriptions
- *   GET  /v1/trigger-subscriptions/{id}  — one subscription (falls back to a list filter)
+ *   POST /trigger-subscriptions       — register a subscription (source → workflow)
+ *   GET  /trigger-subscriptions       — list subscriptions
+ *   GET  /trigger-subscriptions/{id}  — one subscription (falls back to a list filter)
  *
  * Capability honesty: gated on `capabilities.triggerBridge` (and, for register,
  * `triggerBridge.ingestion.externalSources` honesty gate — a source the host
@@ -46,9 +46,9 @@ doesn't advertise the bridge (or, for register, the requested source under
 \`triggerBridge.ingestion.externalSources\`).
 
 Endpoints:
-  register  POST /v1/trigger-subscriptions
-  list      GET  /v1/trigger-subscriptions
-  get       GET  /v1/trigger-subscriptions/{id}  (falls back to filtering the list)
+  register  POST /trigger-subscriptions
+  list      GET  /trigger-subscriptions
+  get       GET  /trigger-subscriptions/{id}  (falls back to filtering the list)
 
   --source <s>          (register/list) webhook | email | form.
   --workflow <id>       (register) The workflow the subscription starts (must be one you can start).
@@ -95,20 +95,20 @@ export async function runTriggers(ctx: Ctx, argv: string[]): Promise<number> {
   }
 }
 
-/** PATCH /v1/trigger-subscriptions/{id} — transition a subscription's state (RFC 0099). */
+/** PATCH /trigger-subscriptions/{id} — transition a subscription's state (RFC 0099). */
 async function runTriggersUpdate(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { value: ['--state'] });
   if (positionals.length !== 1 || !options.state) {
     write(ctx.io.stderr, 'Usage: openwop triggers update <subscriptionId> --state <active|paused> [--json]\n');
     return 2;
   }
-  const res = await requestJson(ctx, `/v1/trigger-subscriptions/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body: { state: options.state } });
+  const res = await requestJson(ctx, `/trigger-subscriptions/${encodeURIComponent(positionals[0])}`, { method: 'PATCH', body: { state: options.state } });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Updated ${positionals[0]} → state ${options.state}.`);
   return 0;
 }
 
-/** POST /v1/trigger-subscriptions/{id}/ingest — simulate an inbound external event (RFC 0099 §F). */
+/** POST /trigger-subscriptions/{id}/ingest — simulate an inbound external event (RFC 0099 §F). */
 async function runTriggersIngest(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { value: ['--event-json'] });
   if (positionals.length !== 1) {
@@ -119,7 +119,7 @@ async function runTriggersIngest(ctx: Ctx, argv: string[]) {
   if (options.eventJson) {
     try { event = JSON.parse(String(options.eventJson)); } catch { throw new CliError('--event-json must be valid JSON.', 2); }
   }
-  const res = await requestJson(ctx, `/v1/trigger-subscriptions/${encodeURIComponent(positionals[0])}/ingest`, { method: 'POST', body: event });
+  const res = await requestJson(ctx, `/trigger-subscriptions/${encodeURIComponent(positionals[0])}/ingest`, { method: 'POST', body: event });
   if (ctx.json) writeJson(ctx.io.stdout, res.body);
   else writeLine(ctx.io.stdout, `Ingested event for ${positionals[0]}.`);
   return 0;
@@ -159,7 +159,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `triggers: ${detail} (the host must serve /v1/trigger-subscriptions; the CLI renders the host's subscriptions, it never fabricates one).`,
+      `triggers: ${detail} (the host must serve /trigger-subscriptions; the CLI renders the host's subscriptions, it never fabricates one).`,
       1,
     );
   }
@@ -196,7 +196,7 @@ async function runRegister(ctx: Ctx, argv: string[]): Promise<number> {
     }
     if (tb.ingestion && tb.ingestion.registrationEndpoint === false) {
       throw new CliError(
-        'triggers: this host does not serve the registration endpoint (capabilities.triggerBridge.ingestion.registrationEndpoint is false) — POST /v1/trigger-subscriptions is unavailable here.',
+        'triggers: this host does not serve the registration endpoint (capabilities.triggerBridge.ingestion.registrationEndpoint is false) — POST /trigger-subscriptions is unavailable here.',
         1,
       );
     }
@@ -208,7 +208,7 @@ async function runRegister(ctx: Ctx, argv: string[]): Promise<number> {
   if (options.verification !== undefined) body.verification = { mode: options.verification };
   let res;
   try {
-    res = await requestJson(ctx, '/v1/trigger-subscriptions', { method: 'POST', body, headers: idempotencyHeaders() });
+    res = await requestJson(ctx, '/trigger-subscriptions', { method: 'POST', body, headers: idempotencyHeaders() });
   } catch (err) {
     if (err instanceof HttpError && err.status === 403) {
       throw new CliError(`triggers: the host refused the registration (403) — you cannot bind workflow ${options.workflow} (you must be able to start it; the host is the authority).`, 1);
@@ -243,7 +243,7 @@ async function runRegister(ctx: Ctx, argv: string[]): Promise<number> {
 }
 
 async function fetchList(ctx: Ctx, query: string[]): Promise<any[]> {
-  const path = `/v1/trigger-subscriptions${query.length ? `?${query.join('&')}` : ''}`;
+  const path = `/trigger-subscriptions${query.length ? `?${query.join('&')}` : ''}`;
   let res;
   try {
     res = await requestJson(ctx, path);
@@ -295,7 +295,7 @@ async function runGet(ctx: Ctx, argv: string[]): Promise<number> {
   const id = positionals[0];
   let s: any;
   try {
-    const res = await requestJson(ctx, `/v1/trigger-subscriptions/${encodeURIComponent(id)}`);
+    const res = await requestJson(ctx, `/trigger-subscriptions/${encodeURIComponent(id)}`);
     s = res.body ?? {};
   } catch (err) {
     // The single-subscription GET may not be mounted yet (the read surface lands

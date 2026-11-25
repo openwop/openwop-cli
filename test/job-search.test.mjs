@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const O = '/v1/host/openwop-app/job-search/orgs/o1';
+const O = '/host/openwop-app/job-search/orgs/o1';
 
 describe('job-search', () => {
   it('applications renders nested deal fields', async () => {

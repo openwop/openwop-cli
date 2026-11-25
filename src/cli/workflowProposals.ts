@@ -6,9 +6,9 @@ import type { Ctx } from '../context.js';
  * When an agent proposes a composed workflow, a policy lets proposals from ONE
  * agent profile in ONE tenant auto-approve — only for read-only-class nodes;
  * everything else still faces a human. Super-admin only, every change audited:
- *   GET    /v1/host/openwop-app/workflow-proposals/admin/policies?tenantId=…
- *   PUT    /v1/host/openwop-app/workflow-proposals/admin/policies/{tenantId}/{agentProfileId}
- *   DELETE /v1/host/openwop-app/workflow-proposals/admin/policies/{tenantId}/{agentProfileId}
+ *   GET    /host/openwop-app/workflow-proposals/admin/policies?tenantId=…
+ *   PUT    /host/openwop-app/workflow-proposals/admin/policies/{tenantId}/{agentProfileId}
+ *   DELETE /host/openwop-app/workflow-proposals/admin/policies/{tenantId}/{agentProfileId}
  * Distinct from `openwop proposals` (the RFC 0096 proposal inbox itself).
  */
 import { CliError } from '../errors.js';
@@ -17,7 +17,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { enc, emit } from './chatShared.js';
 
-const BASE = '/v1/host/openwop-app/workflow-proposals/admin/policies';
+const BASE = '/host/openwop-app/workflow-proposals/admin/policies';
 
 export const WORKFLOW_PROPOSALS_HELP = `Usage:
   openwop workflow-proposals policies --tenant <tenantId> [--json]
@@ -25,7 +25,7 @@ export const WORKFLOW_PROPOSALS_HELP = `Usage:
   openwop workflow-proposals disable --tenant <tenantId> --agent-profile <agentProfileId> [--json]
 
 Auto-approval policies for agent-proposed workflows (server operators only):
-GET /v1/host/openwop-app/workflow-proposals/admin/policies?tenantId=…,
+GET /host/openwop-app/workflow-proposals/admin/policies?tenantId=…,
 PUT|DELETE …/policies/{tenantId}/{agentProfileId}. An enabled policy lets that
 agent profile's proposals auto-approve when every node is read-only; anything
 else still waits for a person. Every change is audited on the server.

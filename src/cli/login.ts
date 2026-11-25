@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop login` / `openwop logout` — sign this terminal in to an openwop-app
  * host without copying a key (openwop-app ADR 0799, a device-code flow under
- * the host extension `/v1/host/openwop-app/cli-login`).
+ * the host extension `/host/openwop-app/cli-login`).
  *
  *   login    start → show a code → you approve it in the app → the host hands
  *            this CLI a key, once. It is saved to the config file (0600) and
@@ -19,7 +19,7 @@ import { CliError, HttpError } from '../errors.js';
 import { write, writeJson, writeLine } from '../io.js';
 import { parseOptions } from '../options.js';
 
-const BASE = '/v1/host/openwop-app/cli-login';
+const BASE = '/host/openwop-app/cli-login';
 
 export const LOGIN_HELP = `Usage:
   openwop login [--label <name>] [--timeout <seconds>] [--profile <name>] [--json]

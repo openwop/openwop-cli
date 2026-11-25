@@ -14,8 +14,8 @@ function capture() {
 }
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 // Pin protocol major 1 so no discovery request is made.
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
-const B = '/v1/host/openwop-app/promotions/orgs/org%2F1/promotions';
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
+const B = '/host/openwop-app/promotions/orgs/org%2F1/promotions';
 
 describe('promotions', () => {
   it('list renders a table from the host rows (org id URL-encoded)', async () => {
@@ -49,7 +49,7 @@ describe('promotions', () => {
     const code = await runCli(['promotions', 'create', '--org', 'o', '--name', 'X', '--type', 'cart_threshold', '--min-spend', '50', '--reward', '{"kind":"percentage","value":10}', '--stackable', 'false'], opts(fetchImpl, cap));
     assert.equal(code, 0, cap.stderr);
     assert.equal(seen.init.method, 'POST');
-    assert.equal(seen.url.pathname, '/v1/host/openwop-app/promotions/orgs/o/promotions');
+    assert.equal(seen.url.pathname, '/host/openwop-app/promotions/orgs/o/promotions');
     assert.deepEqual(JSON.parse(seen.init.body), { name: 'X', type: 'cart_threshold', minSpend: 50, reward: { kind: 'percentage', value: 10 }, stackable: false });
   });
 
@@ -69,7 +69,7 @@ describe('promotions', () => {
     const code = await runCli(['promotions', 'delete', 'p1', '--org', 'o', '--yes'], opts(async (url, init) => { seen = { url: new URL(url), init }; return jsonResponse({ ok: true }); }, cap));
     assert.equal(code, 0);
     assert.equal(seen.init.method, 'DELETE');
-    assert.equal(seen.url.pathname, `/v1/host/openwop-app/promotions/orgs/o/promotions/p1`);
+    assert.equal(seen.url.pathname, `/host/openwop-app/promotions/orgs/o/promotions/p1`);
   });
 
   it('missing --org is a legible usage error', async () => {

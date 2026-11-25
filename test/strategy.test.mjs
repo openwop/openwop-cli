@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const S = '/v1/host/openwop-app/strategy';
+const S = '/host/openwop-app/strategy';
 
 describe('strategy (extended)', () => {
   it('update PATCHes only the flags given, JSON flags parsed', async () => {

@@ -13,7 +13,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { arrayOf, parseBool } from './adminShared.js';
 
-const BASE = '/v1/host/openwop-app/environments';
+const BASE = '/host/openwop-app/environments';
 const PROTECTION = ['open', 'protected', 'locked'] as const;
 
 export const ENVIRONMENTS_HELP = `Usage:

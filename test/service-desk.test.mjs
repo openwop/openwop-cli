@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const B = '/v1/host/openwop-app/service-desk/orgs/o1';
+const B = '/host/openwop-app/service-desk/orgs/o1';
 
 describe('service-desk', () => {
   it('tickets lists with a status filter', async () => {
@@ -45,7 +45,7 @@ describe('service-desk', () => {
     const host = mockHost(() => json({ visitorToken: 'sdv1.a.b', ticket: {} }, 201));
     let cap = capture();
     await runCli(['service-desk', 'public', 'send', 'sdk_1', '--text', 'hi'], opts(host, cap));
-    assert.equal(host.last().path, '/v1/host/openwop-app/public-service-desk/sdk_1/messages');
+    assert.equal(host.last().path, '/host/openwop-app/public-service-desk/sdk_1/messages');
     assert.equal(host.last().headers.authorization, undefined);
     assert.deepEqual(host.last().body, { body: 'hi' });
     cap = capture();

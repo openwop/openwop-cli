@@ -6,7 +6,7 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const S = '/v1/host/openwop-app/work-graph/orgs/:orgId/suggestions';
+const S = '/host/openwop-app/work-graph/orgs/:orgId/suggestions';
 
 export const WORK_GRAPH_ROUTES: RouteCmd[] = [
   { words: ['refresh'], method: 'POST', path: `${S}/refresh`, summary: 'Re-mine recent runs now and return the open suggestions.',

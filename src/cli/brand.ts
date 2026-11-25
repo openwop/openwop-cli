@@ -7,8 +7,8 @@ import { requestJson } from '../api.js';
 import { readFileSync } from 'node:fs';
 import { resolve, extname } from 'node:path';
 
-const PUBLIC_PATH = '/v1/host/openwop-app/public-brand';
-const APP_PATH = '/v1/host/openwop-app/app-brand';
+const PUBLIC_PATH = '/host/openwop-app/public-brand';
+const APP_PATH = '/host/openwop-app/app-brand';
 
 const CONTRAST = ['standard', 'medium', 'high'];
 const RADIUS = ['sm', 'md', 'lg'];
@@ -25,7 +25,7 @@ export const BRAND_HELP = `Usage:
 White-label app brand for the OpenWOP demo host (ADR 0170 / 0171). ONE brand owns the
 app's own runtime identity — logo, colors, fonts, name, and a generative theme — applied
 to the running app with no rebuild. Drives the host-extension surface
-GET/PUT /v1/host/openwop-app/{public-brand,app-brand}:
+GET/PUT /host/openwop-app/{public-brand,app-brand}:
   • public — the applied identity every visitor sees (anonymous; no auth needed).
   • get / set — read + edit the reserved app brand; requires SUPER-ADMIN
     (OPENWOP_SUPERADMIN_TENANTS; authenticate as that tenant).
@@ -37,10 +37,10 @@ dark theme from the seed (the accent is kept exact; text shades are solved for W
 --identity-json REPLACES the whole identity facet (advanced — mirrors the editor's JSON tier).
 
 Looking for per-org MARKETING brand kits (voice, guardrails, custom fonts)? Those
-live at /v1/host/openwop-app/brand/* and are driven by 'openwop brand-kits'.
+live at /host/openwop-app/brand/* and are driven by 'openwop brand-kits'.
 
 'asset' uploads a raster image (PNG / JPEG / GIF / WebP / ICO — SVG is refused by the host)
-to POST /v1/host/openwop-app/app-brand/assets (super-admin). The host copies the bytes into
+to POST /host/openwop-app/app-brand/assets (super-admin). The host copies the bytes into
 the reserved brand media scope and returns a serve URL; pass that URL to 'set --logo' /
 'set --favicon' to use it. The content type is inferred from the file extension unless
 --content-type is given; the host checks the bytes match it.

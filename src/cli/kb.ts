@@ -7,7 +7,7 @@ import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 import { dispatchSpecs, specsUsage, type CommandSpec } from './resourceCommands.js';
 
-const KC = '/v1/host/openwop-app/kb/orgs/:org/collections/:collectionId';
+const KC = '/host/openwop-app/kb/orgs/:org/collections/:collectionId';
 
 /** Collection retrieval config (ADR 0351), media-collection ingest, and the reindex job controls. */
 export const KB_EXT_SPECS: CommandSpec[] = [
@@ -20,7 +20,7 @@ export const KB_EXT_SPECS: CommandSpec[] = [
   { cmd: ['collections', 'reindex', 'cancel'], method: 'POST', route: `${KC}/reindex/cancel`, summary: 'Cancel the running reindex job (org admin).' },
 ];
 
-const base = (org: string) => `/v1/host/openwop-app/kb/orgs/${encodeURIComponent(org)}`;
+const base = (org: string) => `/host/openwop-app/kb/orgs/${encodeURIComponent(org)}`;
 const cols = (org: string) => `${base(org)}/collections`;
 
 export const KB_HELP = `Usage:

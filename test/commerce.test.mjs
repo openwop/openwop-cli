@@ -13,8 +13,8 @@ function capture() {
   };
 }
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
-const O = '/v1/host/openwop-app/commerce/orgs/o1';
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
+const O = '/host/openwop-app/commerce/orgs/o1';
 
 /** Run one command against a single-response mock; return {code, cap, seen}. */
 async function run(argv, response = jsonResponse({}), json = false) {
@@ -186,24 +186,24 @@ describe('commerce public storefront', () => {
   it('public products sends NO authorization header', async () => {
     const { code, cap, seen } = await run(['public', 'products', '--org', 'o1', '--category', 'mugs'], jsonResponse({ products: [{ productId: 'p1', name: 'Mug', type: 'physical', price: 12, currency: 'USD' }], store: { name: 'S' } }));
     assert.equal(code, 0, cap.stderr);
-    assert.equal(seen[0].url.pathname, '/v1/host/openwop-app/public-store/o1/products');
+    assert.equal(seen[0].url.pathname, '/host/openwop-app/public-store/o1/products');
     assert.equal(seen[0].url.searchParams.get('category'), 'mugs');
     assert.equal(seen[0].init.headers.authorization, undefined);
     assert.match(cap.stdout, /p1\s+Mug/);
   });
   it('public checkout / one-click / accept-quote / product', async () => {
     let r = await run(['public', 'checkout', '--org', 'o1', '--email', 'a@b.co', '--lines', '[{"productId":"p1","quantity":1}]'], jsonResponse({ orderId: 'x', mode: 'demo' }, 201));
-    assert.equal(r.seen[0].url.pathname, '/v1/host/openwop-app/public-store/o1/checkout');
+    assert.equal(r.seen[0].url.pathname, '/host/openwop-app/public-store/o1/checkout');
     assert.deepEqual(r.seen[0].body, { email: 'a@b.co', lines: [{ productId: 'p1', quantity: 1 }] });
     assert.equal(r.seen[0].init.headers.authorization, undefined);
     r = await run(['public', 'one-click', 'ord1', '--org', 'o1', '--product-id', 'p2']);
-    assert.equal(r.seen[0].url.pathname, '/v1/host/openwop-app/public-store/o1/orders/ord1/one-click');
+    assert.equal(r.seen[0].url.pathname, '/host/openwop-app/public-store/o1/orders/ord1/one-click');
     assert.deepEqual(r.seen[0].body, { productId: 'p2' });
     r = await run(['public', 'accept-quote', 'q1', '--org', 'o1', '--token', 'tok']);
-    assert.equal(r.seen[0].url.pathname, '/v1/host/openwop-app/public-store/o1/quotes/q1/accept');
+    assert.equal(r.seen[0].url.pathname, '/host/openwop-app/public-store/o1/quotes/q1/accept');
     assert.deepEqual(r.seen[0].body, { token: 'tok' });
     r = await run(['public', 'product', 'p1', '--org', 'o1'], jsonResponse({ product: { productId: 'p1' } }));
-    assert.equal(r.seen[0].url.pathname, '/v1/host/openwop-app/public-store/o1/products/p1');
+    assert.equal(r.seen[0].url.pathname, '/host/openwop-app/public-store/o1/products/p1');
   });
 });
 

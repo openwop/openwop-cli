@@ -19,7 +19,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { hostError, routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const C = '/v1/host/openwop-app/intent-ledger/conversations/:conversationId';
+const C = '/host/openwop-app/intent-ledger/conversations/:conversationId';
 
 export const INTENT_LEDGER_ROUTES: RouteCmd[] = [
   { words: ['draft'], method: 'POST', path: `${C}/draft`, summary: 'Draft the ledger (replaces a draft; an approved mission must be rejected first): a new draft the user then approves.',

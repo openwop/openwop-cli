@@ -10,13 +10,13 @@ import { APP, enc, dispatchTable, detail, done, assign, jsonObject, type Cmd } f
 
 /** Form templates (ADR 0516): the read-only pack catalog + instantiate one into a real form. */
 export const FORMS_EXT_SPECS: CommandSpec[] = [
-  { cmd: ['templates'], method: 'GET', route: '/v1/host/openwop-app/forms/orgs/:org/form-templates', summary: 'Installed form templates (with their pack provenance).',
+  { cmd: ['templates'], method: 'GET', route: '/host/openwop-app/forms/orgs/:org/form-templates', summary: 'Installed form templates (with their pack provenance).',
     list: { key: 'templates', columns: ['templateId', 'label', 'title', 'packName', 'packVersion'], empty: 'No form templates installed.' } },
-  { cmd: ['from-template'], method: 'POST', route: '/v1/host/openwop-app/forms/orgs/:org/forms/from-template', body: ['templateId!', 'title'],
+  { cmd: ['from-template'], method: 'POST', route: '/host/openwop-app/forms/orgs/:org/forms/from-template', body: ['templateId!', 'title'],
     summary: 'Create a form from a template (--title overrides the template\'s).' },
 ];
 
-const base = (org: string) => `/v1/host/openwop-app/forms/orgs/${encodeURIComponent(org)}/forms`;
+const base = (org: string) => `/host/openwop-app/forms/orgs/${encodeURIComponent(org)}/forms`;
 
 export const FORMS_HELP = `Usage:
   openwop forms list --org <orgId> [--json]
@@ -34,11 +34,11 @@ the collected responses. The host is the authority; the CLI mirrors + relays.
 
 Public intake legs (UNAUTHENTICATED — what an embedded form calls; no --org):
   openwop forms public get <formId> [--json]
-      GET /v1/host/openwop-app/public-forms/{formId} — the published form's title,
+      GET /host/openwop-app/public-forms/{formId} — the published form's title,
       fields and honeypot field name (404 unless the form is published).
   openwop forms public submit <formId> --values-json '{...}' [--referrer <url>]
       [--session-key <k>] [--utm-json '{...}'] [--context-json '{...}'] [--client-key <k>] [--json]
-      POST /v1/host/openwop-app/public-forms/{formId}/submit — records a REAL
+      POST /host/openwop-app/public-forms/{formId}/submit — records a REAL
       submission (it lands in 'submissions' and any bound workflow/webinar).
       --client-key makes a retry idempotent.
 Exit codes: 0 ok; 2 usage error or host 4xx (400 = a field failed validation);
@@ -152,7 +152,7 @@ async function formsSubmissions(ctx: Ctx, argv: string[]) {
   return 0;
 }
 
-// ── public intake legs (/v1/host/openwop-app/public-forms/*) ─────────────────
+// ── public intake legs (/host/openwop-app/public-forms/*) ─────────────────
 const PUB_FORMS = `${APP}/public-forms`;
 
 const FORMS_PUBLIC: Record<string, Cmd> = {

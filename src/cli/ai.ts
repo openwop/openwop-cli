@@ -5,12 +5,12 @@ import type { Ctx } from '../context.js';
  * self-hosted `compat` dispatch, RFC 0121 §B.8 subscription-credential scope rail;
  * openwop-app ADR 0109 / ADR 0121 / ADR 0179 / ADR 0180).
  *
- *   POST /v1/host/openwop-app/ai/call                   — modality-gated callAI probe
- *   POST /v1/host/openwop-app/ai/call-speech-synthesizer — text → speech
- *   POST /v1/host/openwop-app/ai/call-transcriber        — audio → transcript
- *   POST /v1/host/openwop-app/credentials/bind           — bind a subscription credential (user scope only)
+ *   POST /host/openwop-app/ai/call                   — modality-gated callAI probe
+ *   POST /host/openwop-app/ai/call-speech-synthesizer — text → speech
+ *   POST /host/openwop-app/ai/call-transcriber        — audio → transcript
+ *   POST /host/openwop-app/credentials/bind           — bind a subscription credential (user scope only)
  *
- * (The same handlers also answer under the spec-canonical /v1/host/sample/*
+ * (The same handlers also answer under the spec-canonical /host/sample/*
  * prefix the conformance suite drives; the CLI always calls the canonical path.)
  *
  * Secrets: `bind-credential` reads the credential from a file or an environment
@@ -25,7 +25,7 @@ import { requestJson } from '../api.js';
 import { emit, writeFields } from './chatShared.js';
 import { parseJsonFlag } from './contentHelpers.js';
 
-const AI = '/v1/host/openwop-app/ai';
+const AI = '/host/openwop-app/ai';
 
 export const AI_HELP = `Usage:
   openwop ai call (--message <text> | --messages-json <json>) [--provider p] [--model m] [--json]
@@ -36,7 +36,7 @@ export const AI_HELP = `Usage:
 
 The server's AI-provider seams:
 
-  call             POST /v1/host/openwop-app/ai/call — runs the SAME modality gate a
+  call             POST /host/openwop-app/ai/call — runs the SAME modality gate a
                    workflow's AI call runs before dispatch: accepted parts report the
                    modalities seen; an unadvertised modality is refused
                    (unsupported_modality). The self-hosted \`compat\` provider really
@@ -44,7 +44,7 @@ The server's AI-provider seams:
   speech           POST …/ai/call-speech-synthesizer { text, voiceId, stream? } —
                    prints the audio reference (url / mimeType / duration).
   transcribe       POST …/ai/call-transcriber { audio: { streamRef | url }, languageCode? }.
-  bind-credential  POST /v1/host/openwop-app/credentials/bind { provider, mode: "subscription",
+  bind-credential  POST /host/openwop-app/credentials/bind { provider, mode: "subscription",
                    scope, value?, acknowledgedRisk? }. Personal subscriptions bind at
                    USER scope only (tenant/workspace is refused). With no value it is a
                    dry scope check that stores nothing. Storing a value requires
@@ -123,7 +123,7 @@ export async function runAi(ctx: Ctx, argv: string[]): Promise<number> {
       }
       if (value) body.value = value;
       if (options.acknowledgeRisk) body.acknowledgedRisk = true;
-      const res = await requestJson(ctx, '/v1/host/openwop-app/credentials/bind', { method: 'POST', body });
+      const res = await requestJson(ctx, '/host/openwop-app/credentials/bind', { method: 'POST', body });
       // The server returns { bound, scope, credentialRef? } — never the value.
       const shown = { bound: res.body?.bound, scope: res.body?.scope, ...(res.body?.credentialRef ? { credentialRef: res.body.credentialRef } : {}) };
       return emit(ctx, shown, () => writeLine(ctx.io.stdout, value

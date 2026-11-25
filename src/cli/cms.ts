@@ -7,13 +7,13 @@ import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 import { dispatchSpecs, specsUsage, type CommandSpec } from './resourceCommands.js';
 
-const pages = (org: string) => `/v1/host/openwop-app/cms/orgs/${encodeURIComponent(org)}/pages`;
+const pages = (org: string) => `/host/openwop-app/cms/orgs/${encodeURIComponent(org)}/pages`;
 const LIFECYCLE = ['submit', 'approve', 'reject', 'publish', 'unpublish', 'archive'];
 
-const O = '/v1/host/openwop-app/cms/orgs/:org';
+const O = '/host/openwop-app/cms/orgs/:org';
 const P = `${O}/pages/:pageId`;
 const X = `${P}/experiments`;
-const SEO = '/v1/host/openwop-app/publishing/orgs/:org/pages/:pageId/seo';
+const SEO = '/host/openwop-app/publishing/orgs/:org/pages/:pageId/seo';
 
 /**
  * The rest of the CMS authoring surface (ADR 0204 scheduling + shared sections,
@@ -78,7 +78,7 @@ ${specsUsage('cms', CMS_EXT_SPECS)}
 CMS pages + the authoring lifecycle (host-extension, org-scoped, ADR 0027). A page
 moves draft → submit → approve → publish; \`versions\` lists its history. Every command
 needs --org. The host is the authority; the CLI mirrors + relays. \`seo\` hits the
-publishing surface (/v1/host/openwop-app/publishing/…). Writes also accept
+publishing surface (/host/openwop-app/publishing/…). Writes also accept
 --body <json> / --body-file <path> (flags override keys in it).
 
 Exit codes: 0 ok · 2 usage error / request rejected (404, 409, 422) · 4 not signed in

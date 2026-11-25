@@ -13,8 +13,8 @@ function capture() {
   };
 }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-// Pin protocol major 1 so the mock sees the literal /v1/host/openwop-app paths (no discovery fetch).
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+// Pin protocol major 1 so the mock sees the literal /host/openwop-app paths (no discovery fetch).
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 
 /** A fetch mock that records every call and answers from `reply(url, init)`. */
 function recorder(reply) {
@@ -30,7 +30,7 @@ function recorder(reply) {
 }
 const lines = (r) => r.calls.map((c) => `${c.method} ${c.path}${c.search}`);
 
-const D = '/v1/host/openwop-app/discovery/orgs/org_1';
+const D = '/host/openwop-app/discovery/orgs/org_1';
 
 describe('discovery command', () => {
   it('collections renders a table; --json prints the raw body', async () => {
@@ -81,7 +81,7 @@ describe('discovery command', () => {
     assert.equal(q.get('collectionId'), 'c_1');
     assert.equal(q.get('filters[color]'), 'red');
     assert.equal(q.get('sessionKey'), 's1');
-    assert.equal(`${r.calls[1].path}${r.calls[1].search}`, '/v1/host/openwop-app/public-discovery/org_1/search?q=shoe');
+    assert.equal(`${r.calls[1].path}${r.calls[1].search}`, '/host/openwop-app/public-discovery/org_1/search?q=shoe');
     assert.ok(r.calls[0].headers.authorization);
     assert.ok(!r.calls[1].headers.authorization);
     assert.match(cap.stdout, /p1\s+Shoe\s+physical\s+10\s+USD/);

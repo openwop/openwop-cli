@@ -43,7 +43,7 @@ async function run(argv, handler, env = {}, wellKnown = V1) {
 }
 
 
-const V2 = { protocolVersions: ['2.0', '1.1'], extensions: { 'openwop-app.host': { root: '/host/openwop-app/', twin: '/v1/host/openwop-app/' } } };
+const V2 = { protocolVersions: ['2.0', '1.1'], extensions: { 'openwop-app.host': { root: '/host/openwop-app/', twin: '/host/openwop-app/' } } };
 const unauth = (challenge) => new Response(JSON.stringify({ error: 'unauthenticated', message: 'No credential presented.' }), {
   status: 401, headers: { 'content-type': 'application/json', ...(challenge ? { 'www-authenticate': challenge } : {}) },
 });
@@ -115,19 +115,19 @@ describe('requestNormativeOrHost — what counts as a presented credential', () 
 
   it('a caller-supplied cookie header is a presented credential — no anonymous retry', async () => {
     const { ctx, calls } = ctxFor(handler);
-    await assert.rejects(() => requestNormativeOrHost(ctx, '/v1/agents/roster', '/v1/host/openwop-app/roster', { headers: { Cookie: '__session=x' } }), (e) => e instanceof HttpError && e.status === 401);
+    await assert.rejects(() => requestNormativeOrHost(ctx, '/agents/roster', '/host/openwop-app/roster', { headers: { Cookie: '__session=x' } }), (e) => e instanceof HttpError && e.status === 401);
     assert.equal(calls.length, 1);
   });
 
   it('a caller-supplied authorization header is a presented credential — no anonymous retry', async () => {
     const { ctx, calls } = ctxFor(handler);
-    await assert.rejects(() => requestNormativeOrHost(ctx, '/v1/agents/roster', '/v1/host/openwop-app/roster', { headers: { authorization: 'Bearer t' } }), (e) => e instanceof HttpError && e.status === 401);
+    await assert.rejects(() => requestNormativeOrHost(ctx, '/agents/roster', '/host/openwop-app/roster', { headers: { authorization: 'Bearer t' } }), (e) => e instanceof HttpError && e.status === 401);
     assert.equal(calls.length, 1);
   });
 
   it('auth:false sends no bearer even with --api-key set, so the no-credential fallback applies', async () => {
     const { ctx, calls } = ctxFor(handler, { apiKey: 'k' });
-    const res = await requestNormativeOrHost(ctx, '/v1/agents/roster', '/v1/host/openwop-app/roster', { auth: false });
+    const res = await requestNormativeOrHost(ctx, '/agents/roster', '/host/openwop-app/roster', { auth: false });
     assert.equal(res.via, 'host');
     assert.equal(calls.length, 2);
     assert.equal(calls[0].headers.authorization, undefined);

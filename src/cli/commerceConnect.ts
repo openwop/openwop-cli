@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop commerce-connect ...` — Stripe Connect paid pack listings
  * (openwop-app ADR 0385 "commerce-connect", plus the ADR 0575 class-3 operator
  * remediation surfaces). Host-extension routes under
- * `/v1/host/openwop-app/commerce-connect/*` (toggle `commerce-connect`).
+ * `/host/openwop-app/commerce-connect/*` (toggle `commerce-connect`).
  *
  * Seller/buyer routes are tenant-scoped (read = workspace:read, write =
  * workspace:write). The `approvals`, `admin …`, `import` and `fee-config`
@@ -15,7 +15,7 @@ import type { Ctx } from '../context.js';
  */
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
-const B = '/v1/host/openwop-app/commerce-connect';
+const B = '/host/openwop-app/commerce-connect';
 
 export const COMMERCE_CONNECT_SPECS: CommandSpec[] = [
   // Seller (tenant-scoped)
@@ -47,7 +47,7 @@ export const COMMERCE_CONNECT_SPECS: CommandSpec[] = [
 ];
 
 export const COMMERCE_CONNECT_HELP = buildGroupHelp('commerce-connect', `
-Stripe Connect paid pack listings (host-extension /v1/host/openwop-app/commerce-connect/…).
+Stripe Connect paid pack listings (host-extension /host/openwop-app/commerce-connect/…).
 Sellers onboard through a Stripe-hosted link (\`seller onboard\` prints it;
 open it in a browser), then \`seller sync\` re-reads the account state. The CLI
 never handles card or bank details. --lane is free | external-link |

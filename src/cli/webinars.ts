@@ -2,7 +2,7 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop webinars ...` — webinar / marketing events (ADR 0404).
  *
- * Surface: /v1/host/openwop-app/webinars/orgs/{orgId}/events[/{eventId}/...]
+ * Surface: /host/openwop-app/webinars/orgs/{orgId}/events[/{eventId}/...]
  * (toggle `webinars`; read = workspace:read, write = workspace:write in the org).
  * The provider (e.g. Zoom) is reached through the org's connection; the host
  * is the authority for every sync/push outcome.
@@ -25,7 +25,7 @@ attendee / no-show counts and the pending-push queue depth. 'create' registers
 (upserts) a provider event (default provider: zoom). 'bind-form' routes a form's
 submissions to the event as registrants; 'sync' pulls registrants + attendance
 from the provider; 'push-registrants' drains up to 50 queued registrants to the
-provider. All hit /v1/host/openwop-app/webinars/orgs/{orgId}/events and need --org.
+provider. All hit /host/openwop-app/webinars/orgs/{orgId}/events and need --org.
 
 Exit codes: 0 ok; 2 usage error or host 4xx (404 = unknown event/form);
 4 auth/permission denied; 1 server error, or 'push-registrants' left any

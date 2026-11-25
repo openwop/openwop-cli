@@ -2,15 +2,15 @@ import type { Ctx } from '../context.js';
 /** `openwop workforces ...` (alias `fleet`) — durable multi-agent orchestration.
  *
  * Drives the Governed Workforce surface (sample host-extension, non-normative):
- *   GET   /v1/host/openwop-app/workforces                       — list definitions
- *   GET   /v1/host/openwop-app/workforces/{id}                  — the full bundle
- *   GET   /v1/host/openwop-app/workforces/{id}/metrics          — aggregate telemetry
- *   GET   /v1/host/openwop-app/workforces/{id}/governance       — autonomy + posture
- *   GET   /v1/host/openwop-app/workforces/{id}/migration        — migration journey
- *   GET   /v1/host/openwop-app/workforces/{id}/trace[?q=]       — cross-run trace search
- *   GET   /v1/host/openwop-app/workforces/{id}/shadow           — shadow-eval summary
- *   PATCH /v1/host/openwop-app/workforces/{id}                  — set status (cutover)
- *   POST  /v1/host/openwop-app/workforces/{id}/eval             — live shadow eval (gated)
+ *   GET   /host/openwop-app/workforces                       — list definitions
+ *   GET   /host/openwop-app/workforces/{id}                  — the full bundle
+ *   GET   /host/openwop-app/workforces/{id}/metrics          — aggregate telemetry
+ *   GET   /host/openwop-app/workforces/{id}/governance       — autonomy + posture
+ *   GET   /host/openwop-app/workforces/{id}/migration        — migration journey
+ *   GET   /host/openwop-app/workforces/{id}/trace[?q=]       — cross-run trace search
+ *   GET   /host/openwop-app/workforces/{id}/shadow           — shadow-eval summary
+ *   PATCH /host/openwop-app/workforces/{id}                  — set status (cutover)
+ *   POST  /host/openwop-app/workforces/{id}/eval             — live shadow eval (gated)
  *
  * BOUNDARY: a `workforce` is durable multi-agent orchestration at fleet scale —
  * a governed bundle of agent specs, autonomy graduation, and aggregate telemetry.
@@ -30,7 +30,7 @@ const STATUSES = ['shadow', 'piloting', 'production'];
 
 /** Declared workforce commands (routeKit), behind the same advertisement probe. */
 export const WORKFORCES_ROUTES: RouteCmd[] = [
-  { words: ['migration', 'set'], method: 'PATCH', path: '/v1/host/openwop-app/workforces/:workforceId/migration',
+  { words: ['migration', 'set'], method: 'PATCH', path: '/host/openwop-app/workforces/:workforceId/migration',
     summary: 'Merge-patch the migration journey (only sections you pass change; JSON null clears one). --stage key=pending|done (target, assess, map-data, map-boundaries, shadow-prove, cut-over).',
     body: [
       { flag: '--target', key: 'target', type: 'json', help: '{workflowId, targetOutcome}' },
@@ -64,15 +64,15 @@ never re-modelling boards or roster entries. The host is the authority; the CLI
 renders its resolved view and fails closed if the surface isn't advertised.
 
 Endpoints:
-  list        GET   /v1/host/openwop-app/workforces
-  get         GET   /v1/host/openwop-app/workforces/{id}
-  metrics     GET   /v1/host/openwop-app/workforces/{id}/metrics
-  governance  GET   /v1/host/openwop-app/workforces/{id}/governance
-  migration   GET   /v1/host/openwop-app/workforces/{id}/migration
-  trace       GET   /v1/host/openwop-app/workforces/{id}/trace[?q=]
-  shadow      GET   /v1/host/openwop-app/workforces/{id}/shadow
-  status      PATCH /v1/host/openwop-app/workforces/{id}   (body {status})
-  eval        POST  /v1/host/openwop-app/workforces/{id}/eval
+  list        GET   /host/openwop-app/workforces
+  get         GET   /host/openwop-app/workforces/{id}
+  metrics     GET   /host/openwop-app/workforces/{id}/metrics
+  governance  GET   /host/openwop-app/workforces/{id}/governance
+  migration   GET   /host/openwop-app/workforces/{id}/migration
+  trace       GET   /host/openwop-app/workforces/{id}/trace[?q=]
+  shadow      GET   /host/openwop-app/workforces/{id}/shadow
+  status      PATCH /host/openwop-app/workforces/{id}   (body {status})
+  eval        POST  /host/openwop-app/workforces/{id}/eval
 
   --q <query>   (trace) Match runs by correlationId / batchId / runId / outcome / status.
   --json        Print the raw host response instead of the rendered view.
@@ -129,10 +129,10 @@ export async function runWorkforces(ctx: Ctx, argv: string[]): Promise<number> {
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return;
-  const advertised = hostSurfaceAdvertised(wk.body, '/v1/host/openwop-app/workforces');
+  const advertised = hostSurfaceAdvertised(wk.body, '/host/openwop-app/workforces');
   if (!advertised) {
     throw new CliError(
-      'workforces: this host does not advertise the workforces surface (/v1/host/openwop-app/workforces is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
+      'workforces: this host does not advertise the workforces surface (/host/openwop-app/workforces is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
       1,
     );
   }
@@ -145,7 +145,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `workforces: ${detail} (the host must mount /v1/host/openwop-app/workforces; the CLI renders the host's view, it never orchestrates locally).`,
+      `workforces: ${detail} (the host must mount /host/openwop-app/workforces; the CLI renders the host's view, it never orchestrates locally).`,
       1,
     );
   }
@@ -165,7 +165,7 @@ async function runWfList(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/openwop-app/workforces');
+    res = await requestJson(ctx, '/host/openwop-app/workforces');
   } catch (err) {
     gate404(err);
   }
@@ -205,7 +205,7 @@ async function runWfReadOne(
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/workforces/${encodeURIComponent(positionals[0])}${suffix}`);
+    res = await requestJson(ctx, `/host/openwop-app/workforces/${encodeURIComponent(positionals[0])}${suffix}`);
   } catch (err) {
     gate404(err);
   }
@@ -286,7 +286,7 @@ async function runWfTrace(ctx: Ctx, argv: string[]): Promise<number> {
   const q = options.q !== undefined ? `?q=${encodeURIComponent(options.q)}` : '';
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/workforces/${encodeURIComponent(positionals[0])}/trace${q}`);
+    res = await requestJson(ctx, `/host/openwop-app/workforces/${encodeURIComponent(positionals[0])}/trace${q}`);
   } catch (err) {
     gate404(err);
   }
@@ -319,7 +319,7 @@ async function runWfStatus(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/workforces/${encodeURIComponent(id)}`, { method: 'PATCH', body: { status } });
+    res = await requestJson(ctx, `/host/openwop-app/workforces/${encodeURIComponent(id)}`, { method: 'PATCH', body: { status } });
   } catch (err) {
     // 409 = the host refused the cutover (not graduated to bounded-autonomous yet).
     if (err instanceof HttpError && err.status === 409) {
@@ -346,7 +346,7 @@ async function runWfEval(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/workforces/${encodeURIComponent(positionals[0])}/eval`, { method: 'POST' });
+    res = await requestJson(ctx, `/host/openwop-app/workforces/${encodeURIComponent(positionals[0])}/eval`, { method: 'POST' });
   } catch (err) {
     // 501 = the host does not enable the agent eval suite — fail closed legibly.
     if (err instanceof HttpError && err.status === 501) {

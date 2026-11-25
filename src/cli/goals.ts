@@ -4,11 +4,11 @@ import type { Ctx } from '../context.js';
  * A standing goal is an objective the host pursues across runs until a JUDGE
  * (RFC 0090) verdicts it satisfied or a BOUND (RFC 0058) stops it. This group
  * drives the host's goal surface (sample host-extension, non-normative;
- * promotable to the normative /v1/goals path at graduation):
- *   GET    /v1/host/openwop-app/goals[?state=]                  — the goal list
- *   GET    /v1/host/openwop-app/goals/{id}                      — one goal
- *   POST   /v1/host/openwop-app/goals                           — create (422 if requiresBounds + no bounds)
- *   POST   /v1/host/openwop-app/goals/{id}/{pause,resume,abandon}
+ * promotable to the normative /goals path at graduation):
+ *   GET    /host/openwop-app/goals[?state=]                  — the goal list
+ *   GET    /host/openwop-app/goals/{id}                      — one goal
+ *   POST   /host/openwop-app/goals                           — create (422 if requiresBounds + no bounds)
+ *   POST   /host/openwop-app/goals/{id}/{pause,resume,abandon}
  *
  * Completion is the host JUDGE's verdict — there is deliberately NO `complete`
  * or `satisfy` verb, and the CLI never sets `state: satisfied` (the host rejects
@@ -34,11 +34,11 @@ import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
  * They pass through the same advertisement probe (fail closed).
  */
 export const GOALS_ROUTES: RouteCmd[] = [
-  { words: ['arm'], method: 'POST', path: '/v1/host/openwop-app/goals/:id/arm', summary: 'Arm a schedule continuation: run --workflow-id on --cron-expr until the judge is satisfied or a bound stops it.',
+  { words: ['arm'], method: 'POST', path: '/host/openwop-app/goals/:id/arm', summary: 'Arm a schedule continuation: run --workflow-id on --cron-expr until the judge is satisfied or a bound stops it.',
     body: [{ flag: '--workflow-id', key: 'workflowId', required: true }, { flag: '--cron-expr', key: 'cronExpr', required: true }, { flag: '--timezone', key: 'timezone' }] },
-  { words: ['evaluate'], method: 'POST', path: '/v1/host/openwop-app/goals/:id/evaluate', summary: 'Ask the host judge to verdict a snapshot (the host decides; replay-safe by snapshot hash).',
+  { words: ['evaluate'], method: 'POST', path: '/host/openwop-app/goals/:id/evaluate', summary: 'Ask the host judge to verdict a snapshot (the host decides; replay-safe by snapshot hash).',
     body: [{ flag: '--snapshot-ref', key: 'snapshotRef', required: true }, { flag: '--snapshot-hash', key: 'snapshotHash', required: true }] },
-  { words: ['record-run'], method: 'POST', path: '/v1/host/openwop-app/goals/:id/runs', summary: 'Attribute a run (and its cost) to the goal\'s progress + bounds.',
+  { words: ['record-run'], method: 'POST', path: '/host/openwop-app/goals/:id/runs', summary: 'Attribute a run (and its cost) to the goal\'s progress + bounds.',
     body: [{ flag: '--run-id', key: 'runId', required: true }, { flag: '--cost-usd', key: 'costUsd', type: 'number' }] },
 ];
 
@@ -65,12 +65,12 @@ the host does not advertise the goal surface (/.well-known/openwop), the group
 fails closed rather than guessing.
 
 Endpoints:
-  list     GET    /v1/host/openwop-app/goals[?state=]
-  get      GET    /v1/host/openwop-app/goals/{id}
-  create   POST   /v1/host/openwop-app/goals          (422 if the host requires bounds and none given)
-  pause    POST   /v1/host/openwop-app/goals/{id}/pause
-  resume   POST   /v1/host/openwop-app/goals/{id}/resume
-  abandon  POST   /v1/host/openwop-app/goals/{id}/abandon
+  list     GET    /host/openwop-app/goals[?state=]
+  get      GET    /host/openwop-app/goals/{id}
+  create   POST   /host/openwop-app/goals          (422 if the host requires bounds and none given)
+  pause    POST   /host/openwop-app/goals/{id}/pause
+  resume   POST   /host/openwop-app/goals/{id}/resume
+  abandon  POST   /host/openwop-app/goals/{id}/abandon
 
   --state <s>            (list) Filter by state: active, satisfied, escalated, abandoned, bound-exceeded.
   --objective <text>     (create) The goal objective (required).
@@ -162,7 +162,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `goals: ${detail} (the host must mount /v1/host/openwop-app/goals; the CLI renders the host's view, it never decides).`,
+      `goals: ${detail} (the host must mount /host/openwop-app/goals; the CLI renders the host's view, it never decides).`,
       1,
     );
   }
@@ -176,7 +176,7 @@ async function runGoalsList(ctx: Ctx, argv: string[]): Promise<number> {
     return 0;
   }
   await ensureAdvertised(ctx);
-  const path = options.state !== undefined ? `/v1/host/openwop-app/goals?state=${encodeURIComponent(options.state)}` : '/v1/host/openwop-app/goals';
+  const path = options.state !== undefined ? `/host/openwop-app/goals?state=${encodeURIComponent(options.state)}` : '/host/openwop-app/goals';
   let res;
   try {
     res = await requestJson(ctx, path);
@@ -220,7 +220,7 @@ async function runGoalsGet(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/goals/${encodeURIComponent(positionals[0])}`);
+    res = await requestJson(ctx, `/host/openwop-app/goals/${encodeURIComponent(positionals[0])}`);
   } catch (err) {
     gate404(err);
   }
@@ -309,7 +309,7 @@ async function runGoalsCreate(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/openwop-app/goals', { method: 'POST', body });
+    res = await requestJson(ctx, '/host/openwop-app/goals', { method: 'POST', body });
   } catch (err) {
     if (err instanceof HttpError && (err.status === 422 || err.status === 400)) {
       const detail = (err.body as { message?: string } | undefined)?.message
@@ -338,7 +338,7 @@ async function runGoalsTransition(ctx: Ctx, argv: string[], verb: 'pause' | 'res
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/goals/${encodeURIComponent(positionals[0])}/${verb}`, { method: 'POST' });
+    res = await requestJson(ctx, `/host/openwop-app/goals/${encodeURIComponent(positionals[0])}/${verb}`, { method: 'POST' });
   } catch (err) {
     if (err instanceof HttpError && err.status === 409) {
       const status = (err.body as { state?: string } | undefined)?.state;
@@ -368,7 +368,7 @@ async function runGoalsAbandon(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/goals/${encodeURIComponent(positionals[0])}/abandon`, { method: 'POST' });
+    res = await requestJson(ctx, `/host/openwop-app/goals/${encodeURIComponent(positionals[0])}/abandon`, { method: 'POST' });
   } catch (err) {
     gate404(err);
   }

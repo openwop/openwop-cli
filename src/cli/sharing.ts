@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 
-const links = (org: string) => `/v1/host/openwop-app/sharing/orgs/${encodeURIComponent(org)}/links`;
+const links = (org: string) => `/host/openwop-app/sharing/orgs/${encodeURIComponent(org)}/links`;
 
 export const SHARING_HELP = `Usage:
   openwop sharing list --org <orgId> [--json]
@@ -21,7 +21,7 @@ Shareable links to a resource (host-extension, ADR 0013). \`list\`/\`create\`/\`
 are org-scoped (need --org, RBAC-gated). \`resolve\` reads a public /shared/<token>
 link WITHOUT auth — the unguessable token IS the credential. \`card\` reads the
 public link-preview card { title, description, imageUrl? }
-(GET /v1/host/openwop-app/shared/<token>/card, no auth). \`frame-view\` records a
+(GET /host/openwop-app/shared/<token>/card, no auth). \`frame-view\` records a
 public viewer's frame view for per-frame analytics (POST …/shared/<token>/frame-view,
 body { frame }, no auth; ADR 0328 P7). \`frame-views\` reads a link's per-frame
 counts as its owner (GET …/sharing/orgs/<orgId>/links/<token>/frame-views).
@@ -90,7 +90,7 @@ async function sharingRevoke(ctx: Ctx, argv: string[]) {
 async function sharingResolve(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop sharing resolve <token> [--json]\n'); return options.help ? 0 : 2; }
-  const res = await requestJson(ctx, `/v1/host/openwop-app/shared/${encodeURIComponent(positionals[0])}`, { auth: false });
+  const res = await requestJson(ctx, `/host/openwop-app/shared/${encodeURIComponent(positionals[0])}`, { auth: false });
   writeJson(ctx.io.stdout, res.body);
   return 0;
 }
@@ -98,7 +98,7 @@ async function sharingResolve(ctx: Ctx, argv: string[]) {
 async function sharingCard(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop sharing card <token> [--json]\n'); return options.help ? 0 : 2; }
-  const res = await requestJson(ctx, `/v1/host/openwop-app/shared/${encodeURIComponent(positionals[0])}/card`, { auth: false });
+  const res = await requestJson(ctx, `/host/openwop-app/shared/${encodeURIComponent(positionals[0])}/card`, { auth: false });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, formatTable(
     [{ field: 'title', value: res.body?.title ?? '' }, { field: 'description', value: res.body?.description ?? '' }, { field: 'imageUrl', value: res.body?.imageUrl ?? '' }],
@@ -114,7 +114,7 @@ async function sharingFrameView(ctx: Ctx, argv: string[]) {
     write(options.help ? ctx.io.stdout : ctx.io.stderr, 'Usage: openwop sharing frame-view <token> --frame <non-negative integer>\n');
     return options.help ? 0 : 2;
   }
-  await requestJson(ctx, `/v1/host/openwop-app/shared/${encodeURIComponent(positionals[0])}/frame-view`, { method: 'POST', body: { frame }, auth: false });
+  await requestJson(ctx, `/host/openwop-app/shared/${encodeURIComponent(positionals[0])}/frame-view`, { method: 'POST', body: { frame }, auth: false });
   if (ctx.json) writeJson(ctx.io.stdout, { ok: true, frame }); else writeLine(ctx.io.stdout, `Recorded a view of frame ${frame}.`);
   return 0;
 }

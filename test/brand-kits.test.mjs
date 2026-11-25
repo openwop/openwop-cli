@@ -13,8 +13,8 @@ function capture() {
   };
 }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-// Pin protocol major 1 so the mock sees the literal /v1/host/openwop-app paths (no discovery fetch).
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+// Pin protocol major 1 so the mock sees the literal /host/openwop-app paths (no discovery fetch).
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 
 /** A fetch mock that records every call and answers from `reply(url, init)`. */
 function recorder(reply) {
@@ -30,7 +30,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const B = '/v1/host/openwop-app/brand';
+const B = '/host/openwop-app/brand';
 
 describe('brand-kits command', () => {
   it('list renders brands from GET …/brand/brands?orgId=', async () => {

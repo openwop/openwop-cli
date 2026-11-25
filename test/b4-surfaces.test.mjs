@@ -4,7 +4,7 @@ import { runCli } from '../dist/cli.js';
 
 function capture() { let o = '', e = ''; return { io: { stdout: { write: (s) => { o += s; } }, stderr: { write: (s) => { e += s; } } }, get stdout() { return o; }, get stderr() { return e; } }; }
 const json = (b, s = 200) => new Response(b === null ? null : JSON.stringify(b), { status: s, headers: { 'content-type': 'application/json' } });
-const env = { OPENWOP_CONFIG_HOME: '/nonexistent-owp-test', OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' };
+const env = { OPENWOP_CONFIG_HOME: '/nonexistent-owp-test', OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' };
 /** Run the CLI against a mock host; returns { code, cap, calls } where calls = [{method,path,search,body,auth}]. */
 async function run(args, respond = () => json({})) {
   const cap = capture(); const calls = [];
@@ -17,7 +17,7 @@ async function run(args, respond = () => json({})) {
   const code = await runCli(args, { io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env });
   return { code, cap, calls, last: calls[calls.length - 1] };
 }
-const H = '/v1/host/openwop-app';
+const H = '/host/openwop-app';
 
 describe('tutorials', () => {
   it('list GETs /tutorials and renders a table', async () => {
@@ -139,9 +139,9 @@ describe('ui-plugin', () => {
     assert.equal(r.last.path, `${H}/ui-plugin/rpc`);
     assert.deepEqual(r.last.body, { message: { openwop: 'ui-plugin/1', type: 'request', id: 1, method: 'artifact.read', params: { artifactId: 'a1' } } });
   });
-  it('rpc --conformance-alias targets /v1/host/sample; --body passes through', async () => {
+  it('rpc --conformance-alias targets /host/sample; --body passes through', async () => {
     const r = await run(['ui-plugin', 'rpc', '--conformance-alias', '--body', '{"message":{"x":1}}']);
-    assert.equal(r.last.path, '/v1/host/sample/ui-plugin/rpc'); assert.deepEqual(r.last.body, { message: { x: 1 } });
+    assert.equal(r.last.path, '/host/sample/ui-plugin/rpc'); assert.deepEqual(r.last.body, { message: { x: 1 } });
   });
 });
 

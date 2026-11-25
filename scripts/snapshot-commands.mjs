@@ -314,7 +314,7 @@ export async function generateSnapshot() {
       return path;
     };
     const norm = (s) => s.split(dir).join('<TMP>');
-    const env = { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1', OPENWOP_BASE_URL: 'http://mock.test', OPENWOP_CONFIG_HOME: dir };
+    const env = { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2', OPENWOP_BASE_URL: 'http://mock.test', OPENWOP_CONFIG_HOME: dir };
 
     async function run(argv, spec, mode) {
       let stdout = '';

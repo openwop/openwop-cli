@@ -16,7 +16,7 @@ function capture() {
   };
 }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 function recorder(reply) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
@@ -27,7 +27,7 @@ function recorder(reply) {
   return { calls, fetchImpl };
 }
 
-const B = '/v1/host/openwop-app/campaign-connectors';
+const B = '/host/openwop-app/campaign-connectors';
 
 describe('campaign-connectors command', () => {
   it('platforms / records / kpi / sync-status hit their GET paths with the right query', async () => {
@@ -90,7 +90,7 @@ describe('campaign-connectors command', () => {
     assert.equal(await runCli(['campaign-connectors', 'public', 'pixels', 'org_1', '--vk', 'v1'], opts(r.fetchImpl, cap)), 0);
     assert.equal(await runCli(['campaign-connectors', 'public', 'conversion', 'org_1', '--vk', 'v1', '--event-id', 'e1', '--event-name', 'Purchase', '--value', '9.5', '--currency', 'USD'], opts(r.fetchImpl, cap)), 0);
     assert.deepEqual(r.calls.map((c) => `${c.method} ${c.path}${c.search}`), [
-      'GET /v1/host/openwop-app/public/org_1/pixels?vk=v1', 'POST /v1/host/openwop-app/public/org_1/conversions',
+      'GET /host/openwop-app/public/org_1/pixels?vk=v1', 'POST /host/openwop-app/public/org_1/conversions',
     ]);
     assert.deepEqual(r.calls[1].body, { vk: 'v1', eventId: 'e1', eventName: 'Purchase', value: 9.5, currency: 'USD' });
     assert.ok(r.calls.every((c) => !c.headers.authorization));

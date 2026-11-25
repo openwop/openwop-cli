@@ -4,7 +4,7 @@ import type { Ctx } from '../context.js';
  * collaboration ticket and run the seeder election for one workflow draft
  * (ADR 0481; rides the shared collab transport of ADR 0359).
  *
- * Hits `/v1/host/openwop-app/workflow-collab/<workflowId>/{ticket,claim-seed}`.
+ * Hits `/host/openwop-app/workflow-collab/<workflowId>/{ticket,claim-seed}`.
  * Live only when BOTH `workflow-collab` and `realtime-collab` are on; the ticket
  * is scoped to the namespaced workflow room. Tickets are credentials — printed
  * once, never logged or saved.
@@ -16,7 +16,7 @@ import { requestJson } from '../api.js';
 import { enc } from './contentHelpers.js';
 import { printTicketOnce } from './canvasCollab.js';
 
-const BASE = '/v1/host/openwop-app/workflow-collab';
+const BASE = '/host/openwop-app/workflow-collab';
 
 export const WORKFLOW_COLLAB_HELP = `Usage:
   openwop workflow-collab ticket <workflowId> [--json]

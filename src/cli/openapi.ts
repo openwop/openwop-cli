@@ -1,9 +1,8 @@
 import type { Ctx } from '../context.js';
 /**
- * `openwop openapi` — fetch the host's served OpenAPI document. Under major 2
- * the request is `GET /openapi.json` + `OpenWOP-Version: 2.0` (spec/v2
- * path-manifest getOpenApiSpec — the `/v1/openapi.json` key is a v1 operation);
- * under major 1 it is `GET /v1/openapi.json` (src/protocol.ts `V2_RENAMED`).
+ * `openwop openapi` — fetch the host's served OpenAPI document:
+ * `GET /openapi.json` + `OpenWOP-Version: 2.0` (spec/v2 path-manifest
+ * getOpenApiSpec).
  *
  * Golden rule 1 says commands are driven off `/.well-known/openwop` + the
  * OpenAPI document; this exposes the latter so an operator can see exactly
@@ -20,9 +19,8 @@ export const OPENAPI_HELP = `Usage:
   openwop openapi paths [--filter <text>] [--json]
 
 Fetch the host's OpenAPI document — the document the host serves, which lists
-the operations it implements. A host that speaks protocol major 2 is asked for
-GET /openapi.json with OpenWOP-Version: 2.0 (its v2 document); a v1-only host
-for GET /v1/openapi.json.
+the operations it implements: GET /openapi.json with OpenWOP-Version: 2.0 (its
+v2 document).
 
   (default)  Prints the document's title, version and operation count; --json
              prints the whole document; --out <file> saves it.
@@ -40,7 +38,7 @@ export async function runOpenapi(ctx: Ctx, argv: string[]): Promise<number> {
   const { options } = parseOptions(listPaths ? argv.slice(1) : argv, { bool: ['--help'], value: ['--out', '--filter'] });
   if (options.help || argv[0] === '--help' || argv[0] === '-h') { write(ctx.io.stdout, OPENAPI_HELP); return 0; }
   if (!listPaths && argv.length && !argv[0].startsWith('-')) throw new CliError(`Unknown openapi command: ${argv[0]}\nRun \`openwop openapi --help\` for usage.`);
-  const res = await requestJson(ctx, '/v1/openapi.json', { auth: false });
+  const res = await requestJson(ctx, '/openapi.json', { auth: false });
   const doc = res.body ?? {};
   const paths: Record<string, any> = doc.paths && typeof doc.paths === 'object' ? doc.paths : {};
   const ops = Object.entries(paths).flatMap(([p, item]) =>

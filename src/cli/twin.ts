@@ -6,12 +6,12 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const twinPath = (id: string) => `/v1/host/openwop-app/agents/${encodeURIComponent(id)}/twin`;
-const GRANTS = '/v1/host/openwop-app/profiles/me/twin-grants';
+const twinPath = (id: string) => `/host/openwop-app/agents/${encodeURIComponent(id)}/twin`;
+const GRANTS = '/host/openwop-app/profiles/me/twin-grants';
 
 /** Declared twin commands (routeKit). */
 export const TWIN_ROUTES: RouteCmd[] = [
-  { words: ['recalls'], method: 'GET', path: '/v1/host/openwop-app/profiles/me/twin-recalls', summary: 'Audit trail of agents recalling your twin knowledge (ok / denied). 404 when twin recall is off.',
+  { words: ['recalls'], method: 'GET', path: '/host/openwop-app/profiles/me/twin-recalls', summary: 'Audit trail of agents recalling your twin knowledge (ok / denied). 404 when twin recall is off.',
     table: { key: 'recalls', columns: ['timestamp', 'outcome', 'agentId', 'chunks', 'runId', 'reason'], empty: 'No twin recalls.' } },
 ];
 

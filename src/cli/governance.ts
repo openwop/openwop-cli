@@ -8,7 +8,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { gatedRequest, readBodyOption, parseBool } from './adminShared.js';
 
-const GOV_BASE = '/v1/host/openwop-app/governance';
+const GOV_BASE = '/host/openwop-app/governance';
 
 // Mirror the host wire enums EXACTLY (governanceService.ts / routes/governance.ts).
 // These bound the CLI's input hygiene only — the host stays the policy authority.

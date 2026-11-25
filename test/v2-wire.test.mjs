@@ -63,8 +63,8 @@ describe('v2 error envelope (errors.md §The envelope)', () => {
     assert.deepEqual(errorEnvelope('<html>'), {});
   });
 
-  it('renders HTTP <status> <code>: <message> for both majors', async () => {
-    for (const env of [{}, { OPENWOP_PROTOCOL_MAJOR: '1' }]) {
+  it('renders HTTP <status> <code>: <message> (negotiated, and under the no-probe pin)', async () => {
+    for (const env of [{}, { OPENWOP_PROTOCOL_MAJOR: '2' }]) {
       const cap = capture();
       const h = dualStack(() => json({ error: 'not_found', message: 'run r-1 not found' }, 404));
       assert.equal(await runCli(['runs', 'get', 'r-1', ...base], opts(h, cap, env)), 2);
@@ -86,7 +86,9 @@ describe('v2 error envelope (errors.md §The envelope)', () => {
     const h = dualStack(() => json({ error: 'protocol_version_unsupported', message: 'no', details: { protocolVersions: ['1.1'] } }, 406));
     await runCli(['runs', 'list', ...base], opts(h, cap));
     assert.match(cap.stderr, /host serves 1\.1/);
-    assert.match(cap.stderr, /OPENWOP_PROTOCOL_MAJOR/);
+    assert.match(cap.stderr, /only major this CLI speaks/);
+    assert.match(cap.stderr, /end of support on 2026-10-04/);
+    assert.doesNotMatch(cap.stderr, /OPENWOP_PROTOCOL_MAJOR/, 'no pin to major 1 is offered');
   });
 
   it('429 surfaces Retry-After (the only home of retry timing)', async () => {
@@ -137,7 +139,7 @@ describe('tenant-bound id wire form (identity.md §5)', () => {
     assert.ok(Date.now() - t0 < 1000, 'linear in the path length');
   });
 
-  it('under major 2 a bound runId travels projected on every /runs/{runId} op; under major 1 as %2F on /v1', async () => {
+  it('a bound runId travels projected on every /runs/{runId} op, never as %2F and never on /v1', async () => {
     const ok = () => json({ runId: 'acme/r1', workflowId: 'w', status: 'completed' });
     const h2 = dualStack(ok);
     const cap = capture();
@@ -147,9 +149,14 @@ describe('tenant-bound id wire form (identity.md §5)', () => {
     const paths = h2.seen.filter((r) => r.path !== '/.well-known/openwop').map((r) => r.raw.replace('http://h', ''));
     assert.deepEqual(paths, ['/runs/acme~2Fr1', '/runs/acme~2Fr1:fork', '/runs/acme~2Fr1:diff?against=acme~2Fr2']);
 
-    const h1 = dualStack(ok);
-    await runCli(['runs', 'get', 'acme/r1', ...base], opts(h1, capture(), { OPENWOP_PROTOCOL_MAJOR: '1' }));
-    assert.equal(h1.seen.at(-1).raw, 'http://h/v1/runs/acme%2Fr1');
+    const pinned = dualStack(ok);
+    await runCli(['runs', 'get', 'acme/r1', ...base], opts(pinned, capture(), { OPENWOP_PROTOCOL_MAJOR: '2' }));
+    assert.equal(pinned.seen.at(-1).raw, 'http://h/runs/acme~2Fr1', 'the no-probe pin sends the same v2 wire');
+    // A non-manifest /runs/{runId}/… operation is projected too (it used to be sent as /v1/…%2F…).
+    const bundle = dualStack(() => json({ events: [] }));
+    await runCli(['runs', 'debug-bundle', 'acme/r1', '--json', ...base], opts(bundle, capture()));
+    assert.equal(bundle.seen.at(-1).path, '/runs/acme~2Fr1/debug-bundle');
+    assert.equal(bundle.seen.at(-1).headers['openwop-version'], '2.0');
   });
 });
 
@@ -282,15 +289,22 @@ describe('v2 discovery + client floor (capabilities.md; versioning.md §1.4/§1.
     assert.doesNotMatch(quiet.stderr, /minClientVersion/);
   });
 
-  it('OPENWOP_PROTOCOL_MAJOR=1 reads the header-less v1 document', async () => {
+  it('OPENWOP_PROTOCOL_MAJOR=1 is refused before any request (major 1 ended 2026-10-04)', async () => {
     const cap = capture();
     const h = dualStack(() => { throw new Error('unexpected'); }, { v2doc });
-    assert.equal(await runCli(['capabilities', ...base], opts(h, cap, { OPENWOP_PROTOCOL_MAJOR: '1' })), 0);
+    assert.equal(await runCli(['capabilities', ...base], opts(h, cap, { OPENWOP_PROTOCOL_MAJOR: '1' })), 2);
+    assert.equal(h.seen.length, 0);
+    assert.match(cap.stderr, /OPENWOP_PROTOCOL_MAJOR=1 is not supported/);
+  });
+
+  it('OPENWOP_PROTOCOL_MAJOR=2 skips the probe; capabilities then reads the v2 representation itself', async () => {
+    const cap = capture();
+    const h = dualStack(() => { throw new Error('unexpected'); }, { v2doc });
+    assert.equal(await runCli(['capabilities', ...base], opts(h, cap, { OPENWOP_PROTOCOL_MAJOR: '2' })), 0, cap.stderr);
     const d = h.seen.filter((r) => r.path === '/.well-known/openwop');
     assert.equal(d.length, 1);
-    assert.equal(d[0].headers['openwop-version'], undefined);
-    assert.match(cap.stdout, /Protocol: 1\.1/);
-    assert.match(cap.stdout, /Capability blocks: interrupts/);
+    assert.equal(d[0].headers['openwop-version'], '2');
+    assert.match(cap.stdout, /Representation: v2/);
   });
 
   it('summarizeCapabilities lists root families of a wrapper-less v1 document', () => {
@@ -301,7 +315,6 @@ describe('v2 discovery + client floor (capabilities.md; versioning.md §1.4/§1.
   it('checkMinClientVersion compares <major>.<minor> and never guesses', () => {
     assert.equal(checkMinClientVersion('2.0', 2).status, 'ok');
     assert.equal(checkMinClientVersion('2.1', 2).status, 'below');
-    assert.equal(checkMinClientVersion('2.0', 1).status, 'below');
     assert.equal(checkMinClientVersion(undefined, 2).status, 'unknown');
     assert.equal(checkMinClientVersion('v2', 2).status, 'unknown');
   });

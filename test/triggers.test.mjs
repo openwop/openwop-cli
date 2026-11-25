@@ -43,7 +43,7 @@ describe('triggers register', () => {
     const cap = capture();
     const fetchImpl = host(async (url, init) => {
       assert.equal(init.method, 'POST');
-      assert.match(new URL(url).pathname, /\/v1\/trigger-subscriptions$/);
+      assert.match(new URL(url).pathname, /\/trigger-subscriptions$/);
       const body = JSON.parse(init.body);
       assert.equal(body.source, 'webhook');
       assert.equal(body.workflowId, 'wf_intake');
@@ -106,7 +106,7 @@ describe('triggers list / get', () => {
   it('renders the subscriptions table', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/trigger-subscriptions$/);
+      assert.match(new URL(url).pathname, /\/trigger-subscriptions$/);
       return jsonResponse({ subscriptions: [
         { subscriptionId: 'sub_1', source: 'webhook', state: 'active', workflowId: 'wf_intake', dedupEnabled: true, createdAt: '2026-06-14' },
       ] });
@@ -142,7 +142,7 @@ describe('triggers list / get', () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
       const p = new URL(url).pathname;
-      if (/\/v1\/trigger-subscriptions\/sub_9$/.test(p)) return jsonResponse({ message: 'no single GET' }, 404);
+      if (/\/trigger-subscriptions\/sub_9$/.test(p)) return jsonResponse({ message: 'no single GET' }, 404);
       return jsonResponse({ subscriptions: [{ subscriptionId: 'sub_9', source: 'form', state: 'paused' }] });
     });
     const code = await runCli(['triggers', 'get', 'sub_9'], opts(fetchImpl, cap));

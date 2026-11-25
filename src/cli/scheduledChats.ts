@@ -5,8 +5,8 @@ import type { Ctx } from '../context.js';
  *
  * An agent is prompted on a cron schedule and replies into a conversation. Two
  * scopes share ONE host service + scheduler:
- *   ORG     /v1/host/openwop-app/scheduled-chats/orgs/{orgId}/chats      (workspace RBAC)
- *   CHANNEL /v1/host/openwop-app/scheduled-chats/channels/{channelId}/chats
+ *   ORG     /host/openwop-app/scheduled-chats/orgs/{orgId}/chats      (workspace RBAC)
+ *   CHANNEL /host/openwop-app/scheduled-chats/channels/{channelId}/chats
  *           (channel owner manages; members list; replies always post in-channel)
  * The host validates the agent + the target conversation and the cron
  * expression; the CLI forwards the fields and renders the host's answer.
@@ -27,9 +27,9 @@ export const SCHEDULED_CHATS_HELP = `Usage:
   openwop scheduled-chats delete <chatId> (--org <orgId> | --channel <channelId>) --yes
 
 Schedule an agent to be prompted on a cron and reply into a conversation.
-Org scope: /v1/host/openwop-app/scheduled-chats/orgs/{orgId}/chats[/{chatId}[/pause]]
+Org scope: /host/openwop-app/scheduled-chats/orgs/{orgId}/chats[/{chatId}[/pause]]
 (needs workspace read/write). Channel scope:
-/v1/host/openwop-app/scheduled-chats/channels/{channelId}/chats[/{chatId}[/pause]]
+/host/openwop-app/scheduled-chats/channels/{channelId}/chats[/{chatId}[/pause]]
 (the channel owner creates and manages; the agent must be a channel member; the
 reply always posts in the channel). 'pause' sends { enabled: false },
 'resume' { enabled: true }. The server has no single-chat read on the channel
@@ -46,8 +46,8 @@ Examples:
 
 function scopeBase(options: Record<string, any>): string {
   if (options.org && options.channel) throw new CliError('Pass --org OR --channel, not both.', 2);
-  if (options.org) return `/v1/host/openwop-app/scheduled-chats/orgs/${enc(options.org)}/chats`;
-  if (options.channel) return `/v1/host/openwop-app/scheduled-chats/channels/${enc(options.channel)}/chats`;
+  if (options.org) return `/host/openwop-app/scheduled-chats/orgs/${enc(options.org)}/chats`;
+  if (options.channel) return `/host/openwop-app/scheduled-chats/channels/${enc(options.channel)}/chats`;
   throw new CliError('Scheduled chats are scoped — pass --org <orgId> or --channel <channelId>.', 2);
 }
 

@@ -7,7 +7,7 @@ import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 import { requireOrg } from './shared.js';
 
-const MP = '/v1/host/openwop-app/marketplace';
+const MP = '/host/openwop-app/marketplace';
 const reviews = (org: string, pack: string) => `${MP}/orgs/${encodeURIComponent(org)}/listings/${encodeURIComponent(pack)}/reviews`;
 
 /**

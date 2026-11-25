@@ -2,9 +2,9 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop discovery ...` — product discovery / merchandising (ADR 0275).
  *
- * Operator surface: /v1/host/openwop-app/discovery/orgs/{orgId}/{collections,rules,search,embeddings}
+ * Operator surface: /host/openwop-app/discovery/orgs/{orgId}/{collections,rules,search,embeddings}
  * (toggle `discovery`; read = workspace:read, write = workspace:write in the org).
- * Shopper surface (`public search`): /v1/host/openwop-app/public-discovery/{orgId}/search
+ * Shopper surface (`public search`): /host/openwop-app/public-discovery/{orgId}/search
  * — anonymous; a toggle-off store answers an empty result, an unknown org 404s.
  */
 import { requestJson } from '../api.js';
@@ -31,12 +31,12 @@ export const DISCOVERY_HELP = `Usage:
 Product discovery (ADR 0275): curated/rule collections, merchandising rules
 (boost/bury/pin with an optional holdout), faceted product search, and the
 semantic-search embedding index. Operator commands hit
-/v1/host/openwop-app/discovery/orgs/{orgId}/... and need --org. 'collection-update'
+/host/openwop-app/discovery/orgs/{orgId}/... and need --org. 'collection-update'
 is a partial PATCH. 'embeddings-rebuild' invalidates + re-derives the org's
 product embedding index.
 
 'public search' drives the anonymous storefront search
-/v1/host/openwop-app/public-discovery/{orgId}/search (no auth) — the same result a
+/host/openwop-app/public-discovery/{orgId}/search (no auth) — the same result a
 shopper sees (a store with discovery off answers an empty list).
 
 Each --filter key=value is sent as filters[key]=value (a facet constraint).

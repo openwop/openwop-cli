@@ -17,7 +17,7 @@ describe('entities types',()=>{
   it('list renders a table; --json passes through',async()=>{
     const {f,calls}=recorder(json({types:[{name:'recipe',displayName:'Recipe',status:'published',fields:[{key:'t'}]}]}));
     let cap=capture();assert.equal(await runCli(['entities','types','list','--project','p1'],ctx(cap,f)),0);
-    assert.match(calls[0].path,/\/v1\/host\/openwop-app\/entities\/types$/);assert.equal(calls[0].search,'?projectId=p1');
+    assert.match(calls[0].path,/\/host\/openwop-app\/entities\/types$/);assert.equal(calls[0].search,'?projectId=p1');
     assert.match(cap.stdout,/recipe\s+Recipe\s+published\s+1/);
     cap=capture();await runCli(['--json','entities','types','list'],ctx(cap,f));
     assert.equal(JSON.parse(cap.stdout).types[0].name,'recipe');});
@@ -100,7 +100,7 @@ describe('entities public',()=>{
   it('list is anonymous and passes query params',async()=>{
     const {f,calls}=recorder(json({entities:[{entityId:'e1',values:{}}]}));const cap=capture();
     assert.equal(await runCli(['entities','public','list','t1','recipe','--locale','fr','--sort-key','title','--sort-dir','asc','--limit','3','--filters','[]'],ctx(cap,f)),0);
-    assert.match(calls[0].path,/\/v1\/host\/openwop-app\/public-entities\/t1\/types\/recipe\/entities$/);
+    assert.match(calls[0].path,/\/host\/openwop-app\/public-entities\/t1\/types\/recipe\/entities$/);
     const sp=new URLSearchParams(calls[0].search);assert.equal(sp.get('locale'),'fr');assert.equal(sp.get('sortKey'),'title');assert.equal(sp.get('filters'),'[]');
     assert.equal(calls[0].auth,undefined);});
   it('get reads one entity anonymously',async()=>{

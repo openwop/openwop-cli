@@ -22,9 +22,8 @@ function opts(fetchImpl, cap) {
 }
 
 function wellKnown(withWorkforces = true) {
-  const paths = { '/v1/runs': { get: {} } };
-  if (withWorkforces) paths['/v1/host/openwop-app/workforces'] = { get: {} };
-  return { protocolVersion: '1.0', paths };
+  // v2 discovery advertises the host-extension ROOT (versioning.md §5), not a paths map.
+  return { protocolVersions: ['2.0'], ...(withWorkforces ? { extensions: { 'openwop-app.host': { root: '/host/openwop-app/' } } } : {}) };
 }
 
 function host(handler, { advertised = true } = {}) {
@@ -39,7 +38,7 @@ describe('workforces list', () => {
   it('renders workforces as a table', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/workforces$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/workforces$/);
       return jsonResponse({ workforces: [
         { workforceId: 'wf_1', name: 'Support', businessFunction: 'CX', status: 'piloting', autonomyLevel: 'assisted', agents: [{}, {}] },
       ] });
@@ -184,7 +183,7 @@ describe('workforces migration set', () => {
     const fetchImpl = host(async (url, init) => { seen = { path: new URL(url).pathname, method: init.method, body: JSON.parse(init.body) }; return jsonResponse({ workforceId: 'wf_1' }); });
     const code = await runCli(['workforces', 'migration', 'set', 'wf_1', '--target', '{"workflowId":"w","targetOutcome":"o"}', '--stage', 'target=done', '--stage', 'assess=pending'], opts(fetchImpl, cap));
     assert.equal(code, 0, cap.stderr);
-    assert.deepEqual(seen, { path: '/v1/host/openwop-app/workforces/wf_1/migration', method: 'PATCH', body: { target: { workflowId: 'w', targetOutcome: 'o' }, stageStatus: { target: 'done', assess: 'pending' } } });
+    assert.deepEqual(seen, { path: '/host/openwop-app/workforces/wf_1/migration', method: 'PATCH', body: { target: { workflowId: 'w', targetOutcome: 'o' }, stageStatus: { target: 'done', assess: 'pending' } } });
   });
 
   it('fails closed when the workforces surface is not advertised', async () => {

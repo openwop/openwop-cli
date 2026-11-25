@@ -84,10 +84,10 @@ function httpErrorHint(err: HttpError, env: ReturnType<typeof errorEnvelope>): s
   }
   if (err.status === 406 || env.code === 'protocol_version_unsupported') {
     const listed = Array.isArray(env.details?.protocolVersions) ? ` (host serves ${(env.details!.protocolVersions as unknown[]).join(', ')})` : '';
-    return `The host does not serve the protocol major this CLI selected${listed}. Pin one it does with OPENWOP_PROTOCOL_MAJOR=1|2.`;
+    return `The host does not serve OpenWOP protocol major 2, the only major this CLI speaks${listed}. Major 1 reached end of support on 2026-10-04 (RFC 0234).`;
   }
   if (env.code === 'protocol_version_mismatch') {
-    return 'An OpenWOP-Version header other than 1 was sent on a /v1/ path. Pin OPENWOP_PROTOCOL_MAJOR=1 and report this as a CLI bug.';
+    return 'The host refused the OpenWOP-Version header for this path. This CLI sends only OpenWOP-Version: 2.0; report this as a CLI bug.';
   }
   if (err.status === 429) {
     const after = err.headers?.get?.('retry-after');

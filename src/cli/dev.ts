@@ -9,7 +9,7 @@ import type { Ctx } from '../context.js';
 import { write } from '../io.js';
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const MCP = '/v1/host/openwop-app/dev/ucp-merchant/mcp';
+const MCP = '/host/openwop-app/dev/ucp-merchant/mcp';
 
 export const DEV_ROUTES: RouteCmd[] = [
   { words: ['ucp-merchant', 'call'], method: 'POST', path: MCP, fixed: { jsonrpc: '2.0', id: 1, method: 'tools/call' },

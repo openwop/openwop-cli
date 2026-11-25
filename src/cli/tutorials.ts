@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop tutorials ...` — the tutorials library + the caller's own progress
  * (feature: tutorials, ADR 0488 P1/D4; ADR 0490 always-on reader).
  *
- * Hits `/v1/host/openwop-app/tutorials*` (host-extension, non-normative). Reads
+ * Hits `/host/openwop-app/tutorials*` (host-extension, non-normative). Reads
  * are never toggle-gated and degrade to the shipped seed (`degraded: true`).
  * Progress is per-caller and server-stamped; an anonymous caller reads
  * `persisted: false` and cannot save (403 → exit 4).
@@ -14,7 +14,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { csv, enc, renderDone, renderList } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/tutorials';
+const BASE = '/host/openwop-app/tutorials';
 
 export const TUTORIALS_HELP = `Usage:
   openwop tutorials list [--json]

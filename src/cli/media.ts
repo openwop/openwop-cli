@@ -11,7 +11,7 @@ import { requestJson } from '../api.js';
 import { CliError, HttpError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
-import { resolveRequest } from '../protocol.js';
+import { joinBase, resolveRequest } from '../protocol.js';
 import { csv, enc, mergeBody, pickArray, renderDone, renderList, withQuery } from './contentHelpers.js';
 
 export const MEDIA_HELP = `Usage:
@@ -19,7 +19,7 @@ export const MEDIA_HELP = `Usage:
   openwop media transcribe <audio-file> [--language en] [--json]
   openwop media synthesize <text> [--voice name] [--output path] [--json]
 
-  Media library (org-scoped, /v1/host/openwop-app/media/orgs/<orgId>/...):
+  Media library (org-scoped, /host/openwop-app/media/orgs/<orgId>/...):
   openwop media assets list --org <orgId> [--collection <id>] [--q <text>] [--tag <t>] [--json]
   openwop media assets get <assetId> --org <orgId> [--json]
   openwop media assets usage <assetId> --org <orgId> [--json]
@@ -38,9 +38,9 @@ export const MEDIA_HELP = `Usage:
   openwop media image-providers --org <orgId> [--json]
 
   Capability-token assets (RFC 0055 §C):
-  openwop media upload <file> [--content-type t] [--name n] [--json]    POST /v1/host/openwop-app/media/upload
-  openwop media put <file> [--content-type t] [--ttl-seconds N] [--json] POST /v1/host/openwop-app/media/put (test-seam gated)
-  openwop media fetch <token> --output <path>                           GET  /v1/host/openwop-app/assets/<token>
+  openwop media upload <file> [--content-type t] [--name n] [--json]    POST /host/openwop-app/media/upload
+  openwop media put <file> [--content-type t] [--ttl-seconds N] [--json] POST /host/openwop-app/media/put (test-seam gated)
+  openwop media fetch <token> --output <path>                           GET  /host/openwop-app/assets/<token>
 
 Local files are read with the standard library and sent as base64 JSON
 (\`contentBase64\` + \`contentType\`); the content type is inferred from the file
@@ -113,7 +113,7 @@ async function runMediaGenerateImage(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop media generate-image <prompt> [--output path] [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/media/generate-image', {
+  const res = await requestJson(ctx, '/host/openwop-app/media/generate-image', {
     method: 'POST',
     body: { prompt },
   });
@@ -149,7 +149,7 @@ async function runMediaTranscribe(ctx: Ctx, argv: string[]) {
   } catch (err) {
     throw new CliError(`Cannot read audio file ${filePath}: ${err instanceof Error ? err.message : String(err)}`);
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/media/transcribe', {
+  const res = await requestJson(ctx, '/host/openwop-app/media/transcribe', {
     method: 'POST',
     body: { audioBase64, ...(options.language ? { language: options.language } : {}) },
   });
@@ -178,7 +178,7 @@ async function runMediaSynthesize(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop media synthesize <text> [--voice name] [--output path] [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/media/synthesize', {
+  const res = await requestJson(ctx, '/host/openwop-app/media/synthesize', {
     method: 'POST',
     body: { text, ...(options.voice ? { voice: options.voice } : {}) },
   });
@@ -215,7 +215,7 @@ async function downloadAsset(ctx: Ctx, assetUrl: any, outPath: any) {
 
 // ── Media library (ADR 0007 / 0352 / 0363 / 0401) ──
 
-const orgBase = (org: string) => `/v1/host/openwop-app/media/orgs/${enc(org)}`;
+const orgBase = (org: string) => `/host/openwop-app/media/orgs/${enc(org)}`;
 
 const MIME_BY_EXT: Record<string, string> = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
@@ -424,7 +424,7 @@ async function runMediaStore(ctx: Ctx, sub: 'upload' | 'put', argv: string[]): P
   const body: Record<string, unknown> = { contentBase64: f.contentBase64, contentType: f.contentType };
   if (sub === 'upload') body.name = options.name ? String(options.name) : f.name;
   if (sub === 'put' && options.ttlSeconds !== undefined) body.ttlSeconds = Number(options.ttlSeconds);
-  const res = await requestJson(ctx, `/v1/host/openwop-app/media/${sub}`, { method: 'POST', body });
+  const res = await requestJson(ctx, `/host/openwop-app/media/${sub}`, { method: 'POST', body });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, formatTable(
     ['token', 'url', 'contentType', 'bytes', 'expiresAt'].filter((k) => res.body?.[k] !== undefined).map((k) => ({ field: k, value: String(res.body[k]) })),
@@ -440,8 +440,8 @@ async function runMediaFetch(ctx: Ctx, argv: string[]): Promise<number> {
     write(ctx.io.stdout, 'Usage: openwop media fetch <token> --output <path>\n');
     return options.help ? 0 : 2;
   }
-  const { path, headers } = await resolveRequest(ctx, `/v1/host/openwop-app/assets/${enc(token)}`, { accept: '*/*' });
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
+  const { path, headers } = await resolveRequest(ctx, `/host/openwop-app/assets/${enc(token)}`, { accept: '*/*' });
+  const url = joinBase(ctx.baseUrl, path);
   const res = await ctx.fetchImpl(url, { method: 'GET', headers });
   if (!res.ok) {
     const text = await res.text();

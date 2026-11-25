@@ -5,11 +5,11 @@ import type { Ctx } from '../context.js';
  * strength, and privacy opt-outs. Self-scoped: the host keys every read and
  * write by the signed-in user, never by an id the CLI sends.
  *
- *   GET|PUT /v1/host/openwop-app/settings/prefs
+ *   GET|PUT /host/openwop-app/settings/prefs
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const PATH = '/v1/host/openwop-app/settings/prefs';
+const PATH = '/host/openwop-app/settings/prefs';
 
 export const SETTINGS_ROUTES: RouteCmd[] = [
   { words: ['prefs'], method: 'GET', path: PATH, summary: 'Your settings plus today\'s token usage (your own keys, and the free tier when configured).' },

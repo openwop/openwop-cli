@@ -21,18 +21,14 @@ export interface Ctx {
    */
   streamBaseUrl?: string | undefined;
   apiKey?: string | undefined;
-  /** Protocol major negotiated for this process (memoized by `negotiateMajor`; see src/protocol.ts). */
-  protocolMajor?: 1 | 2;
+  /** Set to 2 once `negotiateMajor` has read discovery (or honoured the pin); see src/protocol.ts. Major 1 is not supported. */
+  protocolMajor?: 2;
   /**
    * The discovery document `negotiateMajor` read (requested with
    * `OpenWOP-Version: 2`) and the `OpenWOP-Version` the host answered with.
    * Absent under an `OPENWOP_PROTOCOL_MAJOR` pin or when discovery failed.
    */
   discovery?: { doc: unknown; servedVersion: string | undefined };
-  /** The host advertises the v2 conformance seams profile (memoized by `negotiateMajor`; major 2 only). */
-  seamsV2?: boolean;
-  /** Host-proprietary roots from discovery, `{ "/v1/host/<org>/": "/host/<org>/" }` (memoized by `negotiateMajor`). */
-  hostRoots?: Readonly<Record<string, string>>;
   /** Advertised stream origin accepted from discovery (memoized by `negotiateMajor`); undefined = none/rejected. */
   discoveredStreamBase?: string | undefined;
   /** Active config profile (`--profile` / OPENWOP_PROFILE); undefined = the default profile. */

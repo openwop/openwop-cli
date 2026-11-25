@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop destination-sync ...` — reverse-ETL destination syncs (ADR 0266;
  * entitlement gate ADR 0419).
  *
- * Surface: /v1/host/openwop-app/destination-sync/syncs[/{id}[/dry-run|prepare|advance]]
+ * Surface: /host/openwop-app/destination-sync/syncs[/{id}[/dry-run|prepare|advance]]
  * (toggle `destination-sync`, tenant-scoped).
  */
 import { requestJson } from '../api.js';
@@ -26,7 +26,7 @@ export const DESTINATION_SYNC_HELP = `Usage:
   openwop destination-sync advance <syncId> --cursor <c> [--json]
 
 Reverse-ETL destination syncs (ADR 0266) under
-/v1/host/openwop-app/destination-sync/syncs. A sync maps a source object (default
+/host/openwop-app/destination-sync/syncs. A sync maps a source object (default
 'contact') onto a destination (default 'webhook'; warehouse kinds take --body
 fields such as project/dataset/table/warehouseKeyField) through a field map.
   dry-run   POST …/{id}/dry-run — apply the field map to one sample record.

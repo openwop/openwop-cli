@@ -2,7 +2,7 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop creative-video ...` — AI video (openwop-app ADR 0404 §b; text-to-video
  * ADR 0404 §P4). Host-extension, org-scoped:
- * `/v1/host/openwop-app/creative-video/orgs/<orgId>/...`. Reading a job resolves
+ * `/host/openwop-app/creative-video/orgs/<orgId>/...`. Reading a job resolves
  * it (one provider poll while in flight), so polling `jobs get` drives a long job
  * to completion. The provider credential is a Connection, never a CLI flag.
  */
@@ -13,7 +13,7 @@ import { parseOptions } from '../options.js';
 import { requireOrg } from './shared.js';
 import { enc, mergeBody, pickArray, renderDone, renderList } from './contentHelpers.js';
 
-const base = (org: string) => `/v1/host/openwop-app/creative-video/orgs/${enc(org)}`;
+const base = (org: string) => `/host/openwop-app/creative-video/orgs/${enc(org)}`;
 
 export const CREATIVE_VIDEO_HELP = `Usage:
   openwop creative-video jobs list --org <orgId> [--json]
@@ -22,7 +22,7 @@ export const CREATIVE_VIDEO_HELP = `Usage:
   openwop creative-video text-to-video --org <orgId> --prompt <text> [--model <m>] [--duration-sec <n>] [--json]
 
 AI video jobs (host-extension, ADR 0404). Hits
-/v1/host/openwop-app/creative-video/orgs/<orgId>/{jobs,generate,text-to-video}.
+/host/openwop-app/creative-video/orgs/<orgId>/{jobs,generate,text-to-video}.
 \`generate\` renders an avatar video from a script; \`text-to-video\` needs the
 creative-video.t2v sub-toggle as well. Both return a job; poll \`jobs get\` until
 its status is terminal (each read advances an in-flight job one step).

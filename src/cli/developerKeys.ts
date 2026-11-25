@@ -11,7 +11,7 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { gatedRequest, arrayOf } from './adminShared.js';
 
-const BASE = '/v1/host/openwop-app/developer-keys';
+const BASE = '/host/openwop-app/developer-keys';
 const SURFACE = 'Managing developer API keys';
 
 export const DEVELOPER_KEYS_HELP = `Usage:

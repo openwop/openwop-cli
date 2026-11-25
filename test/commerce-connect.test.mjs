@@ -15,8 +15,8 @@ function capture() {
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const empty = (status = 204) => new Response(null, { status });
 // Pin protocol major 1 so no discovery request is made.
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
-const B = '/v1/host/openwop-app/commerce-connect';
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
+const B = '/host/openwop-app/commerce-connect';
 
 async function call(argv, response) {
   const cap = capture();

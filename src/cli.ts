@@ -225,7 +225,7 @@ export { redactSecrets, BASE_SECRET_KEY } from './redact.js';
 export { checkMinClientVersion, idempotencyHeaders, CLI_PROTOCOL_VERSION_BY_MAJOR } from './wire.js';
 export { formatTable };
 export { extractGlobalOptions };
-export { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, v2TemplatePattern, hostRootsFrom, hostRootFor, hostSurfaceAdvertised, streamBaseFrom, resolveStreamRequest, explicitStreamBase } from './protocol.js';
+export { V2_PATH_TEMPLATES, V2_MANIFEST_OMITTED, v2TemplatePattern, hostRootsFrom, hostSurfaceAdvertised, carriesVersionHeader, isManifestPath, V1_END_OF_SUPPORT, streamBaseFrom, resolveStreamRequest, explicitStreamBase } from './protocol.js';
 import { explicitStreamBase } from './protocol.js';
 export { configPathFor, readConfigSafe, saveConfig, openwopHomeDir };
 
@@ -851,11 +851,11 @@ function showHelp(io: any, command: any) {
 // The registry is a separate surface from the host --base-url. It serves the
 // FINAL v1 endpoints documented in registry/README.md + .well-known/openwop-
 // registry.json:
-//   GET /v1/index.json                       full catalog
-//   GET /v1/packs/{name}/index.json          per-pack metadata + versions
-//   GET /v1/packs/{name}/-/{version}.json    version manifest
-//   GET /v1/packs/{name}/-/{version}.tgz     signed tarball
-//   GET /v1/packs/{name}/-/{version}.sig     detached Ed25519 signature
+//   GET /index.json                       full catalog
+//   GET /packs/{name}/index.json          per-pack metadata + versions
+//   GET /packs/{name}/-/{version}.json    version manifest
+//   GET /packs/{name}/-/{version}.tgz     signed tarball
+//   GET /packs/{name}/-/{version}.sig     detached Ed25519 signature
 //   GET /keys/{keyId}.pub                     publisher public key (PEM)
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -896,9 +896,9 @@ function showHelp(io: any, command: any) {
 // `openwop chat <workflowId>` — interactive streaming REPL (item C-7)
 //
 // Each user turn creates a fresh run for <workflowId> (reusing the same
-// POST /v1/runs machinery as `runs create`) carrying the full conversation
+// POST /runs machinery as `runs create`) carrying the full conversation
 // `messages` array, then streams that run's events to the terminal. SSE is
-// preferred (GET /v1/runs/{runId}/events as text/event-stream); we fall back
+// preferred (GET /runs/{runId}/events as text/event-stream); we fall back
 // to the JSON poll endpoint (GET .../events/poll) when SSE is unavailable.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -911,7 +911,7 @@ function showHelp(io: any, command: any) {
 
 
 // Gap D-2 — media helpers wired to the demo backend's sample media routes
-// (POST /v1/host/openwop-app/media/{generate-image,transcribe,synthesize}),
+// (POST /host/openwop-app/media/{generate-image,transcribe,synthesize}),
 // which exercise the core.openwop.ai image-generate / audio-transcribe /
 // audio-synthesize node family. The demo backend STUBS the actual provider
 // calls (it honestly advertises aiProviders.imageGeneration: supported:false)
@@ -924,9 +924,9 @@ function showHelp(io: any, command: any) {
 // `openwop memory ...` — read the demo MemoryAdapter ledger (RFC 0004)
 //
 // Backed by the host-extension routes:
-//   GET    /v1/host/openwop-app/memory[?memoryRef=&tag=&limit=]
-//   GET    /v1/host/openwop-app/memory/:memoryId[?memoryRef=]
-//   DELETE /v1/host/openwop-app/memory/:memoryId[?memoryRef=]
+//   GET    /host/openwop-app/memory[?memoryRef=&tag=&limit=]
+//   GET    /host/openwop-app/memory/:memoryId[?memoryRef=]
+//   DELETE /host/openwop-app/memory/:memoryId[?memoryRef=]
 //
 // CTI-1: the backend scopes every read/delete to the caller's principal
 // (`req.tenantId`), NEVER a query value, so the CLI cannot cross a tenant
@@ -960,8 +960,8 @@ function showHelp(io: any, command: any) {
 // RFC 0070 — manifest-agent runtime. The demo backend loads pack `agents[]`
 // (RFC 0003) into an AgentRegistry and advertises `agents.manifestRuntime`.
 // `list`/`info` render that registry-backed inventory at the sample-extension
-// route `/v1/host/openwop-app/agents`; `run` dispatches one agent turn via
-// `POST /v1/host/openwop-app/agents/{agentId}/dispatch` (toolAllowlist-filtered,
+// route `/host/openwop-app/agents`; `run` dispatches one agent turn via
+// `POST /host/openwop-app/agents/{agentId}/dispatch` (toolAllowlist-filtered,
 // handoff-validated, confidence-escalating per RFC 0002 §A14/§F).
 
 
@@ -970,7 +970,7 @@ function showHelp(io: any, command: any) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Messaging relay-gateway (demo host-extension — /v1/host/openwop-app/messaging).
+// Messaging relay-gateway (demo host-extension — /host/openwop-app/messaging).
 // Operator endpoints use the host bearer; the device loop authenticates with
 // the per-device token in the x-openwop-device-token header.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1290,13 +1290,13 @@ Commands:
   admin run-retention  Run-retention posture + legal holds (admin token)
   byok active-config  The workspace chat binding (provider/model/credential ref)
   auth break-glass    Emergency operator login with the single-use break-glass token
-  content page|pages  Localized content (RFC 0103, normative /v1/content/*): deliver, list, create, section, settings
+  content page|pages  Localized content (RFC 0103, normative /content/*): deliver, list, create, section, settings
   agent-knowledge     Per-agent knowledge + memory curation: bind/ingest/retrieve/notes/memory-writable
   compat-endpoints    Self-hosted / OpenAI-compatible model endpoints for an org (RFC 0108)
   host-events list    Bind host-extension events (host.*) to workflows; enable/disable/unbind
   client-support      Ask whether a client build is still supported (min-build handshake)
   dispatch fanout     Parallel fan-out join witness (RFC 0118): run the host's coordinator + join fold
-  openapi [paths]     Fetch the host's served OpenAPI document (/v1/openapi.json); list its operations
+  openapi [paths]     Fetch the host's served OpenAPI document (/openapi.json); list its operations
   a2a task            Async/durable A2A tasks (RFC 0100): read a durable task's live state (+ status/rpc/start/push-config/invoke)
   assistant           Executive assistant work graph: projects/commitments/decisions/meetings/pending approvals/loops
   channels            Team channels: list/create/post/messages/stream/members/agents/catch-up/presence

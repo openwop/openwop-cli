@@ -325,7 +325,7 @@ describe('openapi / workspace under protocol major 2', () => {
     assert.deepEqual(h.calls[0], { method: 'GET', path: '/openapi.json', search: '', version: '2.0' });
   });
 
-  it('workspace goes to the seams-v2 twin when the host advertises the seams profile', async () => {
+  it('workspace drives the seams-v2 workspace operations with OpenWOP-Version: 2.0', async () => {
     const h = v2Host();
     assert.equal((await host(['workspace', 'list', '--prefix', 'notes/'], h)).code, 0);
     assert.equal((await host(['workspace', 'get', 'notes/a.md'], h)).code, 0);
@@ -335,15 +335,15 @@ describe('openapi / workspace under protocol major 2', () => {
     ]);
   });
 
-  it('workspace keeps the v1 path on a v2 host that does not advertise the seams profile', async () => {
+  it('workspace uses the same seams-v2 path whether or not the host advertises the seams profile (it is the only v2 home)', async () => {
     const h = v2Host({ seams: false });
     assert.equal((await host(['workspace', 'list'], h)).code, 0);
-    assert.deepEqual([h.calls[0].path, h.calls[0].version], ['/v1/host/workspace/files', undefined]);
+    assert.deepEqual([h.calls[0].path, h.calls[0].version], ['/conformance/seams/workspace/files', '2.0']);
   });
 
-  it('ui-plugin --conformance-alias stays on the v1 seam path (no seams-v2 operation)', async () => {
+  it('ui-plugin --conformance-alias posts to the host-global test seam, header-less (no seams-v2 operation)', async () => {
     const h = v2Host();
     assert.equal((await host(['ui-plugin', 'rpc', '--method', 'm', '--conformance-alias'], h)).code, 0);
-    assert.deepEqual([h.calls[0].path, h.calls[0].version], ['/v1/host/sample/ui-plugin/rpc', undefined]);
+    assert.deepEqual([h.calls[0].path, h.calls[0].version], ['/host/sample/ui-plugin/rpc', undefined]);
   });
 });

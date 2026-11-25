@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { parseJsonFlag } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/reviews';
+const BASE = '/host/openwop-app/reviews';
 
 export const REVIEWS_HELP = `Usage:
   openwop reviews list [--status <s>] [--conversation <id>] [--board <id>] [--json]
@@ -14,13 +14,13 @@ export const REVIEWS_HELP = `Usage:
   openwop reviews action <reviewId> <action> [--note <t>] [--value-json '{...}'] [--expected-hash <h>] [--json]
 
 The unified review inbox (ADR 0068 / RFC 0070) — one projection over run
-interrupts and pending approvals (host-extension, /v1/host/openwop-app/reviews):
+interrupts and pending approvals (host-extension, /host/openwop-app/reviews):
 
-  list    GET  /v1/host/openwop-app/reviews[?status=&conversationId=&boardId=]
+  list    GET  /host/openwop-app/reviews[?status=&conversationId=&boardId=]
           (--status: pending | approved | rejected | expired | cancelled | resolved;
           omitted = the pending inbox)
-  get     GET  /v1/host/openwop-app/reviews/{reviewId}
-  action  POST /v1/host/openwop-app/reviews/{reviewId}/actions/{action}
+  get     GET  /host/openwop-app/reviews/{reviewId}
+  action  POST /host/openwop-app/reviews/{reviewId}/actions/{action}
           <action> must be one the review offers (see 'get' → actions[]); an
           approval review takes approve | reject (--note, --expected-hash); an
           interrupt review takes 'resolve' with --value-json as the resume value,

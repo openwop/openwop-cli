@@ -5,13 +5,13 @@ import type { Ctx } from '../context.js';
  * ADR 0324/0467 realtime voice).
  *
  * Two host-extension surfaces:
- *  - the walkie-talkie session  /v1/host/openwop-app/voice/session[/{id}/audio|commit|speak|barge-in]
+ *  - the walkie-talkie session  /host/openwop-app/voice/session[/{id}/audio|commit|speak|barge-in]
  *    — append audio chunks, commit an utterance (transcribe), speak a reply;
- *  - the realtime bridge        /v1/host/openwop-app/voice/realtime/*
+ *  - the realtime bridge        /host/openwop-app/voice/realtime/*
  *    — mint a provider session, exchange a WebRTC offer, bridge tool calls,
  *      resolve a held approval, read/set the provider config (operators), and
  *      stream the conversation's new-message ids.
- * Plus the scripted barge-in demonstration seam POST /v1/host/openwop-app/voice/barge-in.
+ * Plus the scripted barge-in demonstration seam POST /host/openwop-app/voice/barge-in.
  *
  * Secrets: the realtime session carries an EPHEMERAL provider token. The CLI
  * redacts it unless --reveal-token is passed (then prints it once, with a
@@ -26,8 +26,8 @@ import { requestJson } from '../api.js';
 import { enc, emit, intFlag, renderFrame, streamHostSse, writeFields } from './chatShared.js';
 import { parseJsonFlag } from './contentHelpers.js';
 
-const SESSION = '/v1/host/openwop-app/voice/session';
-const REALTIME = '/v1/host/openwop-app/voice/realtime';
+const SESSION = '/host/openwop-app/voice/session';
+const REALTIME = '/host/openwop-app/voice/realtime';
 /** Audio is appended in base64 chunks of at most this many raw bytes. */
 const AUDIO_CHUNK_BYTES = 192 * 1024;
 
@@ -50,12 +50,12 @@ export const VOICE_HELP = `Usage:
   openwop voice realtime resolve-approval --call-id <id> --fc-id <id> (--approve | --deny) [--json]
   openwop voice realtime transcript --conversation <id> [--max-events n] [--timeout-ms ms] [--json]
 
-Voice mode on the server. Walkie-talkie sessions (/v1/host/openwop-app/voice/session):
+Voice mode on the server. Walkie-talkie sessions (/host/openwop-app/voice/session):
 'start' opens a session, 'audio' appends audio (a file is sent as base64 chunks),
 'commit' transcribes the utterance, 'speak' synthesizes a reply (the agent's own
 voice wins when it has one), 'barge-in' cancels an in-flight reply, 'close' ends it.
 
-Realtime (/v1/host/openwop-app/voice/realtime/*): 'capability' names the configured
+Realtime (/host/openwop-app/voice/realtime/*): 'capability' names the configured
 provider; 'config' reads/sets it (server operators only — 'set' reads the current
 config first and changes only what you pass); 'session' mints a provider session
 (its ephemeral token is redacted unless --reveal-token); 'connect' exchanges a
@@ -64,7 +64,7 @@ WebRTC SDP offer for the answer; 'tool-call' runs one tool the model asked for;
 conversation's new-message ids (server-sent events, stops after --max-events or
 --timeout-ms, default 30000 ms).
 
-'barge-in-demo' drives POST /v1/host/openwop-app/voice/barge-in — a scripted
+'barge-in-demo' drives POST /host/openwop-app/voice/barge-in — a scripted
 demonstration that a barge-in cancels synthesis with no partial audio leaked.
 
 Exit codes: 0 ok, 2 usage / not found / voice mode off, 4 not permitted, 1 provider error.
@@ -192,7 +192,7 @@ async function runBargeInDemo(ctx: Ctx, argv: string[]): Promise<number> {
   const at = intFlag(options.bargeInAtSeq, '--barge-in-at-seq');
   if (chunks !== undefined) body.chunks = chunks;
   if (at !== undefined) body.bargeInAtSeq = at;
-  const res = await requestJson(ctx, '/v1/host/openwop-app/voice/barge-in', { method: 'POST', body });
+  const res = await requestJson(ctx, '/host/openwop-app/voice/barge-in', { method: 'POST', body });
   return emit(ctx, res.body, () => {
     renderEvents(ctx, res.body?.events);
     writeLine(ctx.io.stdout, `droppedChunks: ${res.body?.droppedChunks ?? 0} (halted, never sent)`);

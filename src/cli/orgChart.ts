@@ -18,14 +18,14 @@ reportsTo edges — it confers no authority (the org-position-no-authority-
 escalation invariant: the schema carries no permissions/scopes/canDispatch
 field).
 
-'get'/'dept' read the NORMATIVE pair (RFC 0087 §D): GET /v1/agents/org-chart and
-GET /v1/agents/org-chart/{departmentId}. When the host does not serve it
+'get'/'dept' read the NORMATIVE pair (RFC 0087 §D): GET /agents/org-chart and
+GET /agents/org-chart/{departmentId}. When the host does not serve it
 (404/405/501 on 'get'), or with --host, they read the host-extension
-GET /v1/host/openwop-app/org-chart[/{departmentId}] (--verbose names the path
+GET /host/openwop-app/org-chart[/{departmentId}] (--verbose names the path
 that answered). With no credential, a v2 host refuses the normative read (401);
 'get'/'dept' then show the host's anonymous view from the alias and say so on
 stderr. 'set'/'clear' drive the host-extension PUT/DELETE
-/v1/host/openwop-app/org-chart. 'set' replaces the whole chart from a JSON file
+/host/openwop-app/org-chart. 'set' replaces the whole chart from a JSON file
 with { "departments": [...], "members": [...] }.
 
   --host           (get/dept) Read the host-extension path instead of the normative one.
@@ -60,7 +60,7 @@ export async function runOrgChart(ctx: Ctx, argv: string[]) {
 async function orgChartGet(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help', '--host'] });
   if (options.help) { write(ctx.io.stdout, ORG_CHART_HELP); return 0; }
-  const res = await requestNormativeOrHost(ctx, '/v1/agents/org-chart', '/v1/host/openwop-app/org-chart', { forceHost: options.host });
+  const res = await requestNormativeOrHost(ctx, '/agents/org-chart', '/host/openwop-app/org-chart', { forceHost: options.host });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const chart = res.body ?? {};
   const departments = Array.isArray(chart.departments) ? chart.departments : [];
@@ -99,8 +99,8 @@ async function orgChartDept(ctx: Ctx, argv: string[]) {
   const dept = encodeURIComponent(positionals[0]);
   const res = await requestNormativeOrHost(
     ctx,
-    `/v1/agents/org-chart/${dept}?recursive=${recursive}`,
-    `/v1/host/openwop-app/org-chart/${dept}?recursive=${recursive}`,
+    `/agents/org-chart/${dept}?recursive=${recursive}`,
+    `/host/openwop-app/org-chart/${dept}?recursive=${recursive}`,
     { forceHost: options.host },
   );
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
@@ -123,7 +123,7 @@ async function orgChartSet(ctx: Ctx, argv: string[]) {
   if (!Array.isArray(parsed?.departments) || !Array.isArray(parsed?.members)) {
     throw new CliError('The chart file MUST be a JSON object with `departments` and `members` arrays.', 2);
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/org-chart', {
+  const res = await requestJson(ctx, '/host/openwop-app/org-chart', {
     method: 'PUT',
     body: { departments: parsed.departments, members: parsed.members },
   });
@@ -140,7 +140,7 @@ async function orgChartClear(ctx: Ctx, argv: string[]) {
     writeLine(ctx.io.stderr, 'Refusing to clear the org chart without --yes.');
     return 2;
   }
-  await requestJson(ctx, '/v1/host/openwop-app/org-chart', { method: 'DELETE' });
+  await requestJson(ctx, '/host/openwop-app/org-chart', { method: 'DELETE' });
   writeLine(ctx.io.stdout, 'Cleared the org chart.');
   return 0;
 }

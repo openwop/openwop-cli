@@ -56,7 +56,7 @@ describe('a2a task', () => {
   it('reads the durable A2ATaskState and renders it', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/a2a\/tasks\/run_abc$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/a2a\/tasks\/run_abc$/);
       return jsonResponse({ taskId: 'run_abc', runId: 'run_abc', state: 'working', contextId: 'ctx_1', updatedAt: '2026-06-14T00:00:00Z' });
     });
     const code = await runCli(['a2a', 'task', 'run_abc'], opts(fetchImpl, cap));
@@ -114,7 +114,7 @@ describe('a2a rpc / start / push-config / invoke', () => {
     const cap = capture();
     const code = await runCli(['a2a', 'rpc', 'agent/getCard', '--id', '7', '--a2a-version', '1.0'], opts(ok, cap));
     assert.equal(code, 0, cap.stderr);
-    assert.equal(seen.path, '/v1/host/openwop-app/a2a');
+    assert.equal(seen.path, '/host/openwop-app/a2a');
     assert.equal(seen.headers['a2a-version'], '1.0');
     assert.deepEqual(seen.body, { jsonrpc: '2.0', id: '7', method: 'agent/getCard', params: {} });
     assert.match(cap.stdout, /"name": "openwop-app"/);
@@ -142,7 +142,7 @@ describe('a2a rpc / start / push-config / invoke', () => {
     cap = capture();
     assert.equal(await runCli(['a2a', 'invoke', '--peer-url', 'https://peer', '--authenticated', '--request-version', '1.0'], opts(h, cap)), 0);
     assert.match(cap.stdout, /negotiatedVersion: 1\.0/);
-    assert.deepEqual(calls.map((c) => c.path), ['/v1/host/openwop-app/a2a/tasks/start', '/v1/host/openwop-app/a2a/tasks/push-config', '/v1/host/openwop-app/a2a/invoke']);
+    assert.deepEqual(calls.map((c) => c.path), ['/host/openwop-app/a2a/tasks/start', '/host/openwop-app/a2a/tasks/push-config', '/host/openwop-app/a2a/invoke']);
     assert.deepEqual(calls[0].body, { scenario: 'paused-at-approval' });
     assert.deepEqual(calls[1].body, { taskId: 'run_1', url: 'https://h', tokenFingerprint: 'fp' });
     assert.deepEqual(calls[2].body, { peerUrl: 'https://peer', authenticated: true, requestVersion: '1.0' });

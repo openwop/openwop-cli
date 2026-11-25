@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop cdp ...` — the customer data platform spine (ADR 0263; entitlement
  * gate ADR 0419).
  *
- * Surface: /v1/host/openwop-app/cdp/* (toggle `cdp`). Identity resolution masks
+ * Surface: /host/openwop-app/cdp/* (toggle `cdp`). Identity resolution masks
  * PII for API-key principals; `audit-verify` needs an org admin/owner role.
  */
 import { requestJson } from '../api.js';
@@ -28,7 +28,7 @@ export const CDP_HELP = `Usage:
   openwop cdp governance [--limit <n>] [--json]
   openwop cdp audit-verify [--json]
 
-Customer data platform (ADR 0263) under /v1/host/openwop-app/cdp/*:
+Customer data platform (ADR 0263) under /host/openwop-app/cdp/*:
   resolve         GET …/identity/resolve?type=&value= — the unified customer for an
                   identifier (email, phone, …); PII is masked for API-key callers.
   schemas         GET/POST …/event-schemas; 'validate' POSTs

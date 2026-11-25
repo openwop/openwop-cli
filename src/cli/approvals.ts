@@ -2,9 +2,9 @@ import type { Ctx } from '../context.js';
 /** `openwop approvals ...` — the human side of "agents propose, humans dispose".
  *
  * Drives the host's approval inbox (sample host-extension, non-normative):
- *   GET  /v1/host/openwop-app/approvals[?status=pending|approved|rejected]
- *   POST /v1/host/openwop-app/approvals/{id}/claim   — affirmative sign-off (starts the run)
- *   POST /v1/host/openwop-app/approvals/{id}/reject  — dismiss the proposal
+ *   GET  /host/openwop-app/approvals[?status=pending|approved|rejected]
+ *   POST /host/openwop-app/approvals/{id}/claim   — affirmative sign-off (starts the run)
+ *   POST /host/openwop-app/approvals/{id}/reject  — dismiss the proposal
  *
  * Capability honesty is the whole point of this group: the HOST is the authority
  * for every policy decision. The CLI only RENDERS the host's resolved queue and
@@ -25,10 +25,10 @@ import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
 /** Per-user Microsoft Teams approval delivery (host-extension, self-scoped: YOUR preference only). */
 export const APPROVALS_ROUTES: RouteCmd[] = [
-  { words: ['teams-pref'], method: 'GET', path: '/v1/host/openwop-app/approval-delivery/teams', summary: 'Where your approval requests are delivered in Teams (null = not set).' },
-  { words: ['teams-pref', 'set'], method: 'PUT', path: '/v1/host/openwop-app/approval-delivery/teams', summary: 'Deliver your approval requests to a Teams chat through one of your connections.',
+  { words: ['teams-pref'], method: 'GET', path: '/host/openwop-app/approval-delivery/teams', summary: 'Where your approval requests are delivered in Teams (null = not set).' },
+  { words: ['teams-pref', 'set'], method: 'PUT', path: '/host/openwop-app/approval-delivery/teams', summary: 'Deliver your approval requests to a Teams chat through one of your connections.',
     body: [{ flag: '--connection-id', key: 'connectionId', required: true }, { flag: '--chat-id', key: 'chatId', required: true }] },
-  { words: ['teams-pref', 'clear'], method: 'DELETE', path: '/v1/host/openwop-app/approval-delivery/teams', confirm: false, summary: 'Stop Teams delivery of your approval requests.' },
+  { words: ['teams-pref', 'clear'], method: 'DELETE', path: '/host/openwop-app/approval-delivery/teams', confirm: false, summary: 'Stop Teams delivery of your approval requests.' },
 ];
 
 export const APPROVALS_HELP = `Usage:
@@ -56,17 +56,17 @@ host does not advertise the approval surface (/.well-known/openwop), the group
 fails closed rather than guessing.
 
 Endpoints:
-  list    GET  /v1/host/openwop-app/approvals[?status=...]
-  get     GET  /v1/host/openwop-app/approvals   (filtered to <approvalId> client-side;
+  list    GET  /host/openwop-app/approvals[?status=...]
+  get     GET  /host/openwop-app/approvals   (filtered to <approvalId> client-side;
           the host exposes no single-approval GET)
-  claim   POST /v1/host/openwop-app/approvals/{id}/claim
-  reject  POST /v1/host/openwop-app/approvals/{id}/reject
-  sla-policy        GET/PUT /v1/host/openwop-app/approvals/sla-policy (ADR 0478; the tenant's
+  claim   POST /host/openwop-app/approvals/{id}/claim
+  reject  POST /host/openwop-app/approvals/{id}/reject
+  sla-policy        GET/PUT /host/openwop-app/approvals/sla-policy (ADR 0478; the tenant's
                     remind → escalate → expire timers. PUT needs an admin role — exit 4 otherwise.
                     'set' reads the current policy first and sends it back with your changes.)
-  email-pref        GET/PUT /v1/host/openwop-app/approvals/email-pref (your own opt-in to decide
+  email-pref        GET/PUT /host/openwop-app/approvals/email-pref (your own opt-in to decide
                     approvals from email; needs a signed-in user)
-  delegations       GET/POST /v1/host/openwop-app/approval-delegations and
+  delegations       GET/POST /host/openwop-app/approval-delegations and
                     POST …/approval-delegations/{id}/revoke (ADR 0198; you delegate YOUR
                     approvals to someone for a window; --all and --from are operator-only)
 
@@ -152,10 +152,10 @@ function exitForStatus(status: unknown): number {
 async function ensureApprovalsAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return; // can't prove absence — let the real request decide
-  const advertised = hostSurfaceAdvertised(wk.body, '/v1/host/openwop-app/approvals');
+  const advertised = hostSurfaceAdvertised(wk.body, '/host/openwop-app/approvals');
   if (!advertised) {
     throw new CliError(
-      'approvals: this host does not advertise the approval-inbox surface (/v1/host/openwop-app/approvals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
+      'approvals: this host does not advertise the approval-inbox surface (/host/openwop-app/approvals is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
       1,
     );
   }
@@ -170,7 +170,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `approvals: ${detail} (the host must mount /v1/host/openwop-app/approvals; the CLI renders the host's queue, it never decides).`,
+      `approvals: ${detail} (the host must mount /host/openwop-app/approvals; the CLI renders the host's queue, it never decides).`,
       1,
     );
   }
@@ -178,7 +178,7 @@ function gate404(err: unknown): never {
 }
 
 async function fetchQueue(ctx: Ctx, status?: string): Promise<any[]> {
-  const path = status ? `/v1/host/openwop-app/approvals?status=${encodeURIComponent(status)}` : '/v1/host/openwop-app/approvals';
+  const path = status ? `/host/openwop-app/approvals?status=${encodeURIComponent(status)}` : '/host/openwop-app/approvals';
   let res;
   try {
     res = await requestJson(ctx, path);
@@ -284,7 +284,7 @@ async function runApprovalsResolve(ctx: Ctx, argv: string[], verb: 'claim' | 're
     return options.help ? 0 : 2;
   }
   await ensureApprovalsAdvertised(ctx);
-  const path = `/v1/host/openwop-app/approvals/${encodeURIComponent(positionals[0])}/${verb}`;
+  const path = `/host/openwop-app/approvals/${encodeURIComponent(positionals[0])}/${verb}`;
   const decision: Record<string, string> = {};
   if (options.note !== undefined) decision.note = options.note;
   if (options.actedFor !== undefined) decision.actedFor = options.actedFor;
@@ -349,7 +349,7 @@ async function runApprovalsSlaPolicy(ctx: Ctx, argv: string[]): Promise<number> 
     value: ['--remind-after-ms', '--escalate-after-ms', '--expire-after-ms'],
   });
   if (options.help) { write(ctx.io.stdout, APPROVALS_HELP); return 0; }
-  const path = '/v1/host/openwop-app/approvals/sla-policy';
+  const path = '/host/openwop-app/approvals/sla-policy';
   if (!setting) {
     let res;
     try { res = await requestJson(ctx, path); } catch (err) { gate404(err); }
@@ -394,7 +394,7 @@ async function runApprovalsEmailPref(ctx: Ctx, argv: string[]): Promise<number> 
   const setting = argv[0] === 'set';
   const { options } = parseOptions(setting ? argv.slice(1) : argv, { bool: ['--help', '--enabled', '--disabled'], value: ['--email'] });
   if (options.help) { write(ctx.io.stdout, APPROVALS_HELP); return 0; }
-  const path = '/v1/host/openwop-app/approvals/email-pref';
+  const path = '/host/openwop-app/approvals/email-pref';
   if (!setting) {
     let res;
     try { res = await requestJson(ctx, path); } catch (err) { gate404(err); }
@@ -420,7 +420,7 @@ async function runApprovalsDelegations(ctx: Ctx, argv: string[]): Promise<number
     value: ['--to', '--from', '--starts-at', '--ends-at', '--reason'],
   });
   if (options.help) { write(ctx.io.stdout, APPROVALS_HELP); return 0; }
-  const base = '/v1/host/openwop-app/approval-delegations';
+  const base = '/host/openwop-app/approval-delegations';
   switch (sub) {
     case 'list': {
       const res = await requestJson(ctx, options.all ? `${base}?all=1` : base);

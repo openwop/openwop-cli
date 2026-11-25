@@ -25,7 +25,7 @@ describe('notifications command', () => {
   it('lists inbox entries as a table', async () => {
     const cap = capture();
     const fetchImpl = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/notifications$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/notifications$/);
       return jsonResponse({ notifications: [{ notificationId: 'n1', status: 'unread', priority: 'high', title: 'Run failed', createdAt: '2026-05-27' }] });
     };
     const code = await runCli(['notifications', 'list'], opts(fetchImpl, cap));
@@ -73,7 +73,7 @@ describe('interrupts command', () => {
     const cap = capture();
     const fetchImpl = async (url, init) => {
       assert.equal(init.method, 'POST');
-      assert.match(new URL(url).pathname, /\/v1\/interrupts\/tok123$/);
+      assert.match(new URL(url).pathname, /\/interrupts\/tok123$/);
       // Both majors' resolve body is the closed `{ resumeValue }` (api/openapi.yaml,
       // api/v2/openapi.yaml); the raw payload used to be sent bare.
       assert.deepEqual(JSON.parse(init.body), { resumeValue: { approved: true } });
@@ -90,7 +90,7 @@ describe('prompts command', () => {
   it('lists templates and renders a ref', async () => {
     const listCap = capture();
     const listFetch = async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/prompts$/);
+      assert.match(new URL(url).pathname, /\/prompts$/);
       return jsonResponse({ items: [{ templateId: 'greet', kind: 'system', modelClass: 'general', source: 'pack' }] });
     };
     let code = await runCli(['prompts', 'list'], opts(listFetch, listCap));
@@ -99,7 +99,7 @@ describe('prompts command', () => {
 
     const renderCap = capture();
     const renderFetch = async (url, init) => {
-      assert.match(String(url), /\/v1\/prompts:render$/);
+      assert.match(String(url), /\/prompts:render$/);
       assert.deepEqual(JSON.parse(init.body), { ref: 'greet', variables: { name: 'Ada' } });
       return jsonResponse({ messages: [{ role: 'system', content: 'Hello Ada' }] });
     };

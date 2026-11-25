@@ -5,7 +5,7 @@ import { write, writeLine, writeJson } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 
-const prof = (id: string) => `/v1/host/openwop-app/agents/${encodeURIComponent(id)}/profile`;
+const prof = (id: string) => `/host/openwop-app/agents/${encodeURIComponent(id)}/profile`;
 
 export const AGENT_PROFILE_HELP = `Usage:
   openwop agent-profile get <agentId> [--json]
@@ -17,7 +17,7 @@ export const AGENT_PROFILE_HELP = `Usage:
 An agent's rich profile + its connector readiness (ADR 0031). \`set\` PUTs the full
 profile object; \`readiness\` reports whether the connectors the agent needs are wired.
 \`capability-on\`/\`capability-off\` elect or revoke a tenant-electable capability on
-your own agent (ADR 0373; PUT/DELETE /v1/host/openwop-app/agents/{id}/capabilities/{capabilityId})
+your own agent (ADR 0373; PUT/DELETE /host/openwop-app/agents/{id}/capabilities/{capabilityId})
 and print the agent's resulting capability list. An unknown or non-electable
 capability is the same 404 as an unknown agent.`;
 
@@ -29,7 +29,7 @@ export async function runAgentProfile(ctx: Ctx, argv: string[]) {
   if (options.help) { write(ctx.io.stdout, AGENT_PROFILE_HELP); return 0; }
   if (sub === 'capability-on' || sub === 'capability-off') {
     if (positionals.length !== 2) { write(ctx.io.stderr, `Usage: openwop agent-profile ${sub} <agentId> <capabilityId> [--json]\n`); return 2; }
-    const path = `/v1/host/openwop-app/agents/${encodeURIComponent(positionals[0])}/capabilities/${encodeURIComponent(positionals[1])}`;
+    const path = `/host/openwop-app/agents/${encodeURIComponent(positionals[0])}/capabilities/${encodeURIComponent(positionals[1])}`;
     const res = await requestJson(ctx, path, { method: sub === 'capability-on' ? 'PUT' : 'DELETE' });
     if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
     const caps = Array.isArray(res.body?.capabilities) ? res.body.capabilities : [];
@@ -40,7 +40,7 @@ export async function runAgentProfile(ctx: Ctx, argv: string[]) {
   const agentId = positionals[0];
   switch (sub) {
     case 'get': writeJson(ctx.io.stdout, (await requestJson(ctx, prof(agentId))).body); return 0;
-    case 'readiness': writeJson(ctx.io.stdout, (await requestJson(ctx, `/v1/host/openwop-app/agents/${encodeURIComponent(agentId)}/connection-readiness`)).body); return 0;
+    case 'readiness': writeJson(ctx.io.stdout, (await requestJson(ctx, `/host/openwop-app/agents/${encodeURIComponent(agentId)}/connection-readiness`)).body); return 0;
     case 'set': {
       if (!options.profileJson) { write(ctx.io.stderr, "agent-profile set needs --profile-json '{...}'.\n"); return 2; }
       let profile;

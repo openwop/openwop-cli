@@ -9,7 +9,7 @@ describe('site-config', () => {
     const cap = capture();
     const { calls, fetchImpl } = mockHost(() => ({ body: { enabled: true, orgId: 'system', slug: 'home' } }));
     assert.equal(await runCli(['site-config', 'public'], opts(fetchImpl, cap)), 0, cap.stderr);
-    assert.equal(calls[0].path, '/v1/host/openwop-app/public-site-config');
+    assert.equal(calls[0].path, '/host/openwop-app/public-site-config');
     assert.equal(calls[0].headers.authorization, undefined);
     assert.match(cap.stdout, /enabled \(org system, slug home\)/);
   });
@@ -33,7 +33,7 @@ describe('runtime-posture', () => {
     const cap = capture();
     const { calls, fetchImpl } = mockHost(() => ({ body: { available: true, project: 'p', region: 'r', service: 's', servingRevision: 'rev-1', serving: { posture: 'warm' }, pendingRevision: null, rollout: 'settled' } }));
     assert.equal(await runCli(['runtime-posture'], opts(fetchImpl, cap)), 0, cap.stderr);
-    assert.equal(calls[0].path, '/v1/host/openwop-app/runtime-posture');
+    assert.equal(calls[0].path, '/host/openwop-app/runtime-posture');
     assert.match(cap.stdout, /posture:\s+warm/);
   });
   it('request --cold posts exactly {warm:false} and prints the commands', async () => {
@@ -56,7 +56,7 @@ describe('maintenance', () => {
     const cap = capture();
     const { calls, fetchImpl } = mockHost(() => ({ body: { tenantId: 't1', scanned: 4, rekeyed: 2, skipped: 2 } }));
     assert.equal(await runCli(['maintenance', 'rekey-member-subjects', '--tenant', 't1'], opts(fetchImpl, cap)), 0, cap.stderr);
-    assert.deepEqual([calls[0].path, calls[0].body], ['/v1/host/openwop-app/maintenance/rekey-member-subjects', { tenantId: 't1' }]);
+    assert.deepEqual([calls[0].path, calls[0].body], ['/host/openwop-app/maintenance/rekey-member-subjects', { tenantId: 't1' }]);
     assert.match(cap.stdout, /rekeyed=2/);
   });
   it('fails closed with exit 4', async () => {
@@ -77,13 +77,13 @@ describe('menu-config', () => {
     const cap = capture();
     const { calls, fetchImpl } = mockHost(() => ({ body: { config: {} } }));
     assert.equal(await runCli(['menu-config', 'set', 'me', '--body', '{"items":{},"headers":[]}'], opts(fetchImpl, cap)), 0, cap.stderr);
-    assert.deepEqual([calls[0].method, calls[0].path, calls[0].body], ['PUT', '/v1/host/openwop-app/menu-config/me', { config: { items: {}, headers: [] } }]);
+    assert.deepEqual([calls[0].method, calls[0].path, calls[0].body], ['PUT', '/host/openwop-app/menu-config/me', { config: { items: {}, headers: [] } }]);
   });
   it('set tenant reads the ETag and sends it as If-Match', async () => {
     const cap = capture();
     const { calls, fetchImpl } = mockHost((c) => (c.method === 'GET' ? { body: {}, headers: { etag: '"v7"' } } : { body: { config: {} } }));
     assert.equal(await runCli(['menu-config', 'set', 'tenant', '--body', '{"config":{"items":{},"headers":[]}}'], opts(fetchImpl, cap)), 0, cap.stderr);
-    assert.equal(calls[1].path, '/v1/host/openwop-app/menu-config/tenant');
+    assert.equal(calls[1].path, '/host/openwop-app/menu-config/tenant');
     assert.equal(calls[1].headers['if-match'], '"v7"');
   });
   it('set tenant fails closed with exit 4', async () => {

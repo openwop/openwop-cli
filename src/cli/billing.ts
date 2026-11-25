@@ -16,7 +16,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { gatedRequest, readBodyOption, arrayOf } from './adminShared.js';
 
-const BASE = '/v1/host/openwop-app/billing';
+const BASE = '/host/openwop-app/billing';
 
 export const BILLING_HELP = `Usage:
   openwop billing subscription [--json]

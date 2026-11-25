@@ -16,7 +16,7 @@ export const WORKSPACES_HELP = `Usage:
 Your B2B workspaces (each a tenant, ADR 0015). \`switch\` changes the active workspace.
 Distinct from \`workspace\` (singular) — the per-tenant agent FILE store.
 
-\`migrate-anon\` → POST /v1/host/openwop-app/migrate-tenant: move an anonymous demo
+\`migrate-anon\` → POST /host/openwop-app/migrate-tenant: move an anonymous demo
 session's runs, workflows, notifications and secrets into your signed-in account. It needs
 BOTH a signed-in OIDC bearer (--api-key <id-token>) AND the anonymous session's cookie
 value, which is read from --session-file or a no-echo prompt (never argv) and sent only as
@@ -33,7 +33,7 @@ export async function runWorkspaces(ctx: Ctx, argv: string[]) {
   if (options.help) { write(ctx.io.stdout, WORKSPACES_HELP); return 0; }
   switch (sub) {
     case 'list': {
-      const res = await requestJson(ctx, '/v1/host/openwop-app/me/workspaces');
+      const res = await requestJson(ctx, '/host/openwop-app/me/workspaces');
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       const items = Array.isArray(res.body?.workspaces) ? res.body.workspaces : [];
       if (items.length === 0) { writeLine(ctx.io.stdout, 'No workspaces.'); return 0; }
@@ -42,20 +42,20 @@ export async function runWorkspaces(ctx: Ctx, argv: string[]) {
     }
     case 'create': {
       if (!options.name) { write(ctx.io.stderr, 'Usage: openwop workspaces create --name <n> [--json]\n'); return 2; }
-      const res = await requestJson(ctx, '/v1/host/openwop-app/workspaces', { method: 'POST', body: { name: String(options.name) } });
+      const res = await requestJson(ctx, '/host/openwop-app/workspaces', { method: 'POST', body: { name: String(options.name) } });
       if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Created workspace ${res.body?.id ?? ''} (${String(options.name)}).`);
       return 0;
     }
     case 'switch': {
       if (positionals.length !== 1) { write(ctx.io.stderr, 'Usage: openwop workspaces switch <workspaceId> [--json]\n'); return 2; }
-      const res = await requestJson(ctx, `/v1/host/openwop-app/workspaces/${encodeURIComponent(positionals[0])}/switch`, { method: 'POST', body: {} });
+      const res = await requestJson(ctx, `/host/openwop-app/workspaces/${encodeURIComponent(positionals[0])}/switch`, { method: 'POST', body: {} });
       if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Switched to workspace ${positionals[0]}.`);
       return 0;
     }
     case 'migrate-anon': {
       const cookie = await readSecretInput(ctx, options.sessionFile !== undefined ? { valueFile: options.sessionFile } : {}, 'Anonymous session cookie value');
       const name = String(options.cookieName ?? '__session');
-      const res = await gatedRequest(ctx, '/v1/host/openwop-app/migrate-tenant', { method: 'POST', body: {}, headers: { cookie: `${name}=${cookie}` } },
+      const res = await gatedRequest(ctx, '/host/openwop-app/migrate-tenant', { method: 'POST', body: {}, headers: { cookie: `${name}=${cookie}` } },
         'Migrating an anonymous session', 'signed-in');
       if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
       const b = res.body ?? {};

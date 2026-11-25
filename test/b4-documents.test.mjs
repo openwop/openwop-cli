@@ -6,7 +6,7 @@ const json=(b,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{'content
 const base=(cap,f)=>({io:cap.io,fetchImpl:f,cwd:process.cwd(),repoRoot:process.cwd(),env:{OPENWOP_CONFIG_HOME:'/nonexistent-owp-test',OPENWOP_API_KEY:'k'}});
 // Record every non-discovery call.
 function recorder(reply){const calls=[];const f=async(u,i={})=>{const url=new URL(u);if(url.pathname.includes('.well-known'))return json({},404);calls.push({method:i.method??'GET',path:url.pathname,search:url.search,body:i.body?JSON.parse(i.body):undefined});return typeof reply==='function'?reply(url,i):json(reply??{});};return{f,calls};}
-const D='/v1/host/openwop-app/documents/orgs/o1';
+const D='/host/openwop-app/documents/orgs/o1';
 
 describe('documents (b4)',()=>{
   it('list passes kind/status/owner filters and renders a table',async()=>{const cap=capture();const r=recorder({documents:[{documentId:'d1',title:'Plan',kind:'plan',format:'markdown',status:'draft'}]});
@@ -47,7 +47,7 @@ describe('documents (b4)',()=>{
     assert.equal(r.calls[0].method,'PUT');assert.deepEqual(r.calls[0].body,{name:'N',parameters:[{name:'topic'}]});
     cap=capture();r=recorder({augmentedPrompt:'p'});await runCli(['documents','templates','assemble','t1','--org','o1','--params','{"topic":"x"}'],base(cap,r.f));
     assert.deepEqual(r.calls[0].body,{params:{topic:'x'}});assert.match(cap.stdout,/augmentedPrompt/);});
-  it('artifacts get/revisions/revision/diff',async()=>{let cap=capture();let r=recorder({});const A='/v1/host/openwop-app/artifacts';
+  it('artifacts get/revisions/revision/diff',async()=>{let cap=capture();let r=recorder({});const A='/host/openwop-app/artifacts';
     await runCli(['documents','artifacts','get','art:1'],base(cap,r.f));assert.equal(r.calls[0].path,`${A}/art%3A1`);
     cap=capture();r=recorder({revisions:[{revisionId:'r1'}]});await runCli(['documents','artifacts','revisions','a1'],base(cap,r.f));assert.equal(r.calls[0].path,`${A}/a1/revisions`);assert.match(cap.stdout,/r1/);
     cap=capture();r=recorder({});await runCli(['documents','artifacts','revision','a1','r1'],base(cap,r.f));assert.equal(r.calls[0].path,`${A}/a1/revisions/r1`);
@@ -60,7 +60,7 @@ describe('documents (b4)',()=>{
 describe('docs (b4)',()=>{
   it('backfill POSTs /docs/orgs/{org}/backfill',async()=>{const cap=capture();const r=recorder({ingested:2});
     const code=await runCli(['docs','backfill','--org','o1'],base(cap,r.f));assert.equal(code,0);assert.equal(r.calls[0].method,'POST');
-    assert.equal(r.calls[0].path,'/v1/host/openwop-app/docs/orgs/o1/backfill');assert.match(cap.stdout,/ingested/);});
+    assert.equal(r.calls[0].path,'/host/openwop-app/docs/orgs/o1/backfill');assert.match(cap.stdout,/ingested/);});
   it('public reads without auth',async()=>{const cap=capture();let auth;const f=async(u,i={})=>{if(String(u).includes('.well-known'))return json({},404);auth=i.headers?.authorization;return json({docs:[{slug:'intro',title:'Intro'}]});};
     await runCli(['docs','public','o1'],base(cap,f));assert.equal(auth,undefined);assert.match(cap.stdout,/intro\s+Intro/);});
   it('backfill without --org is a usage error',async()=>{const cap=capture();const code=await runCli(['docs','backfill'],base(cap,async()=>json({})));assert.equal(code,2);});

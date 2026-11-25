@@ -8,9 +8,9 @@ import type { Ctx } from '../context.js';
  *     (canvas → document), ADR 0350 (per-document URLs → `locate`).
  *   - ADR 0069 + ADR 0083 (the artifact workbench: a read-only projection over
  *     documents, media and run-output artifacts — `documents artifacts ...`).
- * Paths: `/v1/host/openwop-app/documents/orgs/<orgId>/...`,
- *        `/v1/host/openwop-app/documents/locate/<documentId>`,
- *        `/v1/host/openwop-app/artifacts/<artifactId>...`.
+ * Paths: `/host/openwop-app/documents/orgs/<orgId>/...`,
+ *        `/host/openwop-app/documents/locate/<documentId>`,
+ *        `/host/openwop-app/artifacts/<artifactId>...`.
  */
 import { CliError } from '../errors.js';
 import { write, writeLine, writeJson } from '../io.js';
@@ -19,8 +19,8 @@ import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 import { enc, mergeBody, parseJsonFlag, pickArray, renderDone, renderList, withQuery } from './contentHelpers.js';
 
-const base = (org: string) => `/v1/host/openwop-app/documents/orgs/${enc(org)}`;
-const ARTIFACTS = '/v1/host/openwop-app/artifacts';
+const base = (org: string) => `/host/openwop-app/documents/orgs/${enc(org)}`;
+const ARTIFACTS = '/host/openwop-app/artifacts';
 
 export const DOCUMENTS_HELP = `Usage:
   openwop documents list --org <orgId> [--kind <k>] [--status <s>] [--owner-kind agent|user|project --owner-id <id>] [--json]
@@ -60,13 +60,13 @@ export const DOCUMENTS_HELP = `Usage:
   openwop documents artifacts diff <artifactId> --from <revisionId> --to <revisionId> [--json]
 
 Document generation + templates (host-extension, ADR 0053). Org-scoped commands hit
-/v1/host/openwop-app/documents/orgs/<orgId>/... and need --org (read = workspace:read,
+/host/openwop-app/documents/orgs/<orgId>/... and need --org (read = workspace:read,
 write = workspace:write; promoting a document to approved/final needs
 host:members:manage). \`locate\` resolves a document id to its owning org
-(/v1/host/openwop-app/documents/locate/<documentId>). \`templates assemble\` returns the
+(/host/openwop-app/documents/locate/<documentId>). \`templates assemble\` returns the
 augmented prompt + output schema for a template (no model call). \`templates update\`
 sends only the fields you pass (a partial PUT). \`artifacts\` reads the type-neutral
-artifact workbench (/v1/host/openwop-app/artifacts/..., ADR 0083) across documents,
+artifact workbench (/host/openwop-app/artifacts/..., ADR 0083) across documents,
 media and run outputs — a hidden artifact reads as not found. The host is the
 authority; the CLI relays.
 
@@ -112,7 +112,7 @@ export async function runDocuments(ctx: Ctx, argv: string[]) {
 
   if (sub === 'locate') {
     if (!id) return usage(ctx, 'locate <documentId>');
-    const res = await requestJson(ctx, `/v1/host/openwop-app/documents/locate/${enc(id)}`);
+    const res = await requestJson(ctx, `/host/openwop-app/documents/locate/${enc(id)}`);
     return renderDone(ctx, res.body, `Document ${id} belongs to org ${res.body?.orgId ?? ''}.`);
   }
 

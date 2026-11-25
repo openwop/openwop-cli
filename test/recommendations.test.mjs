@@ -14,13 +14,13 @@ function capture() {
 }
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 // Pin protocol major 1 so no discovery request is made.
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 function recorder(body = {}, status = 200) {
   const calls = [];
   const fetchImpl = async (url, init) => { calls.push({ url: new URL(url), init, body: init.body ? JSON.parse(init.body) : undefined }); return status === 204 ? new Response(null, { status }) : jsonResponse(body, status); };
   return { calls, fetchImpl };
 }
-const B = '/v1/host/openwop-app/recommendations/orgs/o';
+const B = '/host/openwop-app/recommendations/orgs/o';
 
 describe('recommendations', () => {
   it('placements list renders rows', async () => {
@@ -67,7 +67,7 @@ describe('recommendations', () => {
     const body = { products: [] };
     const r = recorder(body);
     assert.equal(await runCli(['--json', 'recommendations', 'public', 'resolve', '--org', 'org:1', '--slot', 'home'], opts(r.fetchImpl, cap)), 0);
-    assert.equal(r.calls[0].url.pathname, '/v1/host/openwop-app/public-recommendations/org%3A1/resolve');
+    assert.equal(r.calls[0].url.pathname, '/host/openwop-app/public-recommendations/org%3A1/resolve');
     assert.equal(r.calls[0].init.headers.authorization, undefined);
     assert.deepEqual(JSON.parse(cap.stdout), body);
   });
@@ -84,7 +84,7 @@ describe('sales-maps', () => {
     const cap = capture();
     const r = recorder({ address: '1 Main', lat: 1, lng: 2, source: 'manual' });
     assert.equal(await runCli(['sales-maps', 'geocode', '--org', 'o', '--address', '1 Main', '--lat', '1', '--lng', '2'], opts(r.fetchImpl, cap)), 0, cap.stderr);
-    assert.equal(r.calls[0].url.pathname, '/v1/host/openwop-app/sales-maps/orgs/o/geocode');
+    assert.equal(r.calls[0].url.pathname, '/host/openwop-app/sales-maps/orgs/o/geocode');
     assert.deepEqual(r.calls[0].body, { address: '1 Main', lat: 1, lng: 2 });
     assert.match(cap.stdout, /"source": "manual"/);
   });

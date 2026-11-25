@@ -24,9 +24,8 @@ function opts(fetchImpl, cap) {
 // A discovery doc that advertises (or omits) the approval surface, so the
 // capability gate has something honest to read.
 function wellKnown(withApprovals = true) {
-  const paths = { '/v1/runs': { get: {} } };
-  if (withApprovals) paths['/v1/host/openwop-app/approvals'] = { get: {} };
-  return { protocolVersion: '1.0', paths };
+  // v2 discovery advertises the host-extension ROOT (versioning.md §5), not a paths map.
+  return { protocolVersions: ['2.0'], ...(withApprovals ? { extensions: { 'openwop-app.host': { root: '/host/openwop-app/' } } } : {}) };
 }
 
 // Route a fake host: the well-known + an approvals handler the test supplies.
@@ -42,7 +41,7 @@ describe('approvals list', () => {
   it('renders the queue as a table', async () => {
     const cap = capture();
     const fetchImpl = host(async (url) => {
-      assert.match(new URL(url).pathname, /\/v1\/host\/openwop-app\/approvals$/);
+      assert.match(new URL(url).pathname, /\/host\/openwop-app\/approvals$/);
       return jsonResponse({ items: [
         { approvalId: 'appr_1', status: 'pending', kind: 'run-proposal', persona: 'Triage', proposal: 'Run the nightly report', createdAt: '2026-06-13' },
       ] });
@@ -99,7 +98,7 @@ describe('approvals capability honesty', () => {
     };
     const code = await runCli(['approvals', 'list'], opts(fetchImpl, cap));
     assert.equal(code, 1);
-    assert.match(cap.stderr, /the host must mount \/v1\/host\/openwop-app\/approvals/);
+    assert.match(cap.stderr, /the host must mount \/host\/openwop-app\/approvals/);
   });
 });
 

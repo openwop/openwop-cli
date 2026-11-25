@@ -5,8 +5,8 @@ import type { Ctx } from '../context.js';
  *
  * When the Agent Architect drafts an agent in chat, the draft is stashed per
  * signed-in user so it survives a reload:
- *   GET    /v1/host/openwop-app/agent-author/draft  → { draft, stashedAt } | { draft: null }
- *   DELETE /v1/host/openwop-app/agent-author/draft  → dismiss it (idempotent)
+ *   GET    /host/openwop-app/agent-author/draft  → { draft, stashedAt } | { draft: null }
+ *   DELETE /host/openwop-app/agent-author/draft  → dismiss it (idempotent)
  * An anonymous caller has no durable identity and therefore never has a draft.
  */
 import { CliError } from '../errors.js';
@@ -15,14 +15,14 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { emit } from './chatShared.js';
 
-const DRAFT = '/v1/host/openwop-app/agent-author/draft';
+const DRAFT = '/host/openwop-app/agent-author/draft';
 
 export const AGENT_AUTHOR_HELP = `Usage:
   openwop agent-author draft [--json]
   openwop agent-author clear
 
 The agent draft the AI Agent Architect stashed for you in chat:
-GET /v1/host/openwop-app/agent-author/draft (read) and DELETE (dismiss). Talk to
+GET /host/openwop-app/agent-author/draft (read) and DELETE (dismiss). Talk to
 the architect itself in the main chat (\`openwop chat open --subject agent:<id>\`).
 Signed-out callers never have a stashed draft.
 

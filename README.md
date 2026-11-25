@@ -53,11 +53,11 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 > ```
 
 > **Protocol + run operations:** `agents list|info`, `roster list` and
-> `org-chart get|dept` now read the NORMATIVE `/v1/agents`, `/v1/agents/roster`
-> and `/v1/agents/org-chart[/{departmentId}]`, falling back to the host-extension
+> `org-chart get|dept` now read the NORMATIVE `/agents`, `/agents/roster`
+> and `/agents/org-chart[/{departmentId}]`, falling back to the host-extension
 > path only when the host does not serve the normative read (`--host` forces it,
 > `--verbose` names the path that answered). New: `content` (RFC 0103
-> `/v1/content/*`), `runs effects|revision|pin|unpin|redrive`, `interrupts
+> `/content/*`), `runs effects|revision|pin|unpin|redrive`, `interrupts
 > inspect|respond`, `webhooks rotate-secret|dead-letters`, `catalog packs
 > search|get|export`, `workflows archive|promote|revisions|rollback|stats|estimate|pins|debug-run|eval-set…`,
 > `approvals sla-policy|email-pref|delegations`, `prompts library …`,
@@ -72,27 +72,27 @@ The CLI is a host-agnostic **control plane**: every group drives one protocol su
 > openwop webhooks rotate-secret sub_1 --generate
 > ```
 
-## Protocol version support (v2 and v1)
+## Protocol version support (v2 only)
 
-The CLI speaks the **OpenWOP wire directly** — no SDK dependency — and negotiates the protocol major once per invocation (`src/protocol.ts`, per `spec/v2/core/versioning.md` §1.5):
+The CLI speaks the **OpenWOP wire directly** — no SDK dependency — and speaks **protocol major 2 only**. Major 1 reached end of support on 2026-10-04 (RFC 0234); a conformant host answers every `/v1/*` path with `410`, and the CLI never sends one (`src/protocol.ts`, per `spec/v2/core/versioning.md`):
 
-- It reads `/.well-known/openwop` once (asking for the v2 representation with `OpenWOP-Version: 2`; a host that doesn't serve major 2 answers `406` with the list it does serve) and selects the **highest major it implements that the host advertises** in `protocolVersions[]` — 2 when the host lists any `2.x`, otherwise 1.
-- Under major 2, every request for an operation named in `spec/v2/path-manifest.json` goes to the **unversioned path with `OpenWOP-Version: 2.0`** (`/v1/runs` → `/runs`). Host-proprietary routes the manifest does not name — the reference host's `/v1/host/openwop-app/*` — go to the **unversioned root the host advertises** for that org under `extensions.*` (`{ "root": "/host/openwop-app/", "twin": "/v1/host/openwop-app/" }`, `versioning.md` §5), with **no** version header (a `/host/<org>/` path has no major). With no advertised root, the `/v1/host/<org>/…` twin is sent as written.
-- Under major 1 nothing changes: `/v1/…` paths, header-less, the v1 default the overlap guarantees.
-- `OPENWOP_PROTOCOL_MAJOR=1` or `=2` pins the major without probing discovery.
+- Every command writes the v2 path it sends: the unversioned operation name (`/runs`, `/agents/{agentId}`, `/prompts:render`) or the host-proprietary root (`/host/openwop-app/…`, `versioning.md` §5). Each group's `--help` names it.
+- It reads `/.well-known/openwop` once per invocation, asking for the v2 representation with `OpenWOP-Version: 2`. A host whose `protocolVersions[]` (or a `406`'s `details.protocolVersions`) lists no `2.x` is **refused** with a message naming major 1's end of support — there is no fallback to `/v1`. An unreachable discovery is not a refusal; the command reports its own failure.
+- Every protocol request carries `OpenWOP-Version: 2.0`. A host-proprietary `/host/<org>/…` route the path manifest does not name carries **no** version header (it has no major).
+- `OPENWOP_PROTOCOL_MAJOR=2` skips the discovery read (for a host whose discovery is wrong). Any other value, including `1`, is refused (exit 2). To drive a host that still serves only major 1, use `@openwop/cli` 2.x.
 
-`openwop doctor`'s `protocol` row reports `protocolVersions`, `preferredVersion`, and the major this process selected; it fails when the host advertises neither major the CLI implements. Its `response version` row reports the `OpenWOP-Version` the host answered with and fails on a silent downgrade (`versioning.md` §1.4); its `min client` row fails when the host's `minClientVersion` is above the version the CLI speaks (2.0 / 1.1) — the host MAY then refuse requests with `426 client_version_unsupported` (§1.5).
+`openwop doctor`'s `protocol` row reports `protocolVersions` and `preferredVersion`, and fails when the host does not serve major 2. Its `response version` row reports the `OpenWOP-Version` the host answered with and fails on a silent downgrade (`versioning.md` §1.4). Its `min client` row fails when the host's `minClientVersion` is above the version the CLI speaks (2.0); the host MAY then refuse requests with `426 client_version_unsupported` (§1.5).
 
 What else the CLI does as a v2 client (audited against `spec/v2/core/*` at corpus `v2.42.6`):
 
 | Obligation | Behaviour |
 |---|---|
-| Tenant-bound ids (`identity.md` §5) | A `<tenantId>/<id>` run id is sent in the projected wire form (`acme~2Fr1`) on every `/runs/{runId}…` path under major 2 — never `%2F`, which a decoding front door turns into a 404. Pass ids as the host prints them. |
+| Tenant-bound ids (`identity.md` §5) | A `<tenantId>/<id>` run id is sent in the projected wire form (`acme~2Fr1`) on every `/runs/{runId}…` path (and on host-extension run routes) — never `%2F`, which a decoding front door turns into a 404. Pass ids as the host prints them. |
 | Error envelope (`errors.md`) | Errors print as `HTTP <status> <code>: <message>`; `426`/`406`/`429` add an actionable hint (`Retry-After` for 429). |
-| Poll cursor (`events.md` §Poll) | `afterSequence` under major 2, `lastSequence` under major 1; `isTerminal` / `isComplete`. |
-| SSE resume (`events.md` §Resuming with `Last-Event-ID`; v1 `stream-modes.md` §Resumption) | Every run stream (`runs events --follow` / `runs watch`, `chat`, `workflow-author`) remembers the last `id:` and, when the connection drops or closes before the terminal event, reconnects with `Last-Event-ID` after the server's `retry:` delay (doubling per attempt without progress, cap 30 s, 5 attempts). A close is first checked against the run's status, so a mode that never carries the terminal event (`messages`) ends cleanly. Events are deduped by `sequence`, so nothing prints twice even from a host that re-emits the resumption point. `--since N` / `--last-event-id ID` start mid-log: both majors send the `Last-Event-ID` header (neither defines a `since` stream parameter); v2 requires an integer id, v1's is sent verbatim. |
-| Stream modes (`events.md` §Stream modes; v1 `stream-modes.md`) | `--stream-mode` `updates`, `values`, `messages`, `debug` or a comma list of `updates`/`messages`/`debug` → `?streamMode=`, validated against the spec pattern before any request (`values` never combines). A host `400 unsupported_stream_mode` is reported with its `details.supported`, never silently replaced by the (mode-less) poll fallback. `state.snapshot` and `ai.message.chunk` frames are rendered by their frame name; `event: batch` arrays are unpacked. |
-| Event names (`events.md` §Types) | v1 and v2 names (`run.resuming` / `run.resume-started`, `agent.toolCalled` / `agent.tool-called`, …) render identically; the table is pinned to `spec/v2/event-codemap.json`. |
+| Poll cursor (`events.md` §Poll) | `afterSequence` (exclusive: `sequence > N`); `isTerminal`. |
+| SSE resume (`events.md` §Resuming with `Last-Event-ID`) | Every run stream (`runs events --follow` / `runs watch`, `chat`, `workflow-author`) remembers the last `id:` and, when the connection drops or closes before the terminal event, reconnects with `Last-Event-ID` after the server's `retry:` delay (doubling per attempt without progress, cap 30 s, 5 attempts). A close is first checked against the run's status, so a mode that never carries the terminal event (`messages`) ends cleanly. Events are deduped by `sequence`, so nothing prints twice even from a host that re-emits the resumption point. `--since N` / `--last-event-id ID` start mid-log: both send the `Last-Event-ID` header (there is no `since` stream parameter), and the id must be an integer sequence. |
+| Stream modes (`events.md` §Stream modes) | `--stream-mode` `updates`, `values`, `messages`, `debug` or a comma list of `updates`/`messages`/`debug` → `?streamMode=`, validated against the spec pattern before any request (`values` never combines). A host `400 unsupported_stream_mode` is reported with its `details.supported`, never silently replaced by the (mode-less) poll fallback. `state.snapshot` and `ai.message.chunk` frames are rendered by their frame name; `event: batch` arrays are unpacked. |
+| Event names (`events.md` §Types) | A log written before the v2 renames still renders: v1-era names (`run.resuming` / `run.resume-started`, `agent.toolCalled` / `agent.tool-called`, …) render as their v2 names; the table is pinned to `spec/v2/event-codemap.json`. |
 | `Idempotency-Key` (`idempotency.md`) | Sent on run create/fork, chat turns, interrupt resolve, and webhook / trigger / prompt creation; `--idempotency-key` on `runs create|fork` and `interrupts resolve`. |
 | Interrupt resolve (`interrupt.md`) | Body is the closed `{ "resumeValue": … }`. |
 | Discovery (`capabilities.md`) | `openwop capabilities` renders the v2 root (records by status, `minClientVersion`, `eventLogSchemaVersion`, `extensions`) from the negotiation read. |
@@ -102,7 +102,7 @@ What else the CLI does as a v2 client (audited against `spec/v2/core/*` at corpu
 
 When the host's `minClientVersion` is above the CLI, every command prints one warning (from the discovery read it already made); refusing is left to the host (`426`). Not exposed: the `bufferMs` batching hint (batched frames from a host that batches anyway are consumed).
 
-The pre-1.0 `0.18.x` line was frozen v1-only; that decision was reversed with 1.0.0 (CHANGELOG). The frozen line stays on branch `cli-v1-frozen` for anyone who needs a client that never sends `OpenWOP-Version`.
+Major-1 support was removed in the release after 2.2.0 (CHANGELOG). The 2.x line (last: 2.2.0) is the newest CLI that still speaks major 1; the pre-1.0 `0.18.x` line, frozen v1-only, stays on branch `cli-v1-frozen`.
 
 ## Install
 
@@ -136,7 +136,7 @@ The `onboard` wizard walks you through:
 
 1. **Host URL** — `https://api.openwop.dev` (shared demo; `https://app.openwop.dev/api` also works), `http://localhost:8080` (local), or a custom URL.
 2. **AI provider** — `anthropic`, `openai`, `google`, or `minimax` (matches what the demo backend dispatches to).
-3. **API key** — auto-detects `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` / `MINIMAX_API_KEY`, or hidden-input via raw-mode stdin. The key is POSTed to `/v1/host/openwop-app/byok/secrets` on the configured host. **The key is never written to your local config file** — only a credential ref pointer is stored.
+3. **API key** — auto-detects `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_API_KEY` / `MINIMAX_API_KEY`, or hidden-input via raw-mode stdin. The key is POSTed to `/host/openwop-app/byok/secrets` on the configured host. **The key is never written to your local config file** — only a credential ref pointer is stored.
 4. **Model** — provider-specific recommended defaults plus a custom option.
 5. **Test the connection** — verifies the credential ref appears in the host's BYOK list.
 
@@ -161,7 +161,7 @@ openwop providers remove openai
 openwop providers test anthropic
 ```
 
-`providers add` POSTs to `/v1/host/openwop-app/byok/secrets`; `remove` DELETEs; `list` and `test` read.
+`providers add` POSTs to `/host/openwop-app/byok/secrets`; `remove` DELETEs; `list` and `test` read.
 
 ## Chat
 
@@ -173,7 +173,7 @@ openwop chat sample.chat.turn --inputs-json '{"credentialRef":"anthropic-default
 openwop chat sample.chat.turn --no-stream --json
 ```
 
-- **Streaming** — prefers Server-Sent Events (`GET /v1/runs/{runId}/events`). When the host does not stream (it answers with JSON or a non-streamable body), the CLI falls back to polling `GET /v1/runs/{runId}/events/poll`.
+- **Streaming** — prefers Server-Sent Events (`GET /runs/{runId}/events`). When the host does not stream (it answers with JSON or a non-streamable body), the CLI falls back to polling `GET /runs/{runId}/events/poll`.
 - **Turns** — type a line and press Enter. Conversation history is threaded across turns; the assistant's reply is fed back as context. Use `--no-history` to send only the latest turn.
 - **Quitting** — `/exit`, `/quit`, or Ctrl-D (EOF).
 - **`--json`** — emits raw event records (one JSON object per event) instead of the pretty `assistant>` rendering.
@@ -182,7 +182,7 @@ openwop chat sample.chat.turn --no-stream --json
 ### Conversations, channels & voice
 
 `chat` is the ONE chat group: besides the REPL it drives the host's persistent
-conversations (`/v1/host/openwop-app/chat/*`) — sessions, messages, reactions,
+conversations (`/host/openwop-app/chat/*`) — sessions, messages, reactions,
 participants, feedback, search, export/import, and per-conversation tool scope.
 Team channels, scheduled agent chats, the executive assistant, voice, and the AI
 authoring surfaces each have their own group; every `--help` names the exact path.
@@ -222,7 +222,7 @@ These talk to the signed node-pack registry — a **separate surface** from the 
 
 Every registry path is resolved through the registry's `/.well-known/openwop-registry.json` `endpoints` map (`spec/v2/core/packs.md` §"The registry tree"). The CLI prefers the v2 tree (`endpoints.v2`). It uses the v1 tree only when the registry names no v2 tree or publishes no discovery document, or when you pass `--tree v1`.
 
-- **search** reads the registry index (`/v2/index.json` on packs.openwop.dev) and filters the catalog client-side. The dynamic host `/v1/packs/-/search` only knows in-process nodes, not the published catalog.
+- **search** reads the registry index (`/v2/index.json` on packs.openwop.dev) and filters the catalog client-side. The host's installed-pack search (`openwop catalog packs search`, `/host/openwop-app/packs/-/search`) only knows in-process nodes, not the published catalog.
 - **info** reads the pack index. `--version v` also fetches that version's manifest.
 - **install** resolves the version, downloads the tarball, checks its `sha256` against the manifest `integrity`, and verifies the signature. Skip verification with `--no-verify`. Artifacts land under `~/.openwop/packs/{name}/{version}/` (override with `--dir`).
   - **v2 signature check:** `signing` must be exactly `{ keyId, scheme: "ed25519-canonical-json" }`. The detached 64-byte `.sig` must verify over the in-tarball `pack.json`, which must be RFC 8785 canonical JSON. The key is the registry's `signingKeys[]` entry for `keyId`, and its `permittedNamespaces` must cover the pack name. A key that is no longer `active` still verifies what it signed.
@@ -233,7 +233,7 @@ Every registry path is resolved through the registry's `/.well-known/openwop-reg
 
 ## Messaging & relay
 
-Connect chat channels (Signal / WhatsApp / iMessage) to the host so inbound messages drive workflow runs and replies are delivered back. Channels are a **host-extension** surface (`/v1/host/openwop-app/messaging`), not part of the normative OpenWOP wire — the protocol stays channel-agnostic.
+Connect chat channels (Signal / WhatsApp / iMessage) to the host so inbound messages drive workflow runs and replies are delivered back. Channels are a **host-extension** surface (`/host/openwop-app/messaging`), not part of the normative OpenWOP wire — the protocol stays channel-agnostic.
 
 ```bash
 openwop relay setup --channel signal --account +15551234   # risk notice + consent, then register + activate
@@ -296,7 +296,7 @@ openwop runs ancestry <runId>                             # RFC 0040 cross-host 
 openwop runs watch <runId> [--since N] [--stream-mode updates,messages]   # SSE follow, auto-resumes on a drop
 ```
 
-`runs events --since N` polls with the poll cursor (`afterSequence` under v2, `lastSequence` under v1; events with `sequence > N`). `runs events --follow` / `runs watch` stream over SSE instead, where `--since N` becomes the `Last-Event-ID` header (see §Protocol version support). `runs annotate` posts exactly one signal kind (`--rating 1-5` | `--label` | `--correction` | `--flag`), validated client-side. `runs debug-bundle --out <file>` saves the full event bundle to disk.
+`runs events --since N` polls with the poll cursor (`afterSequence`; events with `sequence > N`). `runs events --follow` / `runs watch` stream over SSE instead, where `--since N` becomes the `Last-Event-ID` header (see §Protocol version support). `runs annotate` posts exactly one signal kind (`--rating 1-5` | `--label` | `--correction` | `--flag`), validated client-side. `runs debug-bundle --out <file>` saves the full event bundle to disk.
 
 ## Operator surfaces
 
@@ -381,7 +381,7 @@ Exit codes: `0` success · `1` host/HTTP error (including consent not enabled) �
 
 ## MCP server mount
 
-An MCP client for the host's JSON-RPC server mount (RFC 0020) — a single JSON-RPC 2.0 endpoint at `POST /v1/host/openwop-app/mcp` speaking modelcontextprotocol.io 2025-06-18. The mount is **host-controlled**: it's env-gated (`OPENWOP_MCP_SERVER_ENABLED`, **OFF by default**) and the CLI cannot toggle it. When the mount isn't exposed the endpoint 404s and these commands **fail closed legibly** (exit 2).
+An MCP client for the host's JSON-RPC server mount (RFC 0020) — a single JSON-RPC 2.0 endpoint at `POST /host/openwop-app/mcp` speaking modelcontextprotocol.io 2025-06-18. The mount is **host-controlled**: it's env-gated (`OPENWOP_MCP_SERVER_ENABLED`, **OFF by default**) and the CLI cannot toggle it. When the mount isn't exposed the endpoint 404s and these commands **fail closed legibly** (exit 2).
 
 ```bash
 openwop mcp ping                                  # liveness probe of the mount
@@ -441,7 +441,7 @@ Identity `source` is one of `oidc | password | saml | scim | manual`. Exit codes
 
 ## Feature toggles
 
-`toggles` renders the caller's **resolved** feature-toggle assignments (a non-normative host extension under `/v1/host/openwop-app/feature-toggles/assignments`). The **host** is the sole authority — it resolves every toggle server-side from the authenticated principal — and the CLI only *displays* what the host returns. It **never** computes, asserts, or overrides a toggle decision locally, and it does not author config (the superadmin config surface is intentionally not exposed). When the host doesn't serve the surface the command fails closed (exit 2).
+`toggles` renders the caller's **resolved** feature-toggle assignments (a non-normative host extension under `/host/openwop-app/feature-toggles/assignments`). The **host** is the sole authority — it resolves every toggle server-side from the authenticated principal — and the CLI only *displays* what the host returns. It **never** computes, asserts, or overrides a toggle decision locally, and it does not author config (the superadmin config surface is intentionally not exposed). When the host doesn't serve the surface the command fails closed (exit 2).
 
 ```bash
 openwop toggles list                                             # every toggle's resolved state for you (incl. off)
@@ -559,7 +559,7 @@ The record is content-free by design (state, `interruptKind`, push config — ne
 ## Commerce & sales
 
 Host-extension groups over the reference host's commerce and sales surfaces
-(`/v1/host/openwop-app/{commerce,commerce-connect,promotions,recommendations,dealers,commissions,territories,sales-maps,crm}/…`,
+(`/host/openwop-app/{commerce,commerce-connect,promotions,recommendations,dealers,commissions,territories,sales-maps,crm}/…`,
 plus the public visitor routes `public-store`, `public-recommendations`, `partner`,
 `public-book`, `public-sign`, sent without auth). Each group's `--help` lists every
 command with the exact method + path it hits. Org-scoped commands take `--org <orgId>`;
@@ -588,7 +588,7 @@ Exit codes: `0` ok · `2` usage error / request rejected · `4` not signed in or
 
 ## Marketing surfaces
 
-Marketing features on the reference host's `/v1/host/openwop-app/*` extension
+Marketing features on the reference host's `/host/openwop-app/*` extension
 (each is feature-toggled and org-scoped host-side; the CLI renders the host's decision):
 
 ```bash
@@ -628,7 +628,7 @@ openwop config unset credentialRef
 ## Identity & operator administration
 
 Identity, RBAC, tenancy and operator surfaces of the reference host (all under
-`/v1/host/openwop-app/…`; each group's `--help` names the exact path). Super-admin
+`/host/openwop-app/…`; each group's `--help` names the exact path). Super-admin
 surfaces (`vault`, `site-config get|set`, `runtime-posture`, `maintenance`,
 `toggles admin`, `governance`, `billing` import/coupons/seats, `menu-config set tenant`,
 `brand get|set|asset`) fail **closed** with exit `4` and say how to get a super-admin
@@ -748,7 +748,7 @@ Input parsing for `runs create`:
 
 - `--input k=v` — each value is `JSON.parse`d first; on parse failure it falls back to a string. So `--input n=5` is the number `5`, `--input enabled=true` is the boolean `true`, `--input text=hello` is the string `"hello"`, and `--input list=[1,2,3]` is an array. Quote shell-special characters.
 - `--inputs-json '{"a":1}'` passes the whole `inputs` object as one JSON literal. Merged BEFORE `--input` pairs (which override).
-- `--wait` polls `GET /v1/runs/{runId}` every 250ms until terminal status or `--timeout-ms` (default 30000) elapses. Exit 0 only on `completed`.
+- `--wait` polls `GET /runs/{runId}` every 250ms until terminal status or `--timeout-ms` (default 30000) elapses. Exit 0 only on `completed`.
 
 Exit codes:
 

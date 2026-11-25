@@ -9,7 +9,7 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const B = '/v1/host/openwop-app/kicktodo';
+const B = '/host/openwop-app/kicktodo';
 
 export const KICKTODO_ROUTES: RouteCmd[] = [
   { words: ['readiness'], method: 'GET', path: `${B}/readiness`, bodyOnError: [503],

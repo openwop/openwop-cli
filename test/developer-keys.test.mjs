@@ -8,7 +8,7 @@ describe('developer-keys', () => {
     const cap = capture();
     const { calls, fetchImpl } = mockHost(() => ({ body: { keys: [{ keyId: 'dk:1', name: 'CI', scopes: ['runs:write'], createdAt: '2026-01-01' }, { keyId: 'dk:2', name: 'old', scopes: [], revokedAt: 'x' }] } }));
     assert.equal(await runCli(['developer-keys', 'list'], opts(fetchImpl, cap)), 0, cap.stderr);
-    assert.equal(calls[0].path, '/v1/host/openwop-app/developer-keys');
+    assert.equal(calls[0].path, '/host/openwop-app/developer-keys');
     assert.match(cap.stdout, /dk:1\s+CI\s+runs:write\s+active/);
     assert.match(cap.stdout, /dk:2\s+old\s+revoked/);
   });
@@ -37,7 +37,7 @@ describe('developer-keys', () => {
     assert.equal(await runCli(['developer-keys', 'revoke', 'dk:1'], opts(fetchImpl, cap)), 2);
     assert.equal(await runCli(['developer-keys', 'revoke', 'dk:1', '--yes'], opts(fetchImpl, cap)), 0, cap.stderr);
     assert.equal(calls[0].method, 'DELETE');
-    assert.equal(calls[0].path, '/v1/host/openwop-app/developer-keys/dk%3A1');
+    assert.equal(calls[0].path, '/host/openwop-app/developer-keys/dk%3A1');
   });
 
   it('401 → exit 4 with a sign-in hint', async () => {

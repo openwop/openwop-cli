@@ -19,9 +19,9 @@ export const SITE_CONFIG_HELP = `Usage:
   openwop site-config set --enabled true|false [--json]
 
 The host's system site switch (host extension).
-  public  GET /v1/host/openwop-app/public-site-config   anonymous: is the system site on (+ its org/slug)
-  get     GET /v1/host/openwop-app/site-config          [super-admin] the stored config
-  set     PUT /v1/host/openwop-app/site-config          [super-admin] turn the system site on/off
+  public  GET /host/openwop-app/public-site-config   anonymous: is the system site on (+ its org/slug)
+  get     GET /host/openwop-app/site-config          [super-admin] the stored config
+  set     PUT /host/openwop-app/site-config          [super-admin] turn the system site on/off
 
 \`get\`/\`set\` are SUPER-ADMIN gated; without a super-admin principal they fail closed
 with exit 4 and say how to get one. \`public\` sends no credentials.
@@ -41,14 +41,14 @@ export async function runSiteConfig(ctx: Ctx, argv: string[]) {
   let res;
   switch (sub) {
     case 'public':
-      res = await requestJson(ctx, '/v1/host/openwop-app/public-site-config', { auth: false });
+      res = await requestJson(ctx, '/host/openwop-app/public-site-config', { auth: false });
       break;
     case 'get':
-      res = await gatedRequest(ctx, '/v1/host/openwop-app/site-config', undefined, SURFACE, 'superadmin');
+      res = await gatedRequest(ctx, '/host/openwop-app/site-config', undefined, SURFACE, 'superadmin');
       break;
     case 'set':
       if (options.enabled === undefined) throw new CliError('Usage: openwop site-config set --enabled true|false', 2);
-      res = await gatedRequest(ctx, '/v1/host/openwop-app/site-config', { method: 'PUT', body: { enabled: parseBool('--enabled', options.enabled) } }, SURFACE, 'superadmin');
+      res = await gatedRequest(ctx, '/host/openwop-app/site-config', { method: 'PUT', body: { enabled: parseBool('--enabled', options.enabled) } }, SURFACE, 'superadmin');
       break;
     default:
       throw new CliError(`Unknown site-config command: ${sub}\nRun \`openwop site-config --help\` for usage.`);

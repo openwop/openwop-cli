@@ -4,9 +4,9 @@ import type { Ctx } from '../context.js';
  * follow-ons: ADR 0238 partial refunds, ADR 0257 typed product fields, ADR 0279
  * product subscriptions, ADR 0296 order bumps / one-click upsell, ADR 0297
  * affiliate payouts). Operator routes live under
- * `/v1/host/openwop-app/commerce/orgs/:orgId` (toggle `commerce`,
+ * `/host/openwop-app/commerce/orgs/:orgId` (toggle `commerce`,
  * authorizeOrgScope: read = workspace:read, write = workspace:write); the
- * anonymous storefront lives under `/v1/host/openwop-app/public-store/:orgId`
+ * anonymous storefront lives under `/host/openwop-app/public-store/:orgId`
  * and is driven here as the `commerce public …` family (sent WITHOUT the bearer).
  *
  * Money posture: the host resolves every price, total, tax, discount and charge;
@@ -19,8 +19,8 @@ import type { Ctx } from '../context.js';
 import { COMMERCE_UCP_SPECS, COMMERCE_UCP_INTRO, runCommerceUcpCustom } from './commerceUcp.js';
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
-const O = '/v1/host/openwop-app/commerce/orgs/:org';
-const P = '/v1/host/openwop-app/public-store/:org';
+const O = '/host/openwop-app/commerce/orgs/:org';
+const P = '/host/openwop-app/public-store/:org';
 
 const PRODUCT_FIELDS = [
   'type', 'description', 'price:number', 'currency', 'imageAssetTokens:json', 'downloadAssetTokens:json',
@@ -109,8 +109,8 @@ const COMMERCE_CORE_SPECS: CommandSpec[] = [
 export const COMMERCE_SPECS: CommandSpec[] = [...COMMERCE_CORE_SPECS, ...COMMERCE_UCP_SPECS];
 
 const COMMERCE_INTRO = `
-E-commerce (host-extension /v1/host/openwop-app/commerce/orgs/<orgId>/…, org-scoped;
-the public storefront is /v1/host/openwop-app/public-store/<orgId>/… and is
+E-commerce (host-extension /host/openwop-app/commerce/orgs/<orgId>/…, org-scoped;
+the public storefront is /host/openwop-app/public-store/<orgId>/… and is
 called without credentials). Products, typed product fields, orders (pay /
 refund / partial-refund / cancel / fulfillment), the per-user cart, price lists
 with a "view as buyer" price preview, quotes, coupons, product subscriptions,

@@ -13,7 +13,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { gatedRequest, readBodyOption } from './adminShared.js';
 
-const BASE = '/v1/host/openwop-app/menu-config';
+const BASE = '/host/openwop-app/menu-config';
 
 export const MENU_CONFIG_HELP = `Usage:
   openwop menu-config [get] [--json]

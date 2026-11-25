@@ -2,10 +2,10 @@ import type { Ctx } from '../context.js';
 /**
  * Request helpers shared by the protocol/run command groups:
  *
- *  - `requestNormativeOrHost` — prefer a normative `/v1/<op>` read and fall
- *    back to the host-extension `/v1/host/openwop-app/<op>` twin when the host
+ *  - `requestNormativeOrHost` — prefer a normative `/<op>` read and fall
+ *    back to the host-extension `/host/openwop-app/<op>` route when the host
  *    does not serve the normative operation (404 / 405 / 501), or refuses it
- *    for want of ANY credential (RFC 0200 §B.1) while the demo twin still
+ *    for want of ANY credential (RFC 0200 §B.1) while the demo route still
  *    admits anonymous callers. Golden rule 1: prefer normative, fall back for
  *    demo surfaces, and say which.
  *  - `hostRunSegment` — a run id as one host-extension path segment (v2-projected).
@@ -15,7 +15,7 @@ import type { Ctx } from '../context.js';
 import { CliError, HttpError, errorEnvelope, isNoCredentialChallenge } from '../errors.js';
 import { writeLine } from '../io.js';
 import { requestJson, type RequestOptions } from '../api.js';
-import { negotiateMajor, resolveRequest } from '../protocol.js';
+import { resolveRequest } from '../protocol.js';
 import { projectTenantBoundId } from '../ids.js';
 
 /** Statuses that mean "this host does not serve that operation" (not "that record is absent"). */
@@ -88,7 +88,7 @@ export async function requestNormativeOrHost(
     throw err;
   }
   if (anonymousRetryOf) {
-    // Name the path the request actually went to (under v2 the host root, not the /v1 twin).
+    // Name the path the request actually went to (run ids projected).
     const sent = (await resolveRequest(ctx, hostPath, {})).path;
     writeLine(ctx.io.stderr, `openwop: no credential sent — showing this host's anonymous view (${sent}), not your workspace. Pass --api-key, or run \`openwop onboard\` to save one.`);
   } else if (ctx.verbose) {
@@ -112,12 +112,12 @@ export function failClosedOn404(err: unknown, surface: string): never {
 }
 
 /**
- * One path segment for a run id on a HOST-EXTENSION route (`/v1/host/openwop-app/runs/{runId}/…`).
- * Manifest routes get the identity.md §5 projection automatically (src/protocol.ts); host
- * routes do not, so under major 2 — where a runId is tenant-bound (`acme/r-…`) — project it
- * here too (`acme~2Fr-…`): a percent-encoded `%2F` is decoded by some front doors into two
- * segments and 404s. Under major 1 it is plain `encodeURIComponent`.
+ * One path segment for a run id on a HOST-EXTENSION route (`/host/openwop-app/runs/{runId}/…`).
+ * `/runs/{runId}…` paths get the identity.md §5 projection automatically (src/protocol.ts);
+ * host routes do not, so a tenant-bound runId (`acme/r-…`) is projected here too
+ * (`acme~2Fr-…`): a percent-encoded `%2F` is decoded by some front doors into two segments
+ * and 404s. Async (and taking ctx) so callers keep one call shape.
  */
-export async function hostRunSegment(ctx: Ctx, runId: string): Promise<string> {
-  return (await negotiateMajor(ctx)) === 2 ? projectTenantBoundId(runId) : encodeURIComponent(runId);
+export async function hostRunSegment(_ctx: Ctx, runId: string): Promise<string> {
+  return projectTenantBoundId(runId);
 }

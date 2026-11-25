@@ -11,7 +11,7 @@ import type { Ctx } from '../context.js';
  */
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const R = '/v1/host/openwop-app/job-search';
+const R = '/host/openwop-app/job-search';
 const O = `${R}/orgs/:orgId`;
 
 export const JOB_SEARCH_ROUTES: RouteCmd[] = [

@@ -5,7 +5,7 @@
  * ADR 0213 contact custom fields, ADR 0217/0251 suppression list, ADR 0252
  * Gmail → CRM activity sync, ADR 0263/0264 identifiers + probabilistic match +
  * reversible merge, ADR 0265 segment insights, ADR 0297 lead score).
- * Host-extension routes under `/v1/host/openwop-app/crm/*` (toggle `crm`).
+ * Host-extension routes under `/host/openwop-app/crm/*` (toggle `crm`).
  * Concatenates the org-scoped specs from crmOrg.ts.
  *
  * The host is the authority for every decision here: a merge proposal queues
@@ -15,7 +15,7 @@
 import type { CommandSpec } from './resourceCommands.js';
 import { CRM_ORG_SPECS, CRM_ORG_INTRO } from './crmOrg.js';
 
-const C = '/v1/host/openwop-app/crm';
+const C = '/host/openwop-app/crm';
 
 const CRM_TENANT_SPECS: CommandSpec[] = [
   // ── Contacts (beyond list/get/create/update/delete/triage) ──

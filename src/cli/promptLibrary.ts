@@ -5,7 +5,7 @@ import type { Ctx } from '../context.js';
  *
  * Library entries are named, tagged pointers (`promptRef`) at a prompt-store
  * template (`openwop prompts`, RFC 0029). Driven through
- * /v1/host/openwop-app/prompts/orgs/{orgId}/entries[/{entryId}[/render]]:
+ * /host/openwop-app/prompts/orgs/{orgId}/entries[/{entryId}[/render]]:
  * list/get/render need workspace:read, create/update/delete workspace:write.
  * A foreign or unknown entry is a uniform 404; a `promptRef` that names no
  * template is refused by the host.
@@ -17,7 +17,7 @@ import { requestJson } from '../api.js';
 import { requireOrg } from './shared.js';
 import { parseJsonFlag } from './contentHelpers.js';
 
-const entries = (org: string) => `/v1/host/openwop-app/prompts/orgs/${encodeURIComponent(org)}/entries`;
+const entries = (org: string) => `/host/openwop-app/prompts/orgs/${encodeURIComponent(org)}/entries`;
 
 export const PROMPT_LIBRARY_HELP = `Usage:
   openwop prompts library list --org <orgId> [--json]
@@ -28,7 +28,7 @@ export const PROMPT_LIBRARY_HELP = `Usage:
   openwop prompts library render <entryId> --org <orgId> [--variables-json '{...}'] [--json]
 
 An org's prompt library (ADR 0116, host-extension). Every command hits
-/v1/host/openwop-app/prompts/orgs/{orgId}/entries[/{entryId}]:
+/host/openwop-app/prompts/orgs/{orgId}/entries[/{entryId}]:
 
   list    GET    …/entries
   get     GET    …/entries/{entryId}
@@ -39,7 +39,7 @@ An org's prompt library (ADR 0116, host-extension). Every command hits
           template and substitutes the variables (untrusted values are fenced).
 
 A --tag list on update replaces the entry's tags. For the protocol prompt store
-itself (templates, PromptRefs, /v1/prompts:render) use \`openwop prompts\`.
+itself (templates, PromptRefs, /prompts:render) use \`openwop prompts\`.
 
 Examples:
   openwop prompts library list --org org_1

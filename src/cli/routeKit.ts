@@ -2,7 +2,7 @@ import type { Ctx } from '../context.js';
 /**
  * Declarative subcommand kit for host-extension route families.
  *
- * Many `/v1/host/openwop-app/*` surfaces are thin CRUD families (dozens of
+ * Many `/host/openwop-app/*` surfaces are thin CRUD families (dozens of
  * routes per feature). Rather than hand-roll one function per route, a group
  * declares a `RouteCmd[]` table — the words, the method + path template, the
  * query/body flags (named after the host's own field names) — and this module

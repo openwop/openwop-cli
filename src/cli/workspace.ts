@@ -14,7 +14,7 @@ import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
  * including production). Operators use it to reproduce a conformance scenario.
  */
 export const WORKSPACE_ROUTES: RouteCmd[] = [
-  { words: ['op'], method: 'POST', path: '/v1/host/openwop-app/workspace/op',
+  { words: ['op'], method: 'POST', path: '/host/openwop-app/workspace/op',
     summary: 'Test seam: run one workspace op (list | get | put | delete) as an explicit --tenant/--workspace owner.',
     body: [
       { flag: '--tenant', key: 'tenant', required: true },
@@ -39,11 +39,9 @@ ${routesHelp('workspace', WORKSPACE_ROUTES)}
 Agent workspace (RFC 0059 §C). A tenant-scoped file area an agent reads and
 writes during a run, with optimistic concurrency via ETag / If-Match (WCT-1
 cross-owner isolation is enforced host-side). Drives GET/PUT/DELETE
-/v1/host/workspace/files. v2 names no canonical workspace operation: its only
-v2 home is the conformance seams profile, so on a host that speaks major 2 AND
-advertises conformance.seamsProfile "openwop-conformance-seams-v2" the same
-calls go to /conformance/seams/workspace/files (OpenWOP-Version: 2.0);
-otherwise the v1 path is used. (The /v1/host/openwop-app/workspace/op
+/conformance/seams/workspace/files (OpenWOP-Version: 2.0): v2 names no
+canonical workspace operation, and its only v2 home is the conformance seams
+profile (api/seams-v2.yaml). (The /host/openwop-app/workspace/op
 cross-owner seam is a conformance-only test seam — reachable here as
 \`workspace op\`, and only on a host started with OPENWOP_TEST_SEAM_ENABLED=true.)
 
@@ -80,7 +78,7 @@ async function wsList(ctx: Ctx, argv: string[]) {
   const { options } = parseOptions(argv, { bool: ['--help'], value: ['--prefix'] });
   if (options.help) { write(ctx.io.stdout, WORKSPACE_HELP); return 0; }
   const q = options.prefix ? `?prefix=${encodeURIComponent(options.prefix)}` : '';
-  const res = await requestJson(ctx, `/v1/host/workspace/files${q}`);
+  const res = await requestJson(ctx, `/conformance/seams/workspace/files${q}`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const files = Array.isArray(res.body?.files) ? res.body.files : [];
   if (files.length === 0) { writeLine(ctx.io.stdout, 'No files in the workspace.'); return 0; }
@@ -96,7 +94,7 @@ async function wsList(ctx: Ctx, argv: string[]) {
 async function wsGet(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop workspace get <path> [--json]\n'); return options.help ? 0 : 2; }
-  const res = await requestJson(ctx, `/v1/host/workspace/files/${encodeURIComponent(positionals[0])}`);
+  const res = await requestJson(ctx, `/conformance/seams/workspace/files/${encodeURIComponent(positionals[0])}`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const f = res.body ?? {};
   if (f.etag) writeLine(ctx.io.stderr, `# etag: ${f.etag}${f.contentType ? `  contentType: ${f.contentType}` : ''}`);
@@ -124,7 +122,7 @@ async function wsPut(ctx: Ctx, argv: string[]) {
   if (options.contentType) body.contentType = options.contentType;
   const headers: Record<string, string> = {};
   if (options.ifMatch) headers['if-match'] = options.ifMatch;
-  const res = await requestJson(ctx, `/v1/host/workspace/files/${encodeURIComponent(positionals[0])}`, { method: 'PUT', body, headers });
+  const res = await requestJson(ctx, `/conformance/seams/workspace/files/${encodeURIComponent(positionals[0])}`, { method: 'PUT', body, headers });
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   writeLine(ctx.io.stdout, `Wrote ${positionals[0]}${res.body?.etag ? ` (etag ${res.body.etag})` : ''}.`);
   return 0;
@@ -134,7 +132,7 @@ async function wsDelete(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help', '--yes'] });
   if (options.help || positionals.length !== 1) { write(ctx.io.stdout, 'Usage: openwop workspace delete <path> [--yes]\n'); return options.help ? 0 : 2; }
   if (!options.yes) { writeLine(ctx.io.stderr, `Refusing to delete ${positionals[0]} without --yes.`); return 2; }
-  await requestJson(ctx, `/v1/host/workspace/files/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
+  await requestJson(ctx, `/conformance/seams/workspace/files/${encodeURIComponent(positionals[0])}`, { method: 'DELETE' });
   writeLine(ctx.io.stdout, `Deleted ${positionals[0]}.`);
   return 0;
 }

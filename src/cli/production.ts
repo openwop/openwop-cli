@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop production ...` — Production Intelligence (openwop-app ADR 0172:
  * vendor directory + generated production plans; ADR 0643 D6: the vendor KB
  * `reindex-kb` repair lane). Host-extension, org-scoped:
- * `/v1/host/openwop-app/production/orgs/<orgId>/...`. Plan GENERATION is a
+ * `/host/openwop-app/production/orgs/<orgId>/...`. Plan GENERATION is a
  * workflow run, not a route — this group reads plans and moves their advisory
  * status. Vendor pricing is redacted by the host for callers without
  * host:members:manage; the CLI renders whatever the host returns.
@@ -15,7 +15,7 @@ import { parseOptions } from '../options.js';
 import { requireOrg } from './shared.js';
 import { csv, enc, mergeBody, pickArray, renderDone, renderList, withQuery } from './contentHelpers.js';
 
-const base = (org: string) => `/v1/host/openwop-app/production/orgs/${enc(org)}`;
+const base = (org: string) => `/host/openwop-app/production/orgs/${enc(org)}`;
 
 export const PRODUCTION_HELP = `Usage:
   openwop production plans list --org <orgId> [--json]
@@ -30,7 +30,7 @@ export const PRODUCTION_HELP = `Usage:
   openwop production reindex-kb --org <orgId> [--json]
 
 Production Intelligence (host-extension, ADR 0172). Hits
-/v1/host/openwop-app/production/orgs/<orgId>/{plans,vendors,reindex-kb}.
+/host/openwop-app/production/orgs/<orgId>/{plans,vendors,reindex-kb}.
 
 create/update map flags to the host fields (companyId, contactEmail, website,
 region, contractStatus, notes, type, name); pass capabilities, priceRanges,

@@ -4,8 +4,8 @@ import type { Ctx } from '../context.js';
  * (openwop-app computer-use feature; RFC 0065 computer-use tooling).
  *
  * Read-only, org-scoped host extension:
- *   GET /v1/host/openwop-app/computer-use/orgs/{orgId}/sessions
- *   GET /v1/host/openwop-app/computer-use/orgs/{orgId}/sessions/{sessionId}
+ *   GET /host/openwop-app/computer-use/orgs/{orgId}/sessions
+ *   GET /host/openwop-app/computer-use/orgs/{orgId}/sessions/{sessionId}
  * Gated on the `computer-use` feature toggle and workspace read access; the
  * host answers 404 when the feature is off for the workspace.
  */
@@ -21,7 +21,7 @@ export const COMPUTER_USE_HELP = `Usage:
   openwop computer-use session <sessionId> --org <orgId> [--json]
 
 Browser-agent (computer-use) sessions an org's agents ran:
-GET /v1/host/openwop-app/computer-use/orgs/{orgId}/sessions[/{sessionId}].
+GET /host/openwop-app/computer-use/orgs/{orgId}/sessions[/{sessionId}].
 'session' prints the full step log. Needs workspace read access and the
 computer-use feature enabled for the workspace (404 otherwise).
 
@@ -37,7 +37,7 @@ export async function runComputerUse(ctx: Ctx, argv: string[]): Promise<number> 
   if (sub === '--help' || sub === '-h') { write(ctx.io.stdout, COMPUTER_USE_HELP); return 0; }
   const { options, positionals } = parseOptions(argv.slice(1), { bool: ['--help'], value: ['--org'] });
   if (options.help) { write(ctx.io.stdout, COMPUTER_USE_HELP); return 0; }
-  const base = `/v1/host/openwop-app/computer-use/orgs/${enc(requireOrg(options.org))}/sessions`;
+  const base = `/host/openwop-app/computer-use/orgs/${enc(requireOrg(options.org))}/sessions`;
   if (sub === 'sessions' || sub === 'list') {
     const res = await requestJson(ctx, base);
     return emit(ctx, res.body, () => {

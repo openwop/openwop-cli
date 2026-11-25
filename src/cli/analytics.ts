@@ -6,8 +6,8 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const ANALYTICS_BASE = '/v1/host/openwop-app/analytics/orgs';
-const PUBLIC_BASE = '/v1/host/openwop-app/public-analytics';
+const ANALYTICS_BASE = '/host/openwop-app/analytics/orgs';
+const PUBLIC_BASE = '/host/openwop-app/public-analytics';
 
 // Mirror the host wire enum EXACTLY (analyticsService.ts EVENT_TYPES).
 const EVENT_TYPES = ['pageview', 'event', 'conversion'] as const;
@@ -17,9 +17,9 @@ export const ANALYTICS_ROUTES: RouteCmd[] = [
   { words: ['trend'], method: 'GET', path: `${ANALYTICS_BASE}/:orgId/trend`, summary: 'Daily pageviews / events / conversions / uniques over the window.',
     query: [{ flag: '--days', key: 'days', type: 'number', required: true, help: '7 | 30 | 90' }],
     table: { key: 'trend', columns: ['day', 'pageviews', 'events', 'conversions', 'uniques', 'partial'], empty: 'No data in the window.' } },
-  { words: ['nav', 'report'], method: 'GET', path: '/v1/host/openwop-app/analytics/nav/report', summary: 'Workspace navigation telemetry: which routes people reach, and from where (last 6 weeks).',
+  { words: ['nav', 'report'], method: 'GET', path: '/host/openwop-app/analytics/nav/report', summary: 'Workspace navigation telemetry: which routes people reach, and from where (last 6 weeks).',
     table: { key: 'rows', columns: ['route', 'source', 'count'], empty: 'No navigation recorded.' } },
-  { words: ['nav', 'record'], method: 'POST', path: '/v1/host/openwop-app/analytics/nav', summary: 'Record one navigation (202; invalid or capped input is dropped, not rejected).',
+  { words: ['nav', 'record'], method: 'POST', path: '/host/openwop-app/analytics/nav', summary: 'Record one navigation (202; invalid or capped input is dropped, not rejected).',
     body: [{ flag: '--route', key: 'route', required: true }, { flag: '--source', key: 'source', required: true, help: 'sidebar | palette | hub | breadcrumb | deep-link | in-app-link | admin-rail' }] },
 ];
 
@@ -35,7 +35,7 @@ Endpoints:
   GET  ${ANALYTICS_BASE}/:orgId/summary   aggregate usage rollup     [authed, workspace:read]
   GET  ${ANALYTICS_BASE}/:orgId/events    recent raw events (max 100) [authed, workspace:read]
   POST ${PUBLIC_BASE}/:orgId/collect              record one event           [PUBLIC, unauthed]
-  GET  /v1/host/openwop-app/usage/orgs/:orgId/rollup  AI token usage + cost estimate per provider/model
+  GET  /host/openwop-app/usage/orgs/:orgId/rollup  AI token usage + cost estimate per provider/model
                                                       [authed, host:members:manage, toggle 'usage-analytics']
        (a model with no known rate shows cost '?' — never a fabricated 0)
 
@@ -212,7 +212,7 @@ async function runRollup(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, 'Usage: openwop analytics rollup <orgId> [--json]\n');
     return options.help ? 0 : 2;
   }
-  const res = await requestJson(ctx, `/v1/host/openwop-app/usage/orgs/${encodeURIComponent(positionals[0])}/rollup`);
+  const res = await requestJson(ctx, `/host/openwop-app/usage/orgs/${encodeURIComponent(positionals[0])}/rollup`);
   if (ctx.json) { writeJson(ctx.io.stdout, res.body); return 0; }
   const rows = Array.isArray(res.body?.rollup) ? res.body.rollup : [];
   if (rows.length === 0) { writeLine(ctx.io.stdout, 'No AI usage recorded for this workspace yet.'); return 0; }

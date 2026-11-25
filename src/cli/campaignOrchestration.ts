@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const BASE = '/v1/host/openwop-app/campaign-orchestration/campaigns';
+const BASE = '/host/openwop-app/campaign-orchestration/campaigns';
 
 /** Read-only campaign projections: the workspace (ADR 0356 P2), revision history, ad dispatch ledger. */
 export const CAMPAIGNS_ORCH_ROUTES: RouteCmd[] = [
@@ -67,7 +67,7 @@ export async function runCampaignsOrch(ctx: Ctx, argv: string[]) {
     case 'finalize': {
       if (!id) { write(ctx.io.stderr, 'Usage: openwop campaigns-orchestration finalize <campaignId> [--yes]\n'); return 2; }
       if (!options.yes) throw new CliError(`Refusing to finalize campaign ${id} without --yes.`, 2);
-      const res = await requestJson(ctx, `/v1/host/openwop-app/campaign-orchestration/finalize`, { method: 'POST', body: { campaignId: id } });
+      const res = await requestJson(ctx, `/host/openwop-app/campaign-orchestration/finalize`, { method: 'POST', body: { campaignId: id } });
       if (ctx.json) writeJson(ctx.io.stdout, res.body); else writeLine(ctx.io.stdout, `Finalized campaign ${id}.`); return 0;
     }
     default: throw new CliError(`Unknown campaigns-orchestration command: ${sub}`);

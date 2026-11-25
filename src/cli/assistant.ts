@@ -4,7 +4,7 @@ import type { Ctx } from '../context.js';
  * (openwop-app ADR 0023 executive assistant, ADR 0025 approval loop, ADR 0029
  * operating metrics, ADR 0043 workspace conversation, ADR 0662 approve-what-you-see).
  *
- * Host-extension surface under /v1/host/openwop-app/assistant/*, scoped to the
+ * Host-extension surface under /host/openwop-app/assistant/*, scoped to the
  * caller's active workspace. The host is the authority for every decision: an
  * action is approved/rejected THROUGH its approval act (a CAS on the host), and
  * an approve MUST carry the content hash of the draft you read — the CLI never
@@ -17,7 +17,7 @@ import { requestJson } from '../api.js';
 import { enc, emit, writeFields } from './chatShared.js';
 import { readBodyOption } from './contentHelpers.js';
 
-const BASE = '/v1/host/openwop-app/assistant';
+const BASE = '/host/openwop-app/assistant';
 
 export const ASSISTANT_HELP = `Usage:
   openwop assistant workspace [--json]
@@ -32,7 +32,7 @@ export const ASSISTANT_HELP = `Usage:
   openwop assistant health [--json]
 
 The executive assistant's work graph on the server
-(/v1/host/openwop-app/assistant/*): projects, commitments, decisions, meetings,
+(/host/openwop-app/assistant/*): projects, commitments, decisions, meetings,
 stakeholders, the drafted-action approval queue, and the perception loops.
 
   workspace       POST …/workspace-conversation — open/resume YOUR workspace chat

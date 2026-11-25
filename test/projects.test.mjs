@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const P = '/v1/host/openwop-app/projects/p1';
+const P = '/host/openwop-app/projects/p1';
 
 describe('projects (extended)', () => {
   it('update sends workflows as an array and charter as JSON', async () => {

@@ -7,7 +7,7 @@ import { requestJson } from '../api.js';
 import { buildGroupHelp, runResourceGroup } from './resourceCommands.js';
 import { CRM_EXT_SPECS, CRM_EXT_INTRO } from './crmExt.js';
 
-const BASE = '/v1/host/openwop-app/crm/contacts';
+const BASE = '/host/openwop-app/crm/contacts';
 
 export const CRM_HELP = `Usage:
   openwop crm list [--stage <s>] [--json]

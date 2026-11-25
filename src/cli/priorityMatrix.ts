@@ -6,9 +6,9 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const LISTS = '/v1/host/openwop-app/priority-matrix/lists';
+const LISTS = '/host/openwop-app/priority-matrix/lists';
 
-const PM = '/v1/host/openwop-app/priority-matrix';
+const PM = '/host/openwop-app/priority-matrix';
 const L = `${LISTS}/:listId`;
 const I = `${L}/ideas/:cardId`;
 const SS = `${L}/sessions/:sessionId`;

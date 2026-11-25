@@ -20,7 +20,7 @@ describe('vault', () => {
     const code = await runCli(['vault', 'list'], opts(fetchImpl, cap));
     assert.equal(code, 0, cap.stderr);
     assert.equal(calls[0].method, 'GET');
-    assert.equal(calls[0].path, '/v1/host/openwop-app/vault');
+    assert.equal(calls[0].path, '/host/openwop-app/vault');
     assert.match(cap.stdout, /tenant\s+slack-bot\s+raw/);
     assert.match(cap.stdout, /host\s+billing:stripe-key/);
     assert.match(cap.stdout, /connection:c1\s+connection\/google\s+active/);
@@ -45,7 +45,7 @@ describe('vault', () => {
     const code = await runCli(['vault', 'set', 'billing:stripe-key', '--scope', 'host', '--value-file', file], opts(fetchImpl, cap));
     assert.equal(code, 0, cap.stderr);
     assert.equal(calls[0].method, 'POST');
-    assert.equal(calls[0].path, '/v1/host/openwop-app/vault/secrets');
+    assert.equal(calls[0].path, '/host/openwop-app/vault/secrets');
     assert.deepEqual(calls[0].body, { value: 'sk_live_supersecret', scope: 'host', credentialRef: 'billing:stripe-key' });
     assert.doesNotMatch(cap.stdout + cap.stderr, /supersecret/);
   });
@@ -57,7 +57,7 @@ describe('vault', () => {
     const cap = capture();
     const { calls, fetchImpl } = mockHost(() => ({ body: { credentialRef: 'a:b', rotated: true } }));
     assert.equal(await runCli(['vault', 'rotate', 'a:b', '--value-file', file], opts(fetchImpl, cap)), 0, cap.stderr);
-    assert.equal(calls[0].path, '/v1/host/openwop-app/vault/secrets/a%3Ab/rotate');
+    assert.equal(calls[0].path, '/host/openwop-app/vault/secrets/a%3Ab/rotate');
     assert.deepEqual(calls[0].body, { value: 'new' });
   });
 

@@ -4,10 +4,10 @@ import type { Ctx } from '../context.js';
  * `allow` verdict + deny modes are ADR 0397): composition rules the host checks
  * before an agent combines capabilities (e.g. "reads secrets" WITH "sends out").
  *
- *   GET|PUT /v1/host/openwop-app/capability-firewall/orgs/{orgId}/rules
- *   GET     /v1/host/openwop-app/capability-firewall/orgs/{orgId}/decisions[?limit]
- *   POST    /v1/host/openwop-app/capability-firewall/orgs/{orgId}/simulate
- *   GET|PUT /v1/host/openwop-app/capability-firewall/platform/rules   (super-admin)
+ *   GET|PUT /host/openwop-app/capability-firewall/orgs/{orgId}/rules
+ *   GET     /host/openwop-app/capability-firewall/orgs/{orgId}/decisions[?limit]
+ *   POST    /host/openwop-app/capability-firewall/orgs/{orgId}/simulate
+ *   GET|PUT /host/openwop-app/capability-firewall/platform/rules   (super-admin)
  *
  * The rule set is tenant-wide policy. The host evaluates every rule and every
  * simulation; the CLI never computes a verdict — `simulate` prints the host's.
@@ -16,8 +16,8 @@ import { CliError } from '../errors.js';
 import { gateAdvice } from './adminShared.js';
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
-const O = '/v1/host/openwop-app/capability-firewall/orgs/:org';
-const PLATFORM = '/v1/host/openwop-app/capability-firewall/platform/rules';
+const O = '/host/openwop-app/capability-firewall/orgs/:org';
+const PLATFORM = '/host/openwop-app/capability-firewall/platform/rules';
 
 export const CAPABILITY_FIREWALL_SPECS: CommandSpec[] = [
   { cmd: ['rules'], method: 'GET', route: `${O}/rules`, summary: 'The rule set, unknown-tool policy, mode (default-allow | shadow | enforce) and default-deny verdict.' },

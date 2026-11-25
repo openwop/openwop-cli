@@ -1,6 +1,6 @@
 import type { Ctx } from '../context.js';
 /** `openwop catalog ...` — list the host node catalog + installed packs. */
-import { CliError, HttpError } from '../errors.js';
+import { CliError } from '../errors.js';
 import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
@@ -16,18 +16,17 @@ export const CATALOG_HELP = `Usage:
 
 \`packs\` reads the packs INSTALLED ON THE HOST (--base-url), not the pack
 registry (\`openwop packs\` operates packs.openwop.dev):
-  list    GET /v1/packs              — installed packs, their node types and agents
-  search  GET /v1/packs/-/search?q=  — node type ids containing <query>
-  get     GET /v1/packs/{packName}   — one pack's node types (reverse-DNS name)
-  export  GET /v1/packs/export       — the installed agent manifests (RFC 0003
+  list    GET /host/openwop-app/packs              — installed packs, their node types and agents
+  search  GET /host/openwop-app/packs/-/search?q=  — node type ids containing <query>
+  get     GET /host/openwop-app/packs/{packName}   — one pack's node types (reverse-DNS name)
+  export  GET /host/openwop-app/packs/export       — the installed agent manifests (RFC 0003
           round-trip), re-installable elsewhere; --out writes them to a file.
-These four are v1 operations: protocol v2 names no installed-packs operation
-(spec/v2/path-manifest.json, api/v2/openapi.yaml), so they are sent as the v1
-paths whichever major the host speaks. To read the published catalog, use
+Protocol v2 names no installed-packs operation (spec/v2/path-manifest.json), so
+these are host-extension reads. To read the published catalog, use
 \`openwop packs\`, which resolves the registry's v2 tree.
 
-\`tools\` reads the portable tool catalog (RFC 0078 §B) — GET /v1/tools, or
-GET /v1/tools/<toolId> for one descriptor. This is the tools an agent/workflow
+\`tools\` reads the portable tool catalog (RFC 0078 §B) — GET /tools, or
+GET /tools/<toolId> for one descriptor. This is the tools an agent/workflow
 may call, distinct from the node catalog + installed packs.
 `;
 
@@ -50,11 +49,11 @@ export async function runCatalog(ctx: Ctx, argv: string[]) {
   }
 }
 
-/** GET /v1/tools (+ /v1/tools/{toolId}) — the portable tool catalog (RFC 0078 §B). */
+/** GET /tools (+ /tools/{toolId}) — the portable tool catalog (RFC 0078 §B). */
 async function runCatalogTools(ctx: Ctx, argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'] });
   if (options.help) { write(ctx.io.stdout, CATALOG_HELP); return 0; }
-  const path = positionals.length === 1 ? `/v1/tools/${encodeURIComponent(positionals[0])}` : '/v1/tools';
+  const path = positionals.length === 1 ? `/tools/${encodeURIComponent(positionals[0])}` : '/tools';
   const res = await requestJson(ctx, path);
   if (ctx.json || positionals.length === 1) { writeJson(ctx.io.stdout, res.body); return 0; }
   const tools = Array.isArray(res.body?.tools) ? res.body.tools : Array.isArray(res.body) ? res.body : [];
@@ -75,7 +74,7 @@ async function runCatalogNodes(ctx: Ctx, argv: string[]) {
     write(ctx.io.stdout, CATALOG_HELP);
     return 0;
   }
-  const res = await requestJson(ctx, '/v1/host/openwop-app/node-catalog');
+  const res = await requestJson(ctx, '/host/openwop-app/node-catalog');
   let nodes = Array.isArray(res.body.nodes) ? res.body.nodes : [];
   if (options.search) {
     const q = String(options.search).toLowerCase();
@@ -116,24 +115,16 @@ async function runCatalogPacks(ctx: Ctx, argv: string[] = []) {
 }
 
 /**
- * The host's installed-pack reads. On openwop-app they live at the vendor
- * address (`/v1/host/openwop-app/packs…`, which the protocol layer rewrites to
- * the advertised unversioned `/host/openwop-app/` root under major 2) because
- * the `/v1/packs` Registry HTTP API retires with v1 (end-of-support
- * 2026-10-04). A host that predates the vendor alias answers it 404, and only
- * then is the v1 path tried, so the command works against every host version on
- * either side of the cut.
+ * The host's installed-pack reads, at the vendor address
+ * `/host/openwop-app/packs…`. The major-1 installed-packs Registry HTTP API ended with
+ * major 1 (end of support 2026-10-04, RFC 0234) and has no v2 operation, so
+ * there is no fallback.
  */
 async function catalogRead(ctx: Ctx, rest: string, options: { auth?: boolean } = {}) {
-  try {
-    return await requestJson(ctx, `/v1/host/openwop-app/packs${rest}`, options);
-  } catch (err) {
-    if (err instanceof HttpError && err.status === 404) return requestJson(ctx, `/v1/packs${rest}`, options);
-    throw err;
-  }
+  return requestJson(ctx, `/host/openwop-app/packs${rest}`, options);
 }
 
-/** GET /v1/packs/-/search · /v1/packs/{name} · /v1/packs/export — the host's installed-pack reads. */
+/** GET /host/openwop-app/packs/-/search · …/packs/{name} · …/packs/export — the host's installed-pack reads. */
 async function runCatalogPacksVerb(ctx: Ctx, verb: 'search' | 'get' | 'export', argv: string[]) {
   const { options, positionals } = parseOptions(argv, { bool: ['--help'], value: ['--out'] });
   if (options.help) { write(ctx.io.stdout, CATALOG_HELP); return 0; }

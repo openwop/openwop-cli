@@ -3,7 +3,7 @@ import type { Ctx } from '../context.js';
  * `openwop campaign-intel ...` — campaign intelligence (ADR 0160, over the
  * ADR 0159 performance records).
  *
- * Surface: /v1/host/openwop-app/campaign-intel/* (toggle `campaign-intel`; every
+ * Surface: /host/openwop-app/campaign-intel/* (toggle `campaign-intel`; every
  * read needs workspace:read in the org; `apply` needs workspace:write).
  */
 import { requestJson } from '../api.js';
@@ -25,7 +25,7 @@ export const CAMPAIGN_INTEL_HELP = `Usage:
   openwop campaign-intel apply --org <orgId> --platform <p> --ad-account <id> --campaign <id> --daily-budget-minor <n> (--dry-run | --yes) [--json]
 
 Campaign intelligence (ADR 0160) over the imported performance records. Every
-command needs --org and hits /v1/host/openwop-app/campaign-intel/*:
+command needs --org and hits /host/openwop-app/campaign-intel/*:
   budget       GET …/budget — the budget optimizer's reallocation suggestion.
   forecast     GET …/forecast — per-campaign forecasts.
   anomalies    GET …/anomalies — spend/CTR/CPA anomalies.

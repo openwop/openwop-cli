@@ -14,8 +14,8 @@ function capture() {
   };
 }
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
-const O = '/v1/host/openwop-app/crm/orgs/o1';
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
+const O = '/host/openwop-app/crm/orgs/o1';
 
 /** Run one command against a recording fetch; returns { code, cap, call }. */
 async function run(argv, response = {}, status = 200) {
@@ -119,7 +119,7 @@ describe('crm booking links + public-book', () => {
   it('public-book slots sends no authorization and forwards from/to/durationMin', async () => {
     const { code, call } = await run(['crm', 'public-book', 'slots', 'my-demo', '--duration-min', '30', '--from', '1000', '--to', '2000'], { slots: [1000], timezone: 'UTC' });
     assert.equal(code, 0);
-    assert.equal(call.path, '/v1/host/openwop-app/public-book/my-demo/slots');
+    assert.equal(call.path, '/host/openwop-app/public-book/my-demo/slots');
     assert.equal(call.headers.authorization, undefined);
     assert.equal(call.url.searchParams.get('durationMin'), '30');
     assert.equal(call.url.searchParams.get('from'), '1000');
@@ -134,10 +134,10 @@ describe('crm booking links + public-book', () => {
 
   it('public-book reschedule / cancel hit the manage-token routes', async () => {
     let r = await run(['crm', 'public-book', 'reschedule', 'tok/1', '--slot-start-utc-ms', '5000'], { status: 'confirmed' });
-    assert.equal(r.call.path, '/v1/host/openwop-app/public-book/manage/tok%2F1/reschedule');
+    assert.equal(r.call.path, '/host/openwop-app/public-book/manage/tok%2F1/reschedule');
     assert.deepEqual(r.call.body, { slotStartUtcMs: 5000 });
     r = await run(['crm', 'public-book', 'cancel', 'tok', '--reason', 'conflict'], { status: 'cancelled' });
-    assert.equal(r.call.path, '/v1/host/openwop-app/public-book/manage/tok/cancel');
+    assert.equal(r.call.path, '/host/openwop-app/public-book/manage/tok/cancel');
     assert.deepEqual(r.call.body, { reason: 'conflict' });
   });
 });
@@ -159,7 +159,7 @@ describe('crm sign-requests + public-sign', () => {
   it('public-sign sign posts acknowledged + typedName without auth', async () => {
     const { code, call } = await run(['crm', 'public-sign', 'sign', 'tok', '--acknowledged', 'true', '--typed-name', 'Ada Lovelace'], { status: 'signed' });
     assert.equal(code, 0);
-    assert.equal(call.path, '/v1/host/openwop-app/public-sign/tok/sign');
+    assert.equal(call.path, '/host/openwop-app/public-sign/tok/sign');
     assert.equal(call.headers.authorization, undefined);
     assert.deepEqual(call.body, { acknowledged: true, typedName: 'Ada Lovelace' });
   });

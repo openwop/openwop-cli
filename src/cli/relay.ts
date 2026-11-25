@@ -4,7 +4,7 @@ import type { Ctx } from '../context.js';
  * consent), the bridge loop, token rotation, and the user service.
  *
  * Host contract: openwop-app ADR 1043 D1, host-extension routes under
- * /v1/host/openwop-app/messaging (non-normative; no OpenWOP wire change).
+ * /host/openwop-app/messaging (non-normative; no OpenWOP wire change).
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
@@ -46,7 +46,7 @@ export const RELAY_HELP = `Usage:
 
 The relay links YOUR OWN messaging account on THIS machine (signal-cli /
 WhatsApp Web / Messages) to the OpenWOP server, through the server's
-host-extension routes under /v1/host/openwop-app/messaging.
+host-extension routes under /host/openwop-app/messaging.
 
   setup    Shows the risk of linking a personal account and asks you to type
            "yes" (or pass --accept-risk when there is no terminal), then

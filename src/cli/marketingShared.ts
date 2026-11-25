@@ -9,9 +9,8 @@ import type { Ctx } from '../context.js';
  * `dispatchTable`, which owns the parse / --help / usage-error / --yes gate so
  * every group behaves identically. `requestRaw` covers the non-JSON public
  * surfaces (RSS/XML/Markdown/HTML/JS/audio, the tracking pixel, the click
- * redirect) without touching src/api.ts: it reuses the same protocol rewrite
- * (`resolveRequest`) so a `/v1/host/openwop-app/...` literal still lands on the
- * advertised host root under protocol major 2.
+ * redirect) without touching src/api.ts: it reuses the same request seam
+ * (`resolveRequest`) for the version header and the bearer.
  */
 import { readFileSync } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
@@ -20,9 +19,9 @@ import { write, writeLine, writeJson, formatTable } from '../io.js';
 import { parseOptions } from '../options.js';
 import { parseJsonResponse } from '../api.js';
 import { readBodyOption, parseJsonFlag as parseJsonFlagShared, withQuery } from './contentHelpers.js';
-import { resolveRequest } from '../protocol.js';
+import { joinBase, resolveRequest } from '../protocol.js';
 
-export const APP = '/v1/host/openwop-app';
+export const APP = '/host/openwop-app';
 export { enc } from './contentHelpers.js';
 
 export interface CmdArgs {
@@ -211,7 +210,7 @@ export interface RawResponse {
 /** Fetch a host path without JSON-parsing it (feeds, pages, scripts, audio). */
 export async function requestRaw(ctx: Ctx, requestedPath: string, options: RawOptions = {}): Promise<RawResponse> {
   const { path, headers } = await resolveRequest(ctx, requestedPath, { accept: '*/*', ...(options.headers ?? {}) });
-  const url = new URL(path.replace(/^\//, ''), ctx.baseUrl.endsWith('/') ? ctx.baseUrl : `${ctx.baseUrl}/`);
+  const url = joinBase(ctx.baseUrl, path);
   if (options.auth !== false && ctx.apiKey) headers.authorization = `Bearer ${ctx.apiKey}`;
   const res = await ctx.fetchImpl(url, {
     method: options.method ?? 'GET',

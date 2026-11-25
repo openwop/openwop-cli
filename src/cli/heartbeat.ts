@@ -4,13 +4,13 @@ import type { Ctx } from '../context.js';
  * super-admin only): whether scheduled agent heartbeats run at all, their
  * default interval, an hourly run budget, and an optional auto-off time.
  *
- *   GET|PUT /v1/host/openwop-app/heartbeat/settings
+ *   GET|PUT /host/openwop-app/heartbeat/settings
  */
 import { CliError } from '../errors.js';
 import { gateAdvice } from './adminShared.js';
 import { routesHelp, runRouteGroup, type RouteCmd } from './routeKit.js';
 
-const PATH = '/v1/host/openwop-app/heartbeat/settings';
+const PATH = '/host/openwop-app/heartbeat/settings';
 
 export const HEARTBEAT_ROUTES: RouteCmd[] = [
   { words: ['settings'], method: 'GET', path: PATH, summary: 'The saved config and what is in effect now (incl. an elapsed auto-off window).' },

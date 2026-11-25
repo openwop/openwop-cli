@@ -3,10 +3,10 @@ import type { Ctx } from '../context.js';
 /** `openwop connections ...` — inspect host connections + their OAuth client config.
  *
  * Drives the connections feature (sample host-extension, ADR 0024):
- *   GET  /v1/host/openwop-app/connections                      — the connection list
- *   POST /v1/host/openwop-app/connections/{id}/test            — health-probe one
- *   POST /v1/host/openwop-app/connections/{provider}/authorize — mint a consent URL
- *   GET  /v1/host/openwop-app/connections-oauth-clients         — host OAuth client config
+ *   GET  /host/openwop-app/connections                      — the connection list
+ *   POST /host/openwop-app/connections/{id}/test            — health-probe one
+ *   POST /host/openwop-app/connections/{provider}/authorize — mint a consent URL
+ *   GET  /host/openwop-app/connections-oauth-clients         — host OAuth client config
  *
  * SECRET BOUNDARY (the whole point of being careful here): OAuth client secrets,
  * access/refresh tokens and stored credentials are HOST-SIDE only. The host never
@@ -25,7 +25,7 @@ import { parseOptions } from '../options.js';
 import { requestJson, safeRequest } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const CONN = '/v1/host/openwop-app/connections/:id';
+const CONN = '/host/openwop-app/connections/:id';
 
 /**
  * Declared connection commands (routeKit): revoke a connection, manage its
@@ -44,7 +44,7 @@ export const CONNECTIONS_ROUTES: RouteCmd[] = [
       { flag: '--source', key: 'source', help: 'stream | change (stream/CDC providers only)' },
     ] },
   { words: ['inbound', 'remove'], method: 'DELETE', path: `${CONN}/inbound`, summary: 'Remove the inbound binding.' },
-  { words: ['providers'], method: 'GET', path: ['/v1/host/openwop-app/providers', '/v1/host/openwop-app/providers/:id'], transform: redact,
+  { words: ['providers'], method: 'GET', path: ['/host/openwop-app/providers', '/host/openwop-app/providers/:id'], transform: redact,
     summary: 'The connection-provider catalog (or one provider\'s manifest): auth flow, scopes, whether OAuth is configured here.',
     table: { key: 'providers', columns: ['id', 'label', 'category', 'authFlow', 'oauthConfigured'], empty: 'No providers.' } },
 ];
@@ -72,12 +72,12 @@ The host is the authority — the CLI renders its resolved view and fails closed
 the connections surface isn't advertised (/.well-known/openwop).
 
 Endpoints:
-  list           GET  /v1/host/openwop-app/connections
-  get            GET  /v1/host/openwop-app/connections  (filtered to <id> client-side;
+  list           GET  /host/openwop-app/connections
+  get            GET  /host/openwop-app/connections  (filtered to <id> client-side;
                  the host exposes no single-connection GET)
-  test           POST /v1/host/openwop-app/connections/{id}/test
-  authorize      POST /v1/host/openwop-app/connections/{provider}/authorize
-  oauth-clients  GET  /v1/host/openwop-app/connections-oauth-clients[/{provider} filtered]
+  test           POST /host/openwop-app/connections/{id}/test
+  authorize      POST /host/openwop-app/connections/{provider}/authorize
+  oauth-clients  GET  /host/openwop-app/connections-oauth-clients[/{provider} filtered]
 
   --scope <s>     (authorize) An OAuth scope to request (repeatable).
   --write         (authorize) Request write scopes (re-consent for write access).
@@ -143,10 +143,10 @@ export async function runConnections(ctx: Ctx, argv: string[]): Promise<number> 
 async function ensureAdvertised(ctx: Ctx): Promise<void> {
   const wk = await safeRequest(ctx, '/.well-known/openwop', { auth: false });
   if (!wk.ok) return;
-  const advertised = hostSurfaceAdvertised(wk.body, '/v1/host/openwop-app/connections');
+  const advertised = hostSurfaceAdvertised(wk.body, '/host/openwop-app/connections');
   if (!advertised) {
     throw new CliError(
-      'connections: this host does not advertise the connections surface (/v1/host/openwop-app/connections is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
+      'connections: this host does not advertise the connections surface (/host/openwop-app/connections is absent from /.well-known/openwop). The host is the authority — refusing to guess.',
       1,
     );
   }
@@ -159,7 +159,7 @@ function gate404(err: unknown): never {
         ? (err.body as { message?: string }).message
         : 'not found';
     throw new CliError(
-      `connections: ${detail} (the host must mount /v1/host/openwop-app/connections; the CLI renders the host's view, it never holds credentials).`,
+      `connections: ${detail} (the host must mount /host/openwop-app/connections; the CLI renders the host's view, it never holds credentials).`,
       1,
     );
   }
@@ -176,7 +176,7 @@ function scopeAxis(c: any): string {
 async function fetchConnections(ctx: Ctx): Promise<any[]> {
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/openwop-app/connections');
+    res = await requestJson(ctx, '/host/openwop-app/connections');
   } catch (err) {
     gate404(err);
   }
@@ -251,7 +251,7 @@ async function runTest(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/connections/${encodeURIComponent(positionals[0])}/test`, { method: 'POST' });
+    res = await requestJson(ctx, `/host/openwop-app/connections/${encodeURIComponent(positionals[0])}/test`, { method: 'POST' });
   } catch (err) {
     gate404(err);
   }
@@ -285,7 +285,7 @@ async function runAuthorize(ctx: Ctx, argv: string[]): Promise<number> {
   if (options.returnTo !== undefined) body.returnTo = options.returnTo;
   let res;
   try {
-    res = await requestJson(ctx, `/v1/host/openwop-app/connections/${encodeURIComponent(positionals[0])}/authorize`, { method: 'POST', body });
+    res = await requestJson(ctx, `/host/openwop-app/connections/${encodeURIComponent(positionals[0])}/authorize`, { method: 'POST', body });
   } catch (err) {
     // 409 = OAuth not configured for this provider on the host.
     if (err instanceof HttpError && err.status === 409) {
@@ -326,7 +326,7 @@ async function runOAuthClients(ctx: Ctx, argv: string[]): Promise<number> {
   await ensureAdvertised(ctx);
   let res;
   try {
-    res = await requestJson(ctx, '/v1/host/openwop-app/connections-oauth-clients');
+    res = await requestJson(ctx, '/host/openwop-app/connections-oauth-clients');
   } catch (err) {
     gate404(err);
   }

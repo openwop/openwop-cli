@@ -14,13 +14,13 @@ function capture() {
 }
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 // Pin protocol major 1 so no discovery request is made.
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 function recorder(body = {}, status = 200) {
   const calls = [];
   const fetchImpl = async (url, init) => { calls.push({ url: new URL(url), init, body: init.body ? JSON.parse(init.body) : undefined }); return status === 204 ? new Response(null, { status }) : jsonResponse(body, status); };
   return { calls, fetchImpl };
 }
-const B = '/v1/host/openwop-app/dealers/orgs/o';
+const B = '/host/openwop-app/dealers/orgs/o';
 
 describe('dealers', () => {
   it('list forwards filters as query + renders a table', async () => {
@@ -89,11 +89,11 @@ describe('dealers', () => {
   it('partner get/register hit the public portal WITHOUT an authorization header', async () => {
     const r = recorder({ dealer: { name: 'Acme' }, outlets: [], registrations: [] });
     assert.equal(await runCli(['dealers', 'partner', 'get', 'tok/1'], opts(r.fetchImpl, capture())), 0);
-    assert.equal(r.calls[0].url.pathname, '/v1/host/openwop-app/partner/tok%2F1');
+    assert.equal(r.calls[0].url.pathname, '/host/openwop-app/partner/tok%2F1');
     assert.equal(r.calls[0].init.headers.authorization, undefined);
     const r2 = recorder({ status: 'pending' }, 201);
     assert.equal(await runCli(['dealers', 'partner', 'register', 'tok', '--deal-title', 'Fleet', '--company-name', 'Globex'], opts(r2.fetchImpl, capture())), 0);
-    assert.equal(r2.calls[0].url.pathname, '/v1/host/openwop-app/partner/tok/register');
+    assert.equal(r2.calls[0].url.pathname, '/host/openwop-app/partner/tok/register');
     assert.deepEqual(r2.calls[0].body, { dealTitle: 'Fleet', companyName: 'Globex' });
     assert.equal(r2.calls[0].init.headers.authorization, undefined);
   });

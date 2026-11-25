@@ -2,9 +2,9 @@ import type { Ctx } from '../context.js';
 /**
  * `openwop funnels ...` — multi-step funnels (ADR 0294, experiments ADR 0330).
  *
- * Operator surface: /v1/host/openwop-app/funnels/orgs/{orgId}/funnels[/...]
+ * Operator surface: /host/openwop-app/funnels/orgs/{orgId}/funnels[/...]
  * (toggle `funnels`; read = workspace:read, write = workspace:write in the org).
- * Visitor surface (`public ...`): /v1/host/openwop-app/public/{orgId}/funnels/{slug}
+ * Visitor surface (`public ...`): /host/openwop-app/public/{orgId}/funnels/{slug}
  * — anonymous; a published funnel only; unknown/unpublished/toggle-off = 404.
  */
 import { requestJson } from '../api.js';
@@ -34,14 +34,14 @@ export const FUNNELS_HELP = `Usage:
   openwop funnels public next <orgId> <slug> --from <stepId> [--outcome accepted|declined] [--submission <id>] [--vk <k>] [--json]
 
 Funnels (ADR 0294): an ordered set of steps (pages, forms, offers) published at a
-slug. Operator commands hit /v1/host/openwop-app/funnels/orgs/{orgId}/funnels and
+slug. Operator commands hit /host/openwop-app/funnels/orgs/{orgId}/funnels and
 need --org. 'stats' is the per-step views/completions/revenue roll-up;
 'stats-rebuild' re-derives it from the event window. 'experiment-*' manage an
 A/B split on one step (ADR 0330). 'update' is a partial PATCH — only the fields
 you pass change.
 
 'public' drives the anonymous visitor surface
-/v1/host/openwop-app/public/{orgId}/funnels/{slug}[/steps/{ix}|/next] exactly as the
+/host/openwop-app/public/{orgId}/funnels/{slug}[/steps/{ix}|/next] exactly as the
 frontend does (no auth). Pass --vk only with a consented visitor key: views and
 completions are recorded as funnel events for that visitor.
 

@@ -14,13 +14,13 @@ function capture() {
 }
 const jsonResponse = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 // Pin protocol major 1 so no discovery request is made.
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 function recorder(body = {}, status = 200) {
   const calls = [];
   const fetchImpl = async (url, init) => { calls.push({ url: new URL(url), init, body: init.body ? JSON.parse(init.body) : undefined }); return status === 204 ? new Response(null, { status }) : jsonResponse(body, status); };
   return { calls, fetchImpl };
 }
-const B = '/v1/host/openwop-app/territories/orgs/o';
+const B = '/host/openwop-app/territories/orgs/o';
 const M = `${B}/models/m%3A1`;
 
 describe('territories', () => {

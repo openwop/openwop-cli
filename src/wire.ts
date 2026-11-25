@@ -17,8 +17,7 @@ export const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._~-]{22,128}$/;
  * effect; a caller-supplied key (`--idempotency-key`) lets a user re-run the
  * same COMMAND safely after a timeout. A key outside the grammar is refused
  * locally — the host would answer `400 idempotency_key_invalid` anyway.
- * Sent under both majors: v1 `POST /v1/runs` and `POST /v1/interrupts/{token}`
- * declare the same header.
+ * `POST /runs` and `POST /interrupts/{token}` declare the header.
  */
 export function idempotencyHeaders(key?: string): Record<string, string> {
   const value = key ?? randomUUID();
@@ -37,10 +36,9 @@ export function isIdempotentReplay(headers: Headers | undefined): boolean {
  * The protocol version this CLI speaks under each major it implements
  * (versioning.md §1.3: `<major>.<minor>`, only the major selects; §1.5: the
  * minor is what `minClientVersion` pins). 2.0 is the v2 corpus line this build
- * is audited against (tag v2.42.6); 1.1 is the newest v1 minor it has been
- * exercised against.
+ * is audited against (tag v2.42.6). Major 1 ended support 2026-10-04 (RFC 0234).
  */
-export const CLI_PROTOCOL_VERSION_BY_MAJOR: Readonly<Record<1 | 2, string>> = { 2: '2.0', 1: '1.1' };
+export const CLI_PROTOCOL_VERSION_BY_MAJOR: Readonly<Record<2, string>> = { 2: '2.0' };
 
 function parseVersion(v: string): [number, number] | null {
   const m = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.exec(v);
@@ -53,7 +51,7 @@ function parseVersion(v: string): [number, number] | null {
  * `426 client_version_unsupported`). `unknown` when the host sent no floor or
  * an ungrammatical one — never a guess.
  */
-export function checkMinClientVersion(minClientVersion: unknown, major: 1 | 2): { status: 'ok' | 'below' | 'unknown'; client: string; required?: string } {
+export function checkMinClientVersion(minClientVersion: unknown, major: 2 = 2): { status: 'ok' | 'below' | 'unknown'; client: string; required?: string } {
   const client = CLI_PROTOCOL_VERSION_BY_MAJOR[major];
   if (typeof minClientVersion !== 'string') return { status: 'unknown', client };
   const req = parseVersion(minClientVersion);

@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import { runCli } from '../dist/cli.js';
 import { capture, json, mockHost, opts } from './_routekit-helpers.mjs';
 
-const H = '/v1/host/openwop-app';
+const H = '/host/openwop-app';
 
 describe('approvals teams-pref', () => {
   it('set PUTs connectionId + chatId; clear DELETEs without --yes', async () => {

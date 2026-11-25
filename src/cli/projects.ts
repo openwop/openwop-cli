@@ -6,7 +6,7 @@ import { parseOptions } from '../options.js';
 import { requestJson } from '../api.js';
 import { dispatchRoutes, routesHelp, type RouteCmd } from './routeKit.js';
 
-const BASE = '/v1/host/openwop-app/projects';
+const BASE = '/host/openwop-app/projects';
 
 const P = `${BASE}/:id`;
 

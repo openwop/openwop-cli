@@ -1,7 +1,7 @@
 import type { Ctx } from '../context.js';
 /**
  * `openwop territories ...` — sales territory management (openwop-app ADR 0272).
- * Host-extension routes under `/v1/host/openwop-app/territories/orgs/:orgId/*`
+ * Host-extension routes under `/host/openwop-app/territories/orgs/:orgId/*`
  * (toggle `territories`; reads need workspace:read, planning edits
  * workspace:write, activate/archive/purge/reassign `host:territories:manage`).
  * `activate`/`archive` do NOT flip the model directly — they queue a review card
@@ -10,7 +10,7 @@ import type { Ctx } from '../context.js';
  */
 import { buildGroupHelp, runResourceGroup, type CommandSpec } from './resourceCommands.js';
 
-const B = '/v1/host/openwop-app/territories/orgs/:org';
+const B = '/host/openwop-app/territories/orgs/:org';
 const M = `${B}/models/:modelId`;
 
 export const TERRITORIES_SPECS: CommandSpec[] = [
@@ -38,7 +38,7 @@ export const TERRITORIES_SPECS: CommandSpec[] = [
 ];
 
 export const TERRITORIES_HELP = buildGroupHelp('territories', `
-Sales territories (host-extension /v1/host/openwop-app/territories/…,
+Sales territories (host-extension /host/openwop-app/territories/…,
 org-scoped). A model holds territories, assignment rules and quotas; build it
 while it is in planning, then \`models activate\` (queues a review — activation
 changes who can see which records) and \`reassign\` to re-run assignment.

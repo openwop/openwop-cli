@@ -4,8 +4,8 @@ import type { Ctx } from '../context.js';
  * workflow authoring; ADR 0472 P4 chain-backed meta-workflow; ADR 0595/0596
  * honest draft → validate → persist).
  *
- *   GET  /v1/host/openwop-app/workflow-author/catalog — the node menu the author may use
- *   POST /v1/host/openwop-app/workflow-author/draft   — start the authoring meta-workflow
+ *   GET  /host/openwop-app/workflow-author/catalog — the node menu the author may use
+ *   POST /host/openwop-app/workflow-author/draft   — start the authoring meta-workflow
  *        run from a natural-language intent → { runId, workflowId, status, eventsUrl }
  *
  * The draft is an ordinary run on the normative surface, so `--follow` streams
@@ -21,7 +21,7 @@ import { renderEvent, streamRunEvents } from '../sse.js';
 import { idempotencyHeaders } from '../wire.js';
 import { emit, intFlag } from './chatShared.js';
 
-const BASE = '/v1/host/openwop-app/workflow-author';
+const BASE = '/host/openwop-app/workflow-author';
 
 export const WORKFLOW_AUTHOR_HELP = `Usage:
   openwop workflow-author catalog [--json]
@@ -29,9 +29,9 @@ export const WORKFLOW_AUTHOR_HELP = `Usage:
                                 [--follow] [--timeout-ms ms] [--idempotency-key k] [--json]
 
 Author a workflow from plain language on the server.
-  catalog  GET /v1/host/openwop-app/workflow-author/catalog — the nodes the author may
+  catalog  GET /host/openwop-app/workflow-author/catalog — the nodes the author may
            use in this workspace (and which were excluded, with why).
-  draft    POST /v1/host/openwop-app/workflow-author/draft — starts the authoring run and
+  draft    POST /host/openwop-app/workflow-author/draft — starts the authoring run and
            prints its runId. --follow streams the run's events until it finishes
            (default timeout 120000 ms); otherwise follow later with
            \`openwop runs events <runId>\`. The authored workflow opens in the builder.

@@ -16,7 +16,7 @@ function capture() {
   };
 }
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '1' } });
+const opts = (fetchImpl, cap) => ({ io: cap.io, fetchImpl, cwd: process.cwd(), repoRoot: process.cwd(), env: { OPENWOP_API_KEY: 'k', OPENWOP_PROTOCOL_MAJOR: '2' } });
 function recorder(reply) {
   const calls = [];
   const fetchImpl = async (url, init = {}) => {
@@ -27,7 +27,7 @@ function recorder(reply) {
   return { calls, fetchImpl };
 }
 
-const B = '/v1/host/openwop-app/campaign-intel';
+const B = '/host/openwop-app/campaign-intel';
 
 describe('campaign-intel command', () => {
   it('the six reads hit their GET paths with orgId (+campaignId where supported)', async () => {

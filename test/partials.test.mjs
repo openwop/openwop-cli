@@ -21,14 +21,14 @@ describe('runs partials', () => {
       seen = { path: new URL(url).pathname, method: init?.method, body: JSON.parse(init.body) };
       return json({ runId: 'r2' });
     }));
-    assert.match(seen.path, /\/v1\/runs\/r1:fork$/);
+    assert.match(seen.path, /\/runs\/r1:fork$/);
     assert.equal(seen.method, 'POST');
     assert.deepEqual(seen.body, { mode: 'branch', fromSeq: 3 });
   });
   it('diff GETs {id}:diff?against', async () => {
     const cap = capture(); let url2;
     await runCli(['runs', 'diff', 'r1', '--against', 'r2'], base(cap, async (url) => { url2 = new URL(url); return json({ changed: [] }); }));
-    assert.match(url2.pathname, /\/v1\/runs\/r1:diff$/);
+    assert.match(url2.pathname, /\/runs\/r1:diff$/);
     assert.equal(url2.searchParams.get('against'), 'r2');
   });
   it('delete refuses without --yes, deletes with it', async () => {
@@ -41,7 +41,7 @@ describe('runs partials', () => {
   it('bulk-cancel posts runIds', async () => {
     const cap = capture(); let body;
     await runCli(['runs', 'bulk-cancel', 'a', 'b', '--reason', 'stop'], base(cap, async (url, init) => {
-      assert.match(new URL(url).pathname, /\/v1\/runs:bulk-cancel$/); body = JSON.parse(init.body); return json({ cancelled: 2 });
+      assert.match(new URL(url).pathname, /\/runs:bulk-cancel$/); body = JSON.parse(init.body); return json({ cancelled: 2 });
     }));
     assert.deepEqual(body, { runIds: ['a', 'b'], reason: 'stop' });
   });
@@ -53,7 +53,7 @@ describe('prompts + byok + governance + catalog partials', () => {
     await runCli(['prompts', 'create', '--template-id', 't1', '--version', '1.0.0', '--kind', 'system', '--text', 'hi'], base(cap, async (url, init) => {
       path = new URL(url).pathname; method = init?.method; body = JSON.parse(init.body); return json({ templateId: 't1' });
     }));
-    assert.match(path, /\/v1\/prompts$/); assert.equal(method, 'POST');
+    assert.match(path, /\/prompts$/); assert.equal(method, 'POST');
     assert.deepEqual(body, { templateId: 't1', version: '1.0.0', kind: 'system', text: 'hi' });
   });
   it('byok ai-default set PUTs credentialRef', async () => {
@@ -61,7 +61,7 @@ describe('prompts + byok + governance + catalog partials', () => {
     await runCli(['byok', 'ai-default', 'set', 'anthropic-prod'], base(cap, async (url, init) => {
       path = new URL(url).pathname; method = init?.method; body = JSON.parse(init.body); return json({ credentialRef: 'anthropic-prod' });
     }));
-    assert.match(path, /\/v1\/host\/openwop-app\/byok\/ai-default$/); assert.equal(method, 'PUT');
+    assert.match(path, /\/host\/openwop-app\/byok\/ai-default$/); assert.equal(method, 'PUT');
     assert.deepEqual(body, { credentialRef: 'anthropic-prod' });
   });
   it('governance media-budget set PUTs numeric caps', async () => {
@@ -72,9 +72,9 @@ describe('prompts + byok + governance + catalog partials', () => {
     assert.match(path, /\/governance\/media-budget$/);
     assert.deepEqual(body, { ttsChars: 5000, sttBytes: 100000 });
   });
-  it('catalog tools GETs /v1/tools', async () => {
+  it('catalog tools GETs /tools', async () => {
     const cap = capture(); let path;
     await runCli(['catalog', 'tools', '--json'], base(cap, async (url) => { path = new URL(url).pathname; return json({ tools: [] }); }));
-    assert.match(path, /\/v1\/tools$/);
+    assert.match(path, /\/tools$/);
   });
 });
